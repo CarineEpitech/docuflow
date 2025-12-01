@@ -1,7 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
-import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search } from "lucide-react";
+import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -55,13 +55,20 @@ export function AppSidebar() {
   const params = useParams();
   const currentProjectId = params?.projectId;
 
-  const [showNewProject, setShowNewProject] = useState(false);
+  const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
   const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectName, setProjectName] = useState("");
   const [projectIcon, setProjectIcon] = useState("folder");
   const [showSearch, setShowSearch] = useState(false);
+  const inlineInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showInlineCreate && inlineInputRef.current) {
+      inlineInputRef.current.focus();
+    }
+  }, [showInlineCreate]);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -73,15 +80,19 @@ export function AppSidebar() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      setShowNewProject(false);
-      setProjectName("");
-      setProjectIcon("folder");
+      cancelInlineCreate();
       toast({ title: "Project created successfully" });
     },
     onError: () => {
       toast({ title: "Failed to create project", variant: "destructive" });
     },
   });
+
+  const cancelInlineCreate = () => {
+    setShowInlineCreate(false);
+    setProjectName("");
+    setProjectIcon("folder");
+  };
 
   const updateProjectMutation = useMutation({
     mutationFn: async (data: { id: string; name: string; icon: string }) => {
@@ -134,8 +145,17 @@ export function AppSidebar() {
   }, [logoutMutation]);
 
   const handleCreateProject = () => {
-    if (!projectName.trim()) return;
+    if (!projectName.trim() || createProjectMutation.isPending) return;
     createProjectMutation.mutate({ name: projectName.trim(), icon: projectIcon });
+  };
+
+  const handleInlineKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleCreateProject();
+    } else if (e.key === "Escape") {
+      cancelInlineCreate();
+    }
   };
 
   const handleUpdateProject = () => {
@@ -214,11 +234,8 @@ export function AppSidebar() {
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5"
-                onClick={() => {
-                  setProjectName("");
-                  setProjectIcon("folder");
-                  setShowNewProject(true);
-                }}
+                onClick={() => setShowInlineCreate(true)}
+                disabled={showInlineCreate}
                 data-testid="button-new-project"
               >
                 <Plus className="w-4 h-4" />
@@ -228,13 +245,13 @@ export function AppSidebar() {
               <SidebarMenu>
                 {isLoading ? (
                   <div className="px-3 py-2 text-sm text-muted-foreground">Loading...</div>
-                ) : projects.length === 0 ? (
+                ) : projects.length === 0 && !showInlineCreate ? (
                   <div className="px-3 py-4 text-center">
                     <p className="text-sm text-muted-foreground mb-2">No projects yet</p>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setShowNewProject(true)}
+                      onClick={() => setShowInlineCreate(true)}
                       data-testid="button-create-first-project"
                     >
                       <Plus className="w-4 h-4 mr-1" />
@@ -242,7 +259,8 @@ export function AppSidebar() {
                     </Button>
                   </div>
                 ) : (
-                  projects.map((project) => (
+                  <>
+                  {projects.map((project) => (
                     <SidebarMenuItem key={project.id} className="group">
                       <SidebarMenuButton
                         asChild
@@ -284,7 +302,67 @@ export function AppSidebar() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </SidebarMenuItem>
-                  ))
+                  ))}
+                  
+                  {/* Inline create row */}
+                  {showInlineCreate && (
+                    <SidebarMenuItem>
+                      <div className="px-2 py-1.5 space-y-2">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {PROJECT_ICONS.map((icon) => (
+                            <button
+                              key={icon}
+                              type="button"
+                              onClick={() => setProjectIcon(icon)}
+                              className={`w-6 h-6 flex items-center justify-center rounded text-sm transition-colors ${
+                                projectIcon === icon 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : "hover:bg-accent"
+                              }`}
+                              data-testid={`button-icon-sidebar-${icon}`}
+                            >
+                              {getProjectIcon(icon)}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            ref={inlineInputRef}
+                            value={projectName}
+                            onChange={(e) => setProjectName(e.target.value)}
+                            onKeyDown={handleInlineKeyDown}
+                            onBlur={() => {
+                              if (!projectName.trim()) {
+                                cancelInlineCreate();
+                              }
+                            }}
+                            placeholder="Project name..."
+                            className="h-7 text-sm flex-1"
+                            data-testid="input-project-name-sidebar"
+                          />
+                          <Button
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={handleCreateProject}
+                            disabled={!projectName.trim() || createProjectMutation.isPending}
+                            data-testid="button-create-project-sidebar"
+                          >
+                            <Check className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={cancelInlineCreate}
+                            data-testid="button-cancel-project-sidebar"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </SidebarMenuItem>
+                  )}
+                  </>
                 )}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -321,58 +399,6 @@ export function AppSidebar() {
           </DropdownMenu>
         </SidebarFooter>
       </Sidebar>
-
-      <Dialog open={showNewProject} onOpenChange={setShowNewProject}>
-        <DialogContent data-testid="dialog-new-project">
-          <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
-            <DialogDescription>
-              Add a new project to organize your documentation.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Project Name</label>
-              <Input
-                placeholder="Enter project name"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
-                data-testid="input-project-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Icon</label>
-              <div className="flex flex-wrap gap-2">
-                {PROJECT_ICONS.map((icon) => (
-                  <Button
-                    key={icon}
-                    type="button"
-                    variant={projectIcon === icon ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => setProjectIcon(icon)}
-                    data-testid={`button-icon-${icon}`}
-                  >
-                    <span className="text-lg">{getProjectIcon(icon)}</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewProject(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateProject}
-              disabled={!projectName.trim() || createProjectMutation.isPending}
-              data-testid="button-create-project"
-            >
-              {createProjectMutation.isPending ? "Creating..." : "Create Project"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={showEditProject} onOpenChange={setShowEditProject}>
         <DialogContent data-testid="dialog-edit-project">

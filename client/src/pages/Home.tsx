@@ -1,19 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Plus, FileText, Clock, Folder } from "lucide-react";
+import { Plus, FileText, Clock, Folder, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project, Document } from "@shared/schema";
@@ -23,9 +15,16 @@ const PROJECT_ICONS = ["folder", "book", "code", "rocket", "star", "zap", "heart
 
 export default function Home() {
   const { toast } = useToast();
-  const [showNewProject, setShowNewProject] = useState(false);
+  const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectIcon, setProjectIcon] = useState("folder");
+  const inlineInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showInlineCreate && inlineInputRef.current) {
+      inlineInputRef.current.focus();
+    }
+  }, [showInlineCreate]);
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -41,9 +40,7 @@ export default function Home() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      setShowNewProject(false);
-      setProjectName("");
-      setProjectIcon("folder");
+      cancelInlineCreate();
       toast({ title: "Project created successfully" });
     },
     onError: () => {
@@ -52,8 +49,23 @@ export default function Home() {
   });
 
   const handleCreateProject = () => {
-    if (!projectName.trim()) return;
+    if (!projectName.trim() || createProjectMutation.isPending) return;
     createProjectMutation.mutate({ name: projectName.trim(), icon: projectIcon });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleCreateProject();
+    } else if (e.key === "Escape") {
+      cancelInlineCreate();
+    }
+  };
+
+  const cancelInlineCreate = () => {
+    setShowInlineCreate(false);
+    setProjectName("");
+    setProjectIcon("folder");
   };
 
   const getProjectIcon = (iconName: string | null) => {
@@ -160,7 +172,7 @@ export default function Home() {
                 <Skeleton key={i} className="h-32 rounded-lg" />
               ))}
             </div>
-          ) : projects.length === 0 ? (
+          ) : projects.length === 0 && !showInlineCreate ? (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Folder className="w-12 h-12 text-muted-foreground/50 mb-4" />
@@ -169,7 +181,7 @@ export default function Home() {
                   Create your first project to start organizing your documentation.
                 </p>
                 <Button 
-                  onClick={() => setShowNewProject(true)}
+                  onClick={() => setShowInlineCreate(true)}
                   data-testid="button-create-project-home"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -206,62 +218,83 @@ export default function Home() {
                   </Card>
                 </Link>
               ))}
+              
+              {/* Inline create card */}
+              {showInlineCreate ? (
+                <Card className="h-full border-primary/50 bg-accent/30">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap gap-1">
+                        {PROJECT_ICONS.map((icon) => (
+                          <button
+                            key={icon}
+                            type="button"
+                            onClick={() => setProjectIcon(icon)}
+                            className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+                              projectIcon === icon 
+                                ? "bg-primary text-primary-foreground" 
+                                : "hover:bg-accent"
+                            }`}
+                            data-testid={`button-icon-home-${icon}`}
+                          >
+                            <span className="text-sm">{getIconEmoji(icon)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Input
+                      ref={inlineInputRef}
+                      value={projectName}
+                      onChange={(e) => setProjectName(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      onBlur={() => {
+                        if (!projectName.trim()) {
+                          cancelInlineCreate();
+                        }
+                      }}
+                      placeholder="Project name..."
+                      className="bg-background"
+                      data-testid="input-project-name-home"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleCreateProject}
+                        disabled={!projectName.trim() || createProjectMutation.isPending}
+                        data-testid="button-create-project-submit-home"
+                      >
+                        <Check className="w-4 h-4 mr-1" />
+                        {createProjectMutation.isPending ? "Creating..." : "Create"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={cancelInlineCreate}
+                        data-testid="button-cancel-project-home"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card 
+                  className="h-full border-dashed hover-elevate cursor-pointer flex items-center justify-center min-h-[140px]"
+                  onClick={() => setShowInlineCreate(true)}
+                  data-testid="button-add-project-card"
+                >
+                  <CardContent className="flex flex-col items-center justify-center py-6">
+                    <Plus className="w-8 h-8 text-muted-foreground/50 mb-2" />
+                    <p className="text-sm text-muted-foreground">New Project</p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </section>
       </div>
-
-      <Dialog open={showNewProject} onOpenChange={setShowNewProject}>
-        <DialogContent data-testid="dialog-new-project-home">
-          <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
-            <DialogDescription>
-              Add a new project to organize your documentation.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Project Name</label>
-              <Input
-                placeholder="Enter project name"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
-                data-testid="input-project-name-home"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Icon</label>
-              <div className="flex flex-wrap gap-2">
-                {PROJECT_ICONS.map((icon) => (
-                  <Button
-                    key={icon}
-                    type="button"
-                    variant={projectIcon === icon ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => setProjectIcon(icon)}
-                    data-testid={`button-icon-home-${icon}`}
-                  >
-                    <span className="text-lg">{getIconEmoji(icon)}</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewProject(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateProject}
-              disabled={!projectName.trim() || createProjectMutation.isPending}
-              data-testid="button-create-project-submit-home"
-            >
-              {createProjectMutation.isPending ? "Creating..." : "Create Project"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

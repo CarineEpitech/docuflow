@@ -1,18 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { PageTree } from "@/components/PageTree";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,8 +18,15 @@ export default function ProjectPage() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
-  const [showNewPage, setShowNewPage] = useState(false);
+  const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [pageName, setPageName] = useState("");
+  const inlineInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showInlineCreate && inlineInputRef.current) {
+      inlineInputRef.current.focus();
+    }
+  }, [showInlineCreate]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -56,7 +55,7 @@ export default function ProjectPage() {
     },
     onSuccess: (newDoc: Document) => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "documents"] });
-      setShowNewPage(false);
+      setShowInlineCreate(false);
       setPageName("");
       toast({ title: "Page created successfully" });
       setLocation(`/document/${newDoc.id}`);
@@ -67,8 +66,23 @@ export default function ProjectPage() {
   });
 
   const handleCreatePage = () => {
-    if (!pageName.trim()) return;
+    if (!pageName.trim() || createDocumentMutation.isPending) return;
     createDocumentMutation.mutate({ title: pageName.trim(), parentId: null });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleCreatePage();
+    } else if (e.key === "Escape") {
+      setShowInlineCreate(false);
+      setPageName("");
+    }
+  };
+
+  const cancelInlineCreate = () => {
+    setShowInlineCreate(false);
+    setPageName("");
   };
 
   if (authLoading || projectLoading) {
@@ -148,13 +162,41 @@ export default function ProjectPage() {
               <p className="text-muted-foreground text-sm mb-6 max-w-sm mx-auto">
                 Start documenting your project by creating your first page.
               </p>
-              <Button 
-                onClick={() => setShowNewPage(true)}
-                data-testid="button-create-first-page-main"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Page
-              </Button>
+              
+              {showInlineCreate ? (
+                <div className="max-w-xs mx-auto flex items-center gap-2">
+                  <Input
+                    ref={inlineInputRef}
+                    value={pageName}
+                    onChange={(e) => setPageName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onBlur={() => {
+                      if (!pageName.trim()) {
+                        cancelInlineCreate();
+                      }
+                    }}
+                    placeholder="Page title..."
+                    className="flex-1"
+                    data-testid="input-inline-page-title-main"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={cancelInlineCreate}
+                    data-testid="button-cancel-inline-page-main"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  onClick={() => setShowInlineCreate(true)}
+                  data-testid="button-create-first-page-main"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Page
+                </Button>
+              )}
             </div>
           ) : (
             <div>
@@ -166,39 +208,6 @@ export default function ProjectPage() {
           )}
         </div>
       </div>
-
-      <Dialog open={showNewPage} onOpenChange={setShowNewPage}>
-        <DialogContent data-testid="dialog-new-page-main">
-          <DialogHeader>
-            <DialogTitle>Create New Page</DialogTitle>
-            <DialogDescription>
-              Create a new top-level page for this project.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Page title"
-              value={pageName}
-              onChange={(e) => setPageName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreatePage()}
-              autoFocus
-              data-testid="input-page-title-main"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewPage(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreatePage}
-              disabled={!pageName.trim() || createDocumentMutation.isPending}
-              data-testid="button-create-page-main"
-            >
-              {createDocumentMutation.isPending ? "Creating..." : "Create"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

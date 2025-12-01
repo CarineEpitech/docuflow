@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
@@ -10,6 +10,7 @@ import {
   Pencil,
   Trash2,
   Copy,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,12 +52,22 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [showNewPage, setShowNewPage] = useState(false);
   const [showEditPage, setShowEditPage] = useState(false);
   const [showDeletePage, setShowDeletePage] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
-  const [parentId, setParentId] = useState<string | null>(null);
   const [pageName, setPageName] = useState("");
+  
+  // Inline creation state
+  const [inlineCreateParentId, setInlineCreateParentId] = useState<string | null | undefined>(undefined);
+  const [inlinePageName, setInlinePageName] = useState("");
+  const inlineInputRef = useRef<HTMLInputElement>(null);
+  
+  // Focus the inline input when it appears
+  useEffect(() => {
+    if (inlineCreateParentId !== undefined && inlineInputRef.current) {
+      inlineInputRef.current.focus();
+    }
+  }, [inlineCreateParentId]);
 
   const { data: documents = [], isLoading } = useQuery<Document[]>({
     queryKey: ["/api/projects", projectId, "documents"],
@@ -68,9 +79,7 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
     },
     onSuccess: (newDoc: Document) => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "documents"] });
-      setShowNewPage(false);
-      setPageName("");
-      setParentId(null);
+      cancelInlineCreate();
       toast({ title: "Page created successfully" });
       setLocation(`/document/${newDoc.id}`);
     },
@@ -170,10 +179,35 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
     });
   };
 
-  const openNewPageDialog = (parentDocId: string | null = null) => {
-    setParentId(parentDocId);
-    setPageName("");
-    setShowNewPage(true);
+  const startInlineCreate = (parentDocId: string | null = null) => {
+    setInlineCreateParentId(parentDocId);
+    setInlinePageName("");
+    // If creating under a parent, expand it
+    if (parentDocId) {
+      setExpandedIds((prev) => new Set(Array.from(prev).concat(parentDocId)));
+    }
+  };
+
+  const cancelInlineCreate = () => {
+    setInlineCreateParentId(undefined);
+    setInlinePageName("");
+  };
+
+  const handleInlineCreate = () => {
+    if (!inlinePageName.trim() || createDocumentMutation.isPending) return;
+    createDocumentMutation.mutate({ 
+      title: inlinePageName.trim(), 
+      parentId: inlineCreateParentId ?? null 
+    });
+  };
+
+  const handleInlineKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleInlineCreate();
+    } else if (e.key === "Escape") {
+      cancelInlineCreate();
+    }
   };
 
   const openEditDialog = (doc: Document) => {
@@ -185,11 +219,6 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
   const openDeleteDialog = (doc: Document) => {
     setSelectedDocument(doc);
     setShowDeletePage(true);
-  };
-
-  const handleCreatePage = () => {
-    if (!pageName.trim()) return;
-    createDocumentMutation.mutate({ title: pageName.trim(), parentId });
   };
 
   const handleUpdatePage = () => {
@@ -207,6 +236,44 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
   };
 
   const tree = buildTree(documents);
+
+  // Inline creation row component
+  const renderInlineCreateRow = (depth: number = 0) => {
+    return (
+      <div
+        className="flex items-center gap-1 py-1 px-2 rounded-md bg-accent/50"
+        style={{ paddingLeft: `${depth * 20 + 8}px` }}
+      >
+        <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+          <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+        </span>
+        <Input
+          ref={inlineInputRef}
+          value={inlinePageName}
+          onChange={(e) => setInlinePageName(e.target.value)}
+          onKeyDown={handleInlineKeyDown}
+          onBlur={() => {
+            // Only cancel if empty, otherwise keep it open
+            if (!inlinePageName.trim()) {
+              cancelInlineCreate();
+            }
+          }}
+          placeholder="Page title..."
+          className="h-7 text-sm flex-1 bg-background"
+          data-testid="input-inline-page-title"
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 flex-shrink-0"
+          onClick={cancelInlineCreate}
+          data-testid="button-cancel-inline-create"
+        >
+          <X className="w-3 h-3" />
+        </Button>
+      </div>
+    );
+  };
 
   const renderNode = (node: DocumentWithChildren, depth: number = 0) => {
     const hasChildren = node.children && node.children.length > 0;
@@ -258,7 +325,7 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
               className="h-6 w-6"
               onClick={(e) => {
                 e.stopPropagation();
-                openNewPageDialog(node.id);
+                startInlineCreate(node.id);
               }}
               data-testid={`button-add-subpage-${node.id}`}
             >
@@ -296,9 +363,12 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           </div>
         </div>
 
-        {hasChildren && isExpanded && (
+        {/* Show children if expanded */}
+        {isExpanded && (
           <div>
-            {node.children!.map((child) => renderNode(child, depth + 1))}
+            {hasChildren && node.children!.map((child) => renderNode(child, depth + 1))}
+            {/* Show inline create row under this parent */}
+            {inlineCreateParentId === node.id && renderInlineCreateRow(depth + 1)}
           </div>
         )}
       </div>
@@ -313,7 +383,8 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           variant="ghost"
           size="icon"
           className="h-6 w-6"
-          onClick={() => openNewPageDialog(null)}
+          onClick={() => startInlineCreate(null)}
+          disabled={inlineCreateParentId !== undefined}
           data-testid="button-new-page"
         >
           <Plus className="w-4 h-4" />
@@ -325,14 +396,14 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           <div className="text-center py-8 text-muted-foreground text-sm">
             Loading pages...
           </div>
-        ) : tree.length === 0 ? (
+        ) : tree.length === 0 && inlineCreateParentId === undefined ? (
           <div className="text-center py-8">
             <FileText className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-sm text-muted-foreground mb-3">No pages yet</p>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => openNewPageDialog(null)}
+              onClick={() => startInlineCreate(null)}
               data-testid="button-create-first-page"
             >
               <Plus className="w-4 h-4 mr-1" />
@@ -340,42 +411,13 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
             </Button>
           </div>
         ) : (
-          tree.map((node) => renderNode(node, 0))
+          <>
+            {tree.map((node) => renderNode(node, 0))}
+            {/* Show inline create row at root level */}
+            {inlineCreateParentId === null && renderInlineCreateRow(0)}
+          </>
         )}
       </div>
-
-      <Dialog open={showNewPage} onOpenChange={setShowNewPage}>
-        <DialogContent data-testid="dialog-new-page">
-          <DialogHeader>
-            <DialogTitle>Create New Page</DialogTitle>
-            <DialogDescription>
-              {parentId ? "Create a subpage within the selected page." : "Create a new top-level page."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Page title"
-              value={pageName}
-              onChange={(e) => setPageName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreatePage()}
-              autoFocus
-              data-testid="input-page-title"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewPage(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreatePage}
-              disabled={!pageName.trim() || createDocumentMutation.isPending}
-              data-testid="button-create-page"
-            >
-              {createDocumentMutation.isPending ? "Creating..." : "Create"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={showEditPage} onOpenChange={setShowEditPage}>
         <DialogContent data-testid="dialog-edit-page">
