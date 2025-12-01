@@ -1,13 +1,32 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Plus, FileText, Clock, Folder } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project, Document } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 
+const PROJECT_ICONS = ["folder", "book", "code", "rocket", "star", "zap", "heart", "globe"];
+
 export default function Home() {
+  const { toast } = useToast();
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [projectName, setProjectName] = useState("");
+  const [projectIcon, setProjectIcon] = useState("folder");
+
   const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
@@ -16,7 +35,41 @@ export default function Home() {
     queryKey: ["/api/documents/recent"],
   });
 
+  const createProjectMutation = useMutation({
+    mutationFn: async (data: { name: string; icon: string }) => {
+      return await apiRequest("POST", "/api/projects", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      setShowNewProject(false);
+      setProjectName("");
+      setProjectIcon("folder");
+      toast({ title: "Project created successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to create project", variant: "destructive" });
+    },
+  });
+
+  const handleCreateProject = () => {
+    if (!projectName.trim()) return;
+    createProjectMutation.mutate({ name: projectName.trim(), icon: projectIcon });
+  };
+
   const getProjectIcon = (iconName: string | null) => {
+    switch (iconName) {
+      case "book": return "📚";
+      case "code": return "💻";
+      case "rocket": return "🚀";
+      case "star": return "⭐";
+      case "zap": return "⚡";
+      case "heart": return "❤️";
+      case "globe": return "🌍";
+      default: return "📁";
+    }
+  };
+
+  const getIconEmoji = (iconName: string) => {
     switch (iconName) {
       case "book": return "📚";
       case "code": return "💻";
@@ -115,7 +168,10 @@ export default function Home() {
                 <p className="text-muted-foreground text-sm text-center mb-4">
                   Create your first project to start organizing your documentation.
                 </p>
-                <Button data-testid="button-create-project-home">
+                <Button 
+                  onClick={() => setShowNewProject(true)}
+                  data-testid="button-create-project-home"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   New Project
                 </Button>
@@ -154,6 +210,58 @@ export default function Home() {
           )}
         </section>
       </div>
+
+      <Dialog open={showNewProject} onOpenChange={setShowNewProject}>
+        <DialogContent data-testid="dialog-new-project-home">
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+            <DialogDescription>
+              Add a new project to organize your documentation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Project Name</label>
+              <Input
+                placeholder="Enter project name"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
+                data-testid="input-project-name-home"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Icon</label>
+              <div className="flex flex-wrap gap-2">
+                {PROJECT_ICONS.map((icon) => (
+                  <Button
+                    key={icon}
+                    type="button"
+                    variant={projectIcon === icon ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => setProjectIcon(icon)}
+                    data-testid={`button-icon-home-${icon}`}
+                  >
+                    <span className="text-lg">{getIconEmoji(icon)}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewProject(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateProject}
+              disabled={!projectName.trim() || createProjectMutation.isPending}
+              data-testid="button-create-project-submit-home"
+            >
+              {createProjectMutation.isPending ? "Creating..." : "Create Project"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
