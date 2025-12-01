@@ -29,25 +29,22 @@ export default function DocumentPage() {
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
+        title: "Session Expired",
+        description: "Please sign in again.",
         variant: "destructive",
       });
-      const returnUrl = encodeURIComponent(window.location.pathname);
-      setTimeout(() => {
-        window.location.href = `/api/login?returnTo=${returnUrl}`;
-      }, 500);
+      setLocation("/auth");
     }
-  }, [isAuthenticated, authLoading, toast]);
+  }, [isAuthenticated, authLoading, toast, setLocation]);
 
-  const { data: document, isLoading: documentLoading } = useQuery<Document>({
+  const { data: pageDoc, isLoading: documentLoading } = useQuery<Document>({
     queryKey: ["/api/documents", documentId],
     enabled: !!documentId,
   });
 
   const { data: project } = useQuery<Project>({
-    queryKey: ["/api/projects", document?.projectId],
-    enabled: !!document?.projectId,
+    queryKey: ["/api/projects", pageDoc?.projectId],
+    enabled: !!pageDoc?.projectId,
   });
 
   const { data: ancestors = [] } = useQuery<Document[]>({
@@ -56,12 +53,12 @@ export default function DocumentPage() {
   });
 
   useEffect(() => {
-    if (document) {
-      setTitle(document.title);
-      setContent(document.content);
+    if (pageDoc) {
+      setTitle(pageDoc.title);
+      setContent(pageDoc.content);
       setHasUnsavedChanges(false);
     }
-  }, [document]);
+  }, [pageDoc]);
 
   const saveDocumentMutation = useMutation({
     mutationFn: async (data: { title: string; content: any }) => {
@@ -69,7 +66,7 @@ export default function DocumentPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/documents", documentId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", document?.projectId, "documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", pageDoc?.projectId, "documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents/recent"] });
       setHasUnsavedChanges(false);
       setIsSaving(false);
@@ -167,7 +164,7 @@ export default function DocumentPage() {
     );
   }
 
-  if (!document) {
+  if (!pageDoc) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
@@ -186,11 +183,11 @@ export default function DocumentPage() {
   return (
     <div className="flex h-full" data-testid="document-page">
       <div className="w-64 flex-shrink-0">
-        <PageTree projectId={document.projectId} currentDocumentId={documentId} />
+        <PageTree projectId={pageDoc.projectId} currentDocumentId={documentId} />
       </div>
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b border-border px-6 py-3 flex items-center justify-between gap-4">
-          <Breadcrumbs project={project} document={document} ancestors={ancestors} />
+          <Breadcrumbs project={project} document={pageDoc} ancestors={ancestors} />
           <div className="flex items-center gap-2">
             {hasUnsavedChanges && !isSaving && (
               <span className="text-sm text-muted-foreground">Unsaved changes</span>

@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FileText, Folder, Search, Zap, Users, Lock } from "lucide-react";
@@ -19,7 +20,7 @@ export default function Landing() {
             <div className="flex items-center gap-2">
               <ThemeToggle />
               <Button asChild data-testid="button-login">
-                <a href="/api/login">Sign In</a>
+                <Link href="/auth">Sign In</Link>
               </Button>
             </div>
           </div>
@@ -38,9 +39,9 @@ export default function Landing() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button size="lg" asChild data-testid="button-get-started">
-                <a href="/api/login" className="px-8">
+                <Link href="/auth" className="px-8">
                   Get Started
-                </a>
+                </Link>
               </Button>
             </div>
           </div>
@@ -101,7 +102,7 @@ export default function Landing() {
               Join your team and start creating beautiful, organized documentation today.
             </p>
             <Button size="lg" asChild data-testid="button-cta-start">
-              <a href="/api/login">Start for Free</a>
+              <Link href="/auth">Start for Free</Link>
             </Button>
           </div>
         </section>

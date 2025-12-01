@@ -4,7 +4,6 @@ import {
   projects,
   documents,
   type User,
-  type UpsertUser,
   type Project,
   type InsertProject,
   type Document,
@@ -15,7 +14,8 @@ import { eq, and, desc, like, or, isNull, sql, gt } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(data: { email: string; passwordHash: string; firstName: string; lastName: string }): Promise<User>;
   
   getProjects(userId: string): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
@@ -41,16 +41,19 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(data: { email: string; passwordHash: string; firstName: string; lastName: string }): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
+      .values({
+        email: data.email,
+        passwordHash: data.passwordHash,
+        firstName: data.firstName,
+        lastName: data.lastName,
       })
       .returning();
     return user;

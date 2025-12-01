@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
-import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search, Settings } from "lucide-react";
+import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -113,6 +113,25 @@ export function AppSidebar() {
       toast({ title: "Failed to delete project", variant: "destructive" });
     },
   });
+
+  const [, setLocation] = useLocation();
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/auth/logout");
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      setLocation("/");
+    },
+    onError: () => {
+      toast({ title: "Failed to log out", variant: "destructive" });
+    },
+  });
+
+  const handleLogout = useCallback(() => {
+    logoutMutation.mutate();
+  }, [logoutMutation]);
 
   const handleCreateProject = () => {
     if (!projectName.trim()) return;
@@ -290,11 +309,13 @@ export function AppSidebar() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuItem asChild>
-                <a href="/api/logout" className="flex items-center cursor-pointer" data-testid="button-logout">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </a>
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer"
+                data-testid="button-logout"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Landing from "@/pages/Landing";
+import AuthPage from "@/pages/AuthPage";
 import Home from "@/pages/Home";
 import ProjectPage from "@/pages/ProjectPage";
 import DocumentPage from "@/pages/DocumentPage";
@@ -56,6 +57,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/auth" component={AuthPage} />
         <Route component={Landing} />
       </Switch>
     );

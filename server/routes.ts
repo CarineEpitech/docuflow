@@ -1,7 +1,7 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, getUserId } from "./auth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import { insertProjectSchema, insertDocumentSchema } from "@shared/schema";
@@ -11,22 +11,11 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  await setupAuth(app);
+  setupAuth(app);
 
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects", isAuthenticated, async (req: Request, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
-  app.get("/api/projects", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const projects = await storage.getProjects(userId);
       res.json(projects);
     } catch (error) {
@@ -37,7 +26,7 @@ export async function registerRoutes(
 
   app.get("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const project = await storage.getProject(req.params.id);
 
       if (!project) {
@@ -57,7 +46,7 @@ export async function registerRoutes(
 
   app.post("/api/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const parsed = insertProjectSchema.safeParse(req.body);
 
       if (!parsed.success) {
@@ -78,7 +67,7 @@ export async function registerRoutes(
 
   app.patch("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const project = await storage.getProject(req.params.id);
 
       if (!project) {
@@ -106,7 +95,7 @@ export async function registerRoutes(
 
   app.delete("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const project = await storage.getProject(req.params.id);
 
       if (!project) {
@@ -127,7 +116,7 @@ export async function registerRoutes(
 
   app.get("/api/projects/:projectId/documents", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const project = await storage.getProject(req.params.projectId);
 
       if (!project) {
@@ -148,7 +137,7 @@ export async function registerRoutes(
 
   app.post("/api/projects/:projectId/documents", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const project = await storage.getProject(req.params.projectId);
 
       if (!project) {
@@ -190,7 +179,7 @@ export async function registerRoutes(
 
   app.get("/api/documents/recent", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const documents = await storage.getRecentDocuments(userId, 10);
       res.json(documents);
     } catch (error) {
@@ -201,7 +190,7 @@ export async function registerRoutes(
 
   app.get("/api/documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const document = await storage.getDocument(req.params.id);
 
       if (!document) {
@@ -222,7 +211,7 @@ export async function registerRoutes(
 
   app.get("/api/documents/:id/ancestors", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const document = await storage.getDocument(req.params.id);
 
       if (!document) {
@@ -244,7 +233,7 @@ export async function registerRoutes(
 
   app.patch("/api/documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const document = await storage.getDocument(req.params.id);
 
       if (!document) {
@@ -280,7 +269,7 @@ export async function registerRoutes(
 
   app.delete("/api/documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const document = await storage.getDocument(req.params.id);
 
       if (!document) {
@@ -302,7 +291,7 @@ export async function registerRoutes(
 
   app.post("/api/documents/:id/duplicate", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const document = await storage.getDocument(req.params.id);
 
       if (!document) {
@@ -324,7 +313,7 @@ export async function registerRoutes(
 
   app.get("/api/search", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req)!;
       const query = (req.query.q as string) || "";
 
       if (!query || query.length < 1) {
@@ -355,7 +344,7 @@ export async function registerRoutes(
   });
 
   app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
-    const userId = req.user?.claims?.sub;
+    const userId = getUserId(req);
     const objectStorageService = new ObjectStorageService();
     try {
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
@@ -388,12 +377,12 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/document-images", isAuthenticated, async (req: any, res) => {
+  app.put("/api/document-images", isAuthenticated, async (req: Request, res) => {
     if (!req.body.imageURL) {
       return res.status(400).json({ error: "imageURL is required" });
     }
 
-    const userId = req.user?.claims?.sub;
+    const userId = getUserId(req)!;
 
     try {
       const objectStorageService = new ObjectStorageService();

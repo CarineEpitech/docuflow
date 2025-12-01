@@ -20,16 +20,13 @@ export default function ProjectPage() {
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
+        title: "Session Expired",
+        description: "Please sign in again.",
         variant: "destructive",
       });
-      const returnUrl = encodeURIComponent(window.location.pathname);
-      setTimeout(() => {
-        window.location.href = `/api/login?returnTo=${returnUrl}`;
-      }, 500);
+      setLocation("/auth");
     }
-  }, [isAuthenticated, authLoading, toast]);
+  }, [isAuthenticated, authLoading, toast, setLocation]);
 
   const { data: project, isLoading: projectLoading } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
