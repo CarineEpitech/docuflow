@@ -120,7 +120,7 @@ export default function AuthPage() {
           </CardHeader>
           <CardContent>
             {mode === "login" ? (
-              <Form {...loginForm}>
+              <Form {...loginForm} key="login-form">
                 <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                   <FormField
                     control={loginForm.control}
@@ -169,7 +169,7 @@ export default function AuthPage() {
                 </form>
               </Form>
             ) : (
-              <Form {...signupForm}>
+              <Form {...signupForm} key="signup-form">
                 <form onSubmit={signupForm.handleSubmit(onSignupSubmit)} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
@@ -217,7 +217,8 @@ export default function AuthPage() {
                           <Input
                             type="email"
                             placeholder="you@example.com"
-                            data-testid="input-email"
+                            data-testid="input-signup-email"
+                            autoComplete="email"
                             {...field}
                           />
                         </FormControl>
@@ -235,7 +236,8 @@ export default function AuthPage() {
                           <Input
                             type="password"
                             placeholder="At least 8 characters"
-                            data-testid="input-password"
+                            data-testid="input-signup-password"
+                            autoComplete="new-password"
                             {...field}
                           />
                         </FormControl>
