@@ -45,6 +45,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -346,14 +347,18 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
   useEffect(() => {
     if (!editor || !isInitialized) return;
     
-    // Only update if the content is different from what's in the editor
-    const currentContent = editor.getJSON();
-    const newContent = content || { type: "doc", content: [{ type: "paragraph" }] };
+    // Use setTimeout to avoid flushSync warning when called during render
+    const timeoutId = setTimeout(() => {
+      const currentContent = editor.getJSON();
+      const newContent = content || { type: "doc", content: [{ type: "paragraph" }] };
+      
+      // Only update if the content is different from what's in the editor
+      if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
+        editor.commands.setContent(newContent, { emitUpdate: false });
+      }
+    }, 0);
     
-    // Simple comparison - update if the stringified versions differ
-    if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
-      editor.commands.setContent(newContent, { emitUpdate: false });
-    }
+    return () => clearTimeout(timeoutId);
   }, [editor, content, isInitialized]);
 
   if (!editor) return null;
@@ -559,10 +564,19 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
         </div>
       )}
 
-      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+      <Dialog 
+        open={showLinkDialog} 
+        onOpenChange={(open) => {
+          setShowLinkDialog(open);
+          if (!open) setLinkUrl("");
+        }}
+      >
         <DialogContent className="sm:max-w-md" data-testid="link-dialog">
           <DialogHeader>
-            <DialogTitle>Insérer un lien</DialogTitle>
+            <DialogTitle>Insert Link</DialogTitle>
+            <DialogDescription>
+              Add a hyperlink to the selected text. The link will open in a new tab.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -578,8 +592,12 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
                     handleLinkSubmit();
                   }
                 }}
+                aria-describedby="link-url-hint"
                 data-testid="input-link-url"
               />
+              <p id="link-url-hint" className="text-xs text-muted-foreground">
+                Enter a valid URL starting with http:// or https://
+              </p>
             </div>
           </div>
           <DialogFooter className="gap-2">
@@ -587,29 +605,39 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
               <Button
                 variant="destructive"
                 onClick={handleRemoveLink}
+                aria-label="Remove link"
                 data-testid="button-remove-link"
               >
-                Supprimer le lien
+                Remove Link
               </Button>
             )}
-            <Button onClick={handleLinkSubmit} data-testid="button-save-link">
-              Enregistrer
+            <Button onClick={handleLinkSubmit} aria-label="Save link" data-testid="button-save-link">
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showVideoDialog} onOpenChange={setShowVideoDialog}>
+      <Dialog 
+        open={showVideoDialog} 
+        onOpenChange={(open) => {
+          setShowVideoDialog(open);
+          if (!open) setVideoUrl("");
+        }}
+      >
         <DialogContent className="sm:max-w-md" data-testid="video-dialog">
           <DialogHeader>
-            <DialogTitle>Insérer une vidéo</DialogTitle>
+            <DialogTitle>Embed Video</DialogTitle>
+            <DialogDescription>
+              Paste a video URL to embed it in your document.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="video-url">URL de la vidéo</Label>
+              <Label htmlFor="video-url">Video URL</Label>
               <Input
                 id="video-url"
-                placeholder="https://youtube.com/watch?v=... ou lien Zoom/Fathom"
+                placeholder="https://youtube.com/watch?v=... or Zoom/Fathom link"
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}
                 onKeyDown={(e) => {
@@ -618,16 +646,17 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
                     handleVideoSubmit();
                   }
                 }}
+                aria-describedby="video-url-hint"
                 data-testid="input-video-url"
               />
-              <p className="text-xs text-muted-foreground">
-                Supporte YouTube, Zoom recordings, et Fathom
+              <p id="video-url-hint" className="text-xs text-muted-foreground">
+                Supports YouTube, Zoom recordings, and Fathom
               </p>
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleVideoSubmit} data-testid="button-save-video">
-              Insérer
+            <Button onClick={handleVideoSubmit} aria-label="Insert video" data-testid="button-save-video">
+              Insert
             </Button>
           </DialogFooter>
         </DialogContent>

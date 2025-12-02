@@ -138,9 +138,18 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
               />
             </div>
           ) : (
-            <div 
-              className="aspect-video relative cursor-pointer"
+            <button 
+              type="button"
+              className="aspect-video relative cursor-pointer w-full"
               onClick={() => setIsPlaying(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setIsPlaying(true);
+                }
+              }}
+              aria-label="Play YouTube video"
+              data-testid="button-play-video"
             >
               {thumbnail && (
                 <img 
@@ -157,7 +166,7 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
                   <Play className="w-8 h-8 text-white fill-white ml-1" />
                 </div>
               </div>
-            </div>
+            </button>
           )
         ) : (
           <a 
@@ -182,12 +191,14 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
           </a>
         )}
         
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex gap-1">
           <Button
             variant="secondary"
             size="icon"
             className="h-8 w-8 bg-background/80 backdrop-blur-sm"
             onClick={() => window.open(src, '_blank')}
+            aria-label="Open video in new tab"
+            title="Open in new tab"
             data-testid="button-open-video"
           >
             <ExternalLink className="w-4 h-4" />
@@ -197,6 +208,8 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
             size="icon"
             className="h-8 w-8"
             onClick={deleteNode}
+            aria-label="Delete video embed"
+            title="Delete"
             data-testid="button-delete-video"
           >
             <Trash2 className="w-4 h-4" />
