@@ -65,6 +65,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
   const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 });
   const [slashFilter, setSlashFilter] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -103,8 +104,11 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
         width: 2,
       }),
     ],
-    content,
+    content: content || { type: "doc", content: [{ type: "paragraph" }] },
     editable,
+    onCreate: () => {
+      setIsInitialized(true);
+    },
     onUpdate: ({ editor }) => {
       onChange(editor.getJSON());
     },
@@ -260,6 +264,20 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, [showSlashMenu]);
+
+  // Sync editor content when content prop changes (e.g., when navigating back to a page)
+  useEffect(() => {
+    if (!editor || !isInitialized) return;
+    
+    // Only update if the content is different from what's in the editor
+    const currentContent = editor.getJSON();
+    const newContent = content || { type: "doc", content: [{ type: "paragraph" }] };
+    
+    // Simple comparison - update if the stringified versions differ
+    if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
+      editor.commands.setContent(newContent, { emitUpdate: false });
+    }
+  }, [editor, content, isInitialized]);
 
   if (!editor) return null;
 
