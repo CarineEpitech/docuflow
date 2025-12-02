@@ -7,7 +7,8 @@ import {
   AlignCenter, 
   AlignRight, 
   GripVertical,
-  Trash2 
+  Trash2,
+  Move
 } from "lucide-react";
 
 declare module "@tiptap/core" {
@@ -76,6 +77,7 @@ function ResizableImageComponent({
     <NodeViewWrapper 
       className="relative my-4"
       data-testid="resizable-image-wrapper"
+      data-drag-handle
     >
       <div
         ref={containerRef}
@@ -94,8 +96,9 @@ function ResizableImageComponent({
           src={src}
           alt={alt || ""}
           title={title}
-          className="w-full h-auto rounded-lg block"
-          draggable={false}
+          className="w-full h-auto rounded-lg block cursor-grab active:cursor-grabbing"
+          draggable="true"
+          data-drag-handle
           data-testid="resizable-image"
         />
 
@@ -121,6 +124,16 @@ function ResizableImageComponent({
               className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-background/95 backdrop-blur-sm rounded-lg border border-border shadow-md p-1"
               data-testid="image-toolbar"
             >
+              <div
+                className="p-1.5 rounded hover:bg-accent transition-colors cursor-grab active:cursor-grabbing"
+                data-drag-handle
+                draggable="true"
+                title="Drag to move"
+                data-testid="button-drag-image"
+              >
+                <Move className="w-4 h-4" />
+              </div>
+              <div className="w-px h-4 bg-border mx-1" />
               <button
                 className={cn(
                   "p-1.5 rounded hover:bg-accent transition-colors",
