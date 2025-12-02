@@ -46,7 +46,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
 
-const PROJECT_ICONS = ["folder", "book", "code", "rocket", "star", "zap", "heart", "globe"];
+const DEFAULT_PROJECT_ICON = "folder";
 
 export function AppSidebar() {
   const { user } = useAuth();
@@ -60,7 +60,6 @@ export function AppSidebar() {
   const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectName, setProjectName] = useState("");
-  const [projectIcon, setProjectIcon] = useState("folder");
   const [showSearch, setShowSearch] = useState(false);
   const inlineInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,12 +90,11 @@ export function AppSidebar() {
   const cancelInlineCreate = () => {
     setShowInlineCreate(false);
     setProjectName("");
-    setProjectIcon("folder");
   };
 
   const updateProjectMutation = useMutation({
-    mutationFn: async (data: { id: string; name: string; icon: string }) => {
-      return await apiRequest("PATCH", `/api/projects/${data.id}`, { name: data.name, icon: data.icon });
+    mutationFn: async (data: { id: string; name: string }) => {
+      return await apiRequest("PATCH", `/api/projects/${data.id}`, { name: data.name });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -146,7 +144,7 @@ export function AppSidebar() {
 
   const handleCreateProject = () => {
     if (!projectName.trim() || createProjectMutation.isPending) return;
-    createProjectMutation.mutate({ name: projectName.trim(), icon: projectIcon });
+    createProjectMutation.mutate({ name: projectName.trim(), icon: DEFAULT_PROJECT_ICON });
   };
 
   const handleInlineKeyDown = (e: React.KeyboardEvent) => {
@@ -160,7 +158,7 @@ export function AppSidebar() {
 
   const handleUpdateProject = () => {
     if (!selectedProject || !projectName.trim()) return;
-    updateProjectMutation.mutate({ id: selectedProject.id, name: projectName.trim(), icon: projectIcon });
+    updateProjectMutation.mutate({ id: selectedProject.id, name: projectName.trim() });
   };
 
   const handleDeleteProject = () => {
@@ -171,7 +169,6 @@ export function AppSidebar() {
   const openEditDialog = (project: Project) => {
     setSelectedProject(project);
     setProjectName(project.name);
-    setProjectIcon(project.icon || "folder");
     setShowEditProject(true);
   };
 
@@ -307,25 +304,9 @@ export function AppSidebar() {
                   {/* Inline create row */}
                   {showInlineCreate && (
                     <SidebarMenuItem>
-                      <div className="px-2 py-1.5 space-y-2">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {PROJECT_ICONS.map((icon) => (
-                            <button
-                              key={icon}
-                              type="button"
-                              onClick={() => setProjectIcon(icon)}
-                              className={`w-6 h-6 flex items-center justify-center rounded text-sm transition-colors ${
-                                projectIcon === icon 
-                                  ? "bg-primary text-primary-foreground" 
-                                  : "hover:bg-accent"
-                              }`}
-                              data-testid={`button-icon-sidebar-${icon}`}
-                            >
-                              {getProjectIcon(icon)}
-                            </button>
-                          ))}
-                        </div>
+                      <div className="px-2 py-1.5">
                         <div className="flex items-center gap-1">
+                          <span className="text-base pl-1">📁</span>
                           <Input
                             ref={inlineInputRef}
                             value={projectName}
@@ -403,12 +384,12 @@ export function AppSidebar() {
       <Dialog open={showEditProject} onOpenChange={setShowEditProject}>
         <DialogContent data-testid="dialog-edit-project">
           <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
+            <DialogTitle>Rename Project</DialogTitle>
             <DialogDescription>
-              Update your project details.
+              Update your project name.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Project Name</label>
               <Input
@@ -418,22 +399,6 @@ export function AppSidebar() {
                 onKeyDown={(e) => e.key === "Enter" && handleUpdateProject()}
                 data-testid="input-edit-project-name"
               />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Icon</label>
-              <div className="flex flex-wrap gap-2">
-                {PROJECT_ICONS.map((icon) => (
-                  <Button
-                    key={icon}
-                    type="button"
-                    variant={projectIcon === icon ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => setProjectIcon(icon)}
-                  >
-                    <span className="text-lg">{getProjectIcon(icon)}</span>
-                  </Button>
-                ))}
-              </div>
             </div>
           </div>
           <DialogFooter>
@@ -445,7 +410,7 @@ export function AppSidebar() {
               disabled={!projectName.trim() || updateProjectMutation.isPending}
               data-testid="button-save-project"
             >
-              {updateProjectMutation.isPending ? "Saving..." : "Save Changes"}
+              {updateProjectMutation.isPending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
