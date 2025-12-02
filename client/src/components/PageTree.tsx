@@ -11,6 +11,7 @@ import {
   Trash2,
   Copy,
   X,
+  LayoutTemplate,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Document, DocumentWithChildren } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { pageTemplates, type PageTemplate } from "@/lib/pageTemplates";
 
 interface PageTreeProps {
   projectId: string;
@@ -57,7 +59,14 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [pageName, setPageName] = useState("");
   
-  // Inline creation state
+  // Template selection state
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<PageTemplate | null>(null);
+  const [templateParentId, setTemplateParentId] = useState<string | null>(null);
+  const [templatePageName, setTemplatePageName] = useState("");
+  const templateInputRef = useRef<HTMLInputElement>(null);
+  
+  // Inline creation state (legacy, kept for compatibility)
   const [inlineCreateParentId, setInlineCreateParentId] = useState<string | null | undefined>(undefined);
   const [inlinePageName, setInlinePageName] = useState("");
   const inlineInputRef = useRef<HTMLInputElement>(null);
@@ -68,18 +77,26 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
       inlineInputRef.current.focus();
     }
   }, [inlineCreateParentId]);
+  
+  // Focus the template input when dialog opens
+  useEffect(() => {
+    if (showTemplateDialog && templateInputRef.current) {
+      setTimeout(() => templateInputRef.current?.focus(), 100);
+    }
+  }, [showTemplateDialog]);
 
   const { data: documents = [], isLoading } = useQuery<Document[]>({
     queryKey: ["/api/projects", projectId, "documents"],
   });
 
   const createDocumentMutation = useMutation({
-    mutationFn: async (data: { title: string; parentId: string | null }) => {
+    mutationFn: async (data: { title: string; parentId: string | null; content?: any; icon?: string }) => {
       return await apiRequest("POST", `/api/projects/${projectId}/documents`, data);
     },
     onSuccess: (newDoc: Document) => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "documents"] });
       cancelInlineCreate();
+      closeTemplateDialog();
       toast({ title: "Page created successfully" });
       setLocation(`/document/${newDoc.id}`);
     },
@@ -176,6 +193,34 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
         next.add(id);
       }
       return next;
+    });
+  };
+
+  const openTemplateDialog = (parentDocId: string | null = null) => {
+    setTemplateParentId(parentDocId);
+    setTemplatePageName("");
+    setSelectedTemplate(pageTemplates[0]); // Default to blank template
+    setShowTemplateDialog(true);
+    // If creating under a parent, expand it
+    if (parentDocId) {
+      setExpandedIds((prev) => new Set(Array.from(prev).concat(parentDocId)));
+    }
+  };
+
+  const closeTemplateDialog = () => {
+    setShowTemplateDialog(false);
+    setSelectedTemplate(null);
+    setTemplatePageName("");
+    setTemplateParentId(null);
+  };
+
+  const handleTemplateCreate = () => {
+    if (!templatePageName.trim() || !selectedTemplate || createDocumentMutation.isPending) return;
+    createDocumentMutation.mutate({ 
+      title: templatePageName.trim(), 
+      parentId: templateParentId,
+      content: selectedTemplate.content,
+      icon: selectedTemplate.icon,
     });
   };
 
@@ -325,7 +370,7 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
               className="h-6 w-6"
               onClick={(e) => {
                 e.stopPropagation();
-                startInlineCreate(node.id);
+                openTemplateDialog(node.id);
               }}
               data-testid={`button-add-subpage-${node.id}`}
             >
@@ -383,8 +428,8 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           variant="ghost"
           size="icon"
           className="h-6 w-6"
-          onClick={() => startInlineCreate(null)}
-          disabled={inlineCreateParentId !== undefined}
+          onClick={() => openTemplateDialog(null)}
+          disabled={showTemplateDialog}
           data-testid="button-new-page"
         >
           <Plus className="w-4 h-4" />
@@ -403,7 +448,7 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => startInlineCreate(null)}
+              onClick={() => openTemplateDialog(null)}
               data-testid="button-create-first-page"
             >
               <Plus className="w-4 h-4 mr-1" />
@@ -470,6 +515,83 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showTemplateDialog} onOpenChange={(open) => !open && closeTemplateDialog()}>
+        <DialogContent className="max-w-lg" data-testid="dialog-template-select">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LayoutTemplate className="w-5 h-5" />
+              Nouvelle Page
+            </DialogTitle>
+            <DialogDescription>
+              Choisissez un template et donnez un nom à votre page
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nom de la page</label>
+              <Input
+                ref={templateInputRef}
+                placeholder="Titre de la page..."
+                value={templatePageName}
+                onChange={(e) => setTemplatePageName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && templatePageName.trim()) {
+                    handleTemplateCreate();
+                  }
+                }}
+                data-testid="input-template-page-title"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Template</label>
+              <div className="grid gap-2">
+                {pageTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    className={cn(
+                      "flex items-start gap-3 p-3 rounded-lg border text-left transition-colors",
+                      "hover-elevate",
+                      selectedTemplate?.id === template.id
+                        ? "border-primary bg-primary/5"
+                        : "border-border"
+                    )}
+                    onClick={() => setSelectedTemplate(template)}
+                    data-testid={`button-template-${template.id}`}
+                  >
+                    <span className="text-2xl flex-shrink-0">{template.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">{template.name}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {template.description}
+                      </div>
+                    </div>
+                    {selectedTemplate?.id === template.id && (
+                      <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={closeTemplateDialog}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleTemplateCreate}
+              disabled={!templatePageName.trim() || !selectedTemplate || createDocumentMutation.isPending}
+              data-testid="button-create-page-with-template"
+            >
+              {createDocumentMutation.isPending ? "Création..." : "Créer la page"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

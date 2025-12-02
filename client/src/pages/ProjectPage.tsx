@@ -1,15 +1,13 @@
-import { useEffect, useState, useRef } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { FileText, Plus, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { FileText, Plus, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { PageTree } from "@/components/PageTree";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project, Document } from "@shared/schema";
 
 export default function ProjectPage() {
@@ -18,15 +16,6 @@ export default function ProjectPage() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
-  const [showInlineCreate, setShowInlineCreate] = useState(false);
-  const [pageName, setPageName] = useState("");
-  const inlineInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (showInlineCreate && inlineInputRef.current) {
-      inlineInputRef.current.focus();
-    }
-  }, [showInlineCreate]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -48,42 +37,6 @@ export default function ProjectPage() {
     queryKey: ["/api/projects", projectId, "documents"],
     enabled: !!projectId,
   });
-
-  const createDocumentMutation = useMutation({
-    mutationFn: async (data: { title: string; parentId: string | null }) => {
-      return await apiRequest("POST", `/api/projects/${projectId}/documents`, data);
-    },
-    onSuccess: (newDoc: Document) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "documents"] });
-      setShowInlineCreate(false);
-      setPageName("");
-      toast({ title: "Page created successfully" });
-      setLocation(`/document/${newDoc.id}`);
-    },
-    onError: () => {
-      toast({ title: "Failed to create page", variant: "destructive" });
-    },
-  });
-
-  const handleCreatePage = () => {
-    if (!pageName.trim() || createDocumentMutation.isPending) return;
-    createDocumentMutation.mutate({ title: pageName.trim(), parentId: null });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleCreatePage();
-    } else if (e.key === "Escape") {
-      setShowInlineCreate(false);
-      setPageName("");
-    }
-  };
-
-  const cancelInlineCreate = () => {
-    setShowInlineCreate(false);
-    setPageName("");
-  };
 
   if (authLoading || projectLoading) {
     return (
@@ -113,6 +66,7 @@ export default function ProjectPage() {
             The project you're looking for doesn't exist or you don't have access.
           </p>
           <Button onClick={() => setLocation("/")} data-testid="button-back-home">
+            <ArrowLeft className="w-4 h-4 mr-2" />
             Go Home
           </Button>
         </div>
@@ -159,44 +113,12 @@ export default function ProjectPage() {
             <div className="text-center py-16 border-2 border-dashed border-border rounded-lg">
               <FileText className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-medium mb-2">No pages yet</h3>
-              <p className="text-muted-foreground text-sm mb-6 max-w-sm mx-auto">
+              <p className="text-muted-foreground text-sm mb-4 max-w-sm mx-auto">
                 Start documenting your project by creating your first page.
               </p>
-              
-              {showInlineCreate ? (
-                <div className="max-w-xs mx-auto flex items-center gap-2">
-                  <Input
-                    ref={inlineInputRef}
-                    value={pageName}
-                    onChange={(e) => setPageName(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onBlur={() => {
-                      if (!pageName.trim()) {
-                        cancelInlineCreate();
-                      }
-                    }}
-                    placeholder="Page title..."
-                    className="flex-1"
-                    data-testid="input-inline-page-title-main"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={cancelInlineCreate}
-                    data-testid="button-cancel-inline-page-main"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <Button 
-                  onClick={() => setShowInlineCreate(true)}
-                  data-testid="button-create-first-page-main"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Page
-                </Button>
-              )}
+              <p className="text-muted-foreground text-sm">
+                Click the <Plus className="w-4 h-4 inline-block mx-1" /> button in the sidebar to create a new page with a template.
+              </p>
             </div>
           ) : (
             <div>
