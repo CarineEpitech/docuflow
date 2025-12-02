@@ -8,7 +8,9 @@ import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
+import Link from "@tiptap/extension-link";
 import { ResizableImage } from "./ResizableImage";
+import { VideoEmbed, extractVideoInfo } from "./VideoEmbed";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Dropcursor from "@tiptap/extension-dropcursor";
 import { common, createLowlight } from "lowlight";
@@ -31,10 +33,21 @@ import {
   Image as ImageIcon,
   Type,
   AlertCircle,
+  Link as LinkIcon,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const lowlight = createLowlight(common);
 
@@ -57,6 +70,7 @@ const SLASH_COMMANDS = [
   { title: "Code Block", icon: Code, description: "Code with syntax highlighting", type: "codeBlock", group: "Blocks" },
   { title: "Divider", icon: Minus, description: "Horizontal line", type: "horizontalRule", group: "Blocks" },
   { title: "Image", icon: ImageIcon, description: "Upload or embed image", type: "image", group: "Media" },
+  { title: "Video", icon: Video, description: "Embed YouTube, Zoom, or Fathom video", type: "video", group: "Media" },
   { title: "Callout", icon: AlertCircle, description: "Info callout box", type: "callout", group: "Blocks" },
 ];
 
@@ -66,6 +80,10 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
   const [slashFilter, setSlashFilter] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [showVideoDialog, setShowVideoDialog] = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
 
   const editor = useEditor({
     extensions: [
@@ -94,7 +112,16 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
       }),
       TextStyle,
       Color,
+      Link.configure({
+        openOnClick: true,
+        HTMLAttributes: {
+          class: "text-primary underline underline-offset-2 cursor-pointer hover:text-primary/80",
+          target: "_blank",
+          rel: "noopener noreferrer",
+        },
+      }),
       ResizableImage,
+      VideoEmbed,
       CodeBlockLowlight.configure({
         lowlight,
         defaultLanguage: "javascript",
@@ -220,6 +247,9 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           }
         }
         break;
+      case "video":
+        setShowVideoDialog(true);
+        break;
       case "callout":
         editor.chain().focus().insertContent({
           type: "blockquote",
@@ -228,6 +258,53 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
         break;
     }
   }, [editor, onImageUpload]);
+
+  const handleAddLink = useCallback(() => {
+    if (!editor) return;
+    
+    const previousUrl = editor.getAttributes("link").href;
+    setLinkUrl(previousUrl || "");
+    setShowLinkDialog(true);
+  }, [editor]);
+
+  const handleLinkSubmit = useCallback(() => {
+    if (!editor || !linkUrl) {
+      setShowLinkDialog(false);
+      setLinkUrl("");
+      return;
+    }
+
+    let url = linkUrl;
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = "https://" + url;
+    }
+
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    setShowLinkDialog(false);
+    setLinkUrl("");
+  }, [editor, linkUrl]);
+
+  const handleRemoveLink = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().unsetLink().run();
+    setShowLinkDialog(false);
+    setLinkUrl("");
+  }, [editor]);
+
+  const handleVideoSubmit = useCallback(() => {
+    if (!editor || !videoUrl) {
+      setShowVideoDialog(false);
+      setVideoUrl("");
+      return;
+    }
+
+    const videoInfo = extractVideoInfo(videoUrl);
+    if (videoInfo) {
+      editor.chain().focus().setVideoEmbed(videoUrl).run();
+    }
+    setShowVideoDialog(false);
+    setVideoUrl("");
+  }, [editor, videoUrl]);
 
   useEffect(() => {
     if (!editor) return;
@@ -344,6 +421,15 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
         >
           <Code className="w-4 h-4" />
         </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("h-8 w-8", editor.isActive("link") && "bg-accent")}
+          onClick={handleAddLink}
+          data-testid="button-link"
+        >
+          <LinkIcon className="w-4 h-4" />
+        </Button>
 
         <Separator orientation="vertical" className="mx-1 h-6" />
 
@@ -422,6 +508,18 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
         >
           <Code className="w-4 h-4" />
         </Button>
+
+        <Separator orientation="vertical" className="mx-1 h-6" />
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setShowVideoDialog(true)}
+          data-testid="button-video"
+        >
+          <Video className="w-4 h-4" />
+        </Button>
       </div>
 
       <EditorContent editor={editor} />
@@ -460,6 +558,80 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           ))}
         </div>
       )}
+
+      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+        <DialogContent className="sm:max-w-md" data-testid="link-dialog">
+          <DialogHeader>
+            <DialogTitle>Insérer un lien</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="link-url">URL</Label>
+              <Input
+                id="link-url"
+                placeholder="https://example.com"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleLinkSubmit();
+                  }
+                }}
+                data-testid="input-link-url"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            {editor?.isActive("link") && (
+              <Button
+                variant="destructive"
+                onClick={handleRemoveLink}
+                data-testid="button-remove-link"
+              >
+                Supprimer le lien
+              </Button>
+            )}
+            <Button onClick={handleLinkSubmit} data-testid="button-save-link">
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showVideoDialog} onOpenChange={setShowVideoDialog}>
+        <DialogContent className="sm:max-w-md" data-testid="video-dialog">
+          <DialogHeader>
+            <DialogTitle>Insérer une vidéo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="video-url">URL de la vidéo</Label>
+              <Input
+                id="video-url"
+                placeholder="https://youtube.com/watch?v=... ou lien Zoom/Fathom"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleVideoSubmit();
+                  }
+                }}
+                data-testid="input-video-url"
+              />
+              <p className="text-xs text-muted-foreground">
+                Supporte YouTube, Zoom recordings, et Fathom
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleVideoSubmit} data-testid="button-save-video">
+              Insérer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
