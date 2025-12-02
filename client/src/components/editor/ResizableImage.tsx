@@ -7,8 +7,7 @@ import {
   AlignCenter, 
   AlignRight, 
   GripVertical,
-  Trash2,
-  Move
+  Trash2
 } from "lucide-react";
 
 declare module "@tiptap/core" {
@@ -68,14 +67,14 @@ function ResizableImageComponent({
   }, [width, updateAttributes]);
 
   const alignmentClasses = {
-    left: "mr-auto",
-    center: "mx-auto",
-    right: "ml-auto",
+    left: "justify-start",
+    center: "justify-center",
+    right: "justify-end",
   };
 
   return (
     <NodeViewWrapper 
-      className="relative my-4"
+      className={cn("relative my-4 flex w-full", alignmentClasses[alignment])}
       data-testid="resizable-image-wrapper"
       data-drag-handle
     >
@@ -83,7 +82,6 @@ function ResizableImageComponent({
         ref={containerRef}
         className={cn(
           "relative inline-block group",
-          alignmentClasses[alignment],
           selected && "ring-2 ring-primary ring-offset-2"
         )}
         style={{ width: `${width}%` }}
@@ -96,9 +94,8 @@ function ResizableImageComponent({
           src={src}
           alt={alt || ""}
           title={title}
-          className="w-full h-auto rounded-lg block cursor-grab active:cursor-grabbing"
-          draggable="true"
-          data-drag-handle
+          className="w-full h-auto rounded-lg block"
+          draggable={false}
           data-testid="resizable-image"
         />
 
@@ -124,16 +121,6 @@ function ResizableImageComponent({
               className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-background/95 backdrop-blur-sm rounded-lg border border-border shadow-md p-1"
               data-testid="image-toolbar"
             >
-              <div
-                className="p-1.5 rounded hover:bg-accent transition-colors cursor-grab active:cursor-grabbing"
-                data-drag-handle
-                draggable="true"
-                title="Drag to move"
-                data-testid="button-drag-image"
-              >
-                <Move className="w-4 h-4" />
-              </div>
-              <div className="w-px h-4 bg-border mx-1" />
               <button
                 className={cn(
                   "p-1.5 rounded hover:bg-accent transition-colors",
