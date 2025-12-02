@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 interface VideoEmbedAttributes {
   src: string;
-  provider: "youtube" | "zoom" | "fathom" | "onedrive" | "unknown";
+  provider: "youtube" | "loom" | "zoom" | "fathom" | "onedrive" | "unknown";
   title?: string;
   embedUrl?: string;
 }
@@ -34,7 +34,40 @@ function extractVideoInfo(url: string): VideoEmbedAttributes | null {
       }
     }
     
-    // Zoom recordings
+    // Loom - convert share URL to embed URL
+    // Format: https://www.loom.com/share/{VIDEO_ID} -> https://www.loom.com/embed/{VIDEO_ID}
+    if (urlObj.hostname.includes("loom.com")) {
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      let videoId = "";
+      
+      // Handle /share/{id} format
+      if (pathParts[0] === "share" && pathParts[1]) {
+        videoId = pathParts[1];
+      } else if (pathParts[0] === "embed" && pathParts[1]) {
+        // Already an embed URL
+        videoId = pathParts[1];
+      } else if (pathParts.length === 1) {
+        // Direct ID format
+        videoId = pathParts[0];
+      }
+      
+      if (videoId) {
+        return {
+          src: url,
+          provider: "loom",
+          title: "Loom Recording",
+          embedUrl: `https://www.loom.com/embed/${videoId}`,
+        };
+      }
+      
+      return {
+        src: url,
+        provider: "loom",
+        title: "Loom Recording",
+      };
+    }
+    
+    // Zoom recordings - can't embed, link only
     if (urlObj.hostname.includes("zoom.us")) {
       return {
         src: url,
@@ -43,18 +76,15 @@ function extractVideoInfo(url: string): VideoEmbedAttributes | null {
       };
     }
     
-    // Fathom - support various link formats
+    // Fathom - convert share URL to embed URL
+    // Format: https://fathom.video/share/{VIDEO_ID} -> https://fathom.video/embed/{VIDEO_ID}
     if (urlObj.hostname.includes("fathom.video")) {
-      // Extract video ID from various Fathom URL formats
-      // https://fathom.video/share/xxxxx
-      // https://fathom.video/embed/xxxxx
-      // https://fathom.video/call/xxxxx
       const pathParts = urlObj.pathname.split('/').filter(Boolean);
       let videoId = "";
       
-      if (pathParts.length >= 2) {
-        // Get the ID after share/embed/call
-        videoId = pathParts[pathParts.length - 1];
+      // Handle /share/{id}, /embed/{id}, /call/{id} formats
+      if ((pathParts[0] === "share" || pathParts[0] === "embed" || pathParts[0] === "call") && pathParts[1]) {
+        videoId = pathParts[1];
       } else if (pathParts.length === 1) {
         // Direct ID format
         videoId = pathParts[0];
@@ -76,24 +106,25 @@ function extractVideoInfo(url: string): VideoEmbedAttributes | null {
       };
     }
     
-    // OneDrive / SharePoint
+    // OneDrive / SharePoint / 1drv.ms
     if (urlObj.hostname.includes("onedrive.live.com") || 
         urlObj.hostname.includes("sharepoint.com") ||
-        urlObj.hostname.includes("1drv.ms")) {
-      // For OneDrive, we can convert embed URLs to download URLs for HTML5 video
+        urlObj.hostname === "1drv.ms") {
+      
+      // For 1drv.ms short URLs, we store the original URL
+      // The embed will attempt to resolve it
       let embedUrl = url;
       
-      // Convert embed URL to download URL for direct playback
-      if (url.includes("embed?")) {
-        embedUrl = url.replace("embed?", "download?");
-      } else if (url.includes("/embed/")) {
-        embedUrl = url.replace("/embed/", "/download/");
-      }
-      
-      // For SharePoint, add action=embedview
-      if (urlObj.hostname.includes("sharepoint.com") && !url.includes("action=embedview")) {
-        const separator = url.includes("?") ? "&" : "?";
-        embedUrl = `${url}${separator}action=embedview`;
+      // For full onedrive.live.com URLs, we can try to create embed/download URLs
+      if (urlObj.hostname.includes("onedrive.live.com")) {
+        // Try to convert to embed URL with embed parameter
+        if (url.includes("embed?")) {
+          // Convert to download for HTML5 video playback
+          embedUrl = url.replace("embed?", "download?");
+        } else if (url.includes("?")) {
+          // Add embed action for iframe
+          embedUrl = url + "&action=embedview";
+        }
       }
       
       return {
@@ -134,41 +165,58 @@ function getYouTubeThumbnail(url: string): string | null {
   }
 }
 
+// Get Loom thumbnail from video ID
+function getLoomThumbnail(embedUrl: string): string | null {
+  try {
+    const match = embedUrl.match(/\/embed\/([a-f0-9]+)/);
+    if (match && match[1]) {
+      return `https://cdn.loom.com/sessions/thumbnails/${match[1]}-with-play.gif`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [videoError, setVideoError] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
   const { src, provider, embedUrl } = node.attrs as VideoEmbedAttributes;
   
-  const thumbnail = provider === "youtube" ? getYouTubeThumbnail(src) : null;
+  const thumbnail = provider === "youtube" ? getYouTubeThumbnail(src) : 
+                    provider === "loom" && embedUrl ? getLoomThumbnail(embedUrl) : null;
   
-  const providerIcons: Record<string, { icon: typeof Video; color: string; label: string; opensInNewTab?: boolean }> = {
-    youtube: { icon: Play, color: "bg-red-600", label: "YouTube" },
-    zoom: { icon: Video, color: "bg-blue-600", label: "Zoom", opensInNewTab: true },
-    fathom: { icon: Video, color: "bg-purple-600", label: "Fathom", opensInNewTab: true },
-    onedrive: { icon: Cloud, color: "bg-sky-600", label: "OneDrive" },
-    unknown: { icon: Video, color: "bg-gray-600", label: "Video", opensInNewTab: true },
+  const providerConfig: Record<string, { 
+    icon: typeof Video; 
+    color: string; 
+    label: string; 
+    supportsEmbed: boolean;
+  }> = {
+    youtube: { icon: Play, color: "bg-red-600", label: "YouTube", supportsEmbed: true },
+    loom: { icon: Video, color: "bg-purple-500", label: "Loom", supportsEmbed: true },
+    fathom: { icon: Video, color: "bg-violet-600", label: "Fathom", supportsEmbed: true },
+    zoom: { icon: Video, color: "bg-blue-600", label: "Zoom", supportsEmbed: false },
+    onedrive: { icon: Cloud, color: "bg-sky-600", label: "OneDrive", supportsEmbed: true },
+    unknown: { icon: Video, color: "bg-gray-600", label: "Video", supportsEmbed: false },
   };
   
-  const providerInfo = providerIcons[provider] || providerIcons.unknown;
-  const ProviderIcon = providerInfo.icon;
+  const config = providerConfig[provider] || providerConfig.unknown;
+  const ProviderIcon = config.icon;
 
-  // Only YouTube reliably supports iframe embedding
-  // Other platforms (Fathom, Zoom) have CSP restrictions that block external embedding
-  const supportsIframeEmbed = provider === "youtube" && embedUrl;
-  
-  // Check if this provider supports HTML5 video
-  const supportsVideoTag = provider === "onedrive" && embedUrl;
-  
-  // Opens in new tab for platforms that block iframe embedding
-  const opensInNewTab = providerInfo.opensInNewTab;
+  // Check if we can embed this video
+  const canEmbed = config.supportsEmbed && embedUrl && !iframeError;
 
   const handlePlayClick = () => {
-    if (opensInNewTab) {
-      // For platforms that block iframe embedding, open in new tab
-      window.open(src, '_blank', 'noopener,noreferrer');
-    } else {
+    if (canEmbed) {
       setIsPlaying(true);
+    } else {
+      // Open in new tab for providers that don't support embedding
+      window.open(src, '_blank', 'noopener,noreferrer');
     }
+  };
+
+  const handleIframeError = () => {
+    setIframeError(true);
   };
 
   const renderPlayButton = () => (
@@ -182,10 +230,10 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
           handlePlayClick();
         }
       }}
-      aria-label={opensInNewTab ? `Open ${providerInfo.label} video in new tab` : `Play ${providerInfo.label} video`}
+      aria-label={canEmbed ? `Play ${config.label} video` : `Open ${config.label} video in new tab`}
       data-testid="button-play-video"
     >
-      {provider === "youtube" && thumbnail && (
+      {thumbnail && (
         <img 
           src={thumbnail} 
           alt="Video thumbnail"
@@ -196,19 +244,19 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
         />
       )}
       <div className="absolute inset-0 bg-black/30 flex items-center justify-center hover:bg-black/40 transition-colors">
-        <div className={cn("w-16 h-16 rounded-full flex items-center justify-center", providerInfo.color)}>
-          {opensInNewTab ? (
-            <ExternalLink className="w-8 h-8 text-white" />
-          ) : (
+        <div className={cn("w-16 h-16 rounded-full flex items-center justify-center", config.color)}>
+          {canEmbed ? (
             <Play className="w-8 h-8 text-white fill-white ml-1" />
+          ) : (
+            <ExternalLink className="w-8 h-8 text-white" />
           )}
         </div>
       </div>
       <div className="absolute bottom-3 left-3 flex items-center gap-2">
         <span className="px-2 py-1 bg-black/60 rounded text-white text-sm font-medium">
-          {providerInfo.label}
+          {config.label}
         </span>
-        {opensInNewTab && (
+        {!canEmbed && (
           <span className="px-2 py-1 bg-black/60 rounded text-white/80 text-xs">
             Opens in new tab
           </span>
@@ -217,46 +265,73 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
     </button>
   );
 
-  const renderIframePlayer = () => (
-    <div className="aspect-video">
-      <iframe
-        src={provider === "youtube" ? `${embedUrl}?autoplay=1` : `${embedUrl}?autoplay=0`}
-        className="w-full h-full"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-        allowFullScreen
-        title={`${providerInfo.label} video`}
-      />
-    </div>
-  );
+  const renderIframePlayer = () => {
+    // Build the iframe URL with appropriate parameters
+    let iframeSrc = embedUrl || "";
+    
+    if (provider === "youtube") {
+      iframeSrc = embedUrl + "?autoplay=1";
+    } else if (provider === "loom") {
+      iframeSrc = embedUrl + "?hideEmbedTopBar=true";
+    } else if (provider === "fathom") {
+      iframeSrc = embedUrl + "?autoplay=0";
+    }
+    
+    return (
+      <div className="aspect-video relative">
+        <iframe
+          src={iframeSrc}
+          className="w-full h-full absolute inset-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowFullScreen
+          title={`${config.label} video`}
+          onError={handleIframeError}
+        />
+        {iframeError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted text-muted-foreground gap-3">
+            <Video className="w-12 h-12 opacity-50" />
+            <p className="text-sm">Unable to embed video</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.open(src, '_blank')}
+            >
+              Open in new tab
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
-  const renderVideoPlayer = () => (
-    <div className="aspect-video bg-black">
-      {videoError ? (
-        <div className="w-full h-full flex flex-col items-center justify-center text-white gap-3">
-          <Video className="w-12 h-12 opacity-50" />
-          <p className="text-sm opacity-75">Unable to play video directly</p>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => window.open(src, '_blank')}
-          >
-            Open in new tab
-          </Button>
-        </div>
-      ) : (
-        <video
+  const renderOneDrivePlayer = () => {
+    // For OneDrive, try iframe embed first
+    return (
+      <div className="aspect-video relative bg-black">
+        <iframe
           src={embedUrl}
-          className="w-full h-full"
-          controls
-          autoPlay
-          onError={() => setVideoError(true)}
-        >
-          <source src={embedUrl} type="video/mp4" />
-          Your browser does not support video playback.
-        </video>
-      )}
-    </div>
-  );
+          className="w-full h-full absolute inset-0"
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          title="OneDrive video"
+          onError={handleIframeError}
+        />
+        {iframeError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted text-muted-foreground gap-3">
+            <Cloud className="w-12 h-12 opacity-50" />
+            <p className="text-sm text-center px-4">OneDrive videos may require opening in a new tab</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.open(src, '_blank')}
+            >
+              Open in new tab
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderLinkCard = () => (
     <a 
@@ -266,12 +341,12 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
       className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
       data-testid="video-link"
     >
-      <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0", providerInfo.color)}>
+      <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0", config.color)}>
         <ProviderIcon className="w-6 h-6 text-white" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="font-medium text-foreground flex items-center gap-2">
-          {providerInfo.label} Recording
+          {config.label} Recording
           <ExternalLink className="w-4 h-4 text-muted-foreground" />
         </div>
         <div className="text-sm text-muted-foreground truncate">
@@ -280,6 +355,22 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
       </div>
     </a>
   );
+
+  const renderContent = () => {
+    // For providers that support embedding
+    if (canEmbed) {
+      if (isPlaying) {
+        if (provider === "onedrive") {
+          return renderOneDrivePlayer();
+        }
+        return renderIframePlayer();
+      }
+      return renderPlayButton();
+    }
+    
+    // For providers without embed support, show link card
+    return renderLinkCard();
+  };
 
   return (
     <NodeViewWrapper className="video-embed my-4">
@@ -290,15 +381,9 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
         )}
         data-testid="video-embed-container"
       >
-        {supportsIframeEmbed ? (
-          isPlaying ? renderIframePlayer() : renderPlayButton()
-        ) : supportsVideoTag ? (
-          isPlaying ? renderVideoPlayer() : renderPlayButton()
-        ) : (
-          renderLinkCard()
-        )}
+        {renderContent()}
         
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex gap-1">
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex gap-1 z-10">
           <Button
             variant="secondary"
             size="icon"
