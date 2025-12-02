@@ -521,19 +521,19 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <LayoutTemplate className="w-5 h-5" />
-              Nouvelle Page
+              New Page
             </DialogTitle>
             <DialogDescription>
-              Choisissez un template et donnez un nom à votre page
+              Choose a template and name your page
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Nom de la page</label>
+              <label className="text-sm font-medium">Page Name</label>
               <Input
                 ref={templateInputRef}
-                placeholder="Titre de la page..."
+                placeholder="Page title..."
                 value={templatePageName}
                 onChange={(e) => setTemplatePageName(e.target.value)}
                 onKeyDown={(e) => {
@@ -580,14 +580,14 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           
           <DialogFooter>
             <Button variant="outline" onClick={closeTemplateDialog}>
-              Annuler
+              Cancel
             </Button>
             <Button
               onClick={handleTemplateCreate}
               disabled={!templatePageName.trim() || !selectedTemplate || createDocumentMutation.isPending}
               data-testid="button-create-page-with-template"
             >
-              {createDocumentMutation.isPending ? "Création..." : "Créer la page"}
+              {createDocumentMutation.isPending ? "Creating..." : "Create Page"}
             </Button>
           </DialogFooter>
         </DialogContent>

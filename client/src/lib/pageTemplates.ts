@@ -9,8 +9,8 @@ export interface PageTemplate {
 export const pageTemplates: PageTemplate[] = [
   {
     id: "blank",
-    name: "Page vierge",
-    description: "Commencer avec une page vide",
+    name: "Blank Page",
+    description: "Start with an empty page",
     icon: "📄",
     content: {
       type: "doc",
@@ -24,8 +24,8 @@ export const pageTemplates: PageTemplate[] = [
   },
   {
     id: "client-project",
-    name: "Documentation Projet Client",
-    description: "Description, tâches/scopes, et ressources du projet",
+    name: "Client Project Documentation",
+    description: "Project description, tasks/scopes, and available resources",
     icon: "📋",
     content: {
       type: "doc",
@@ -33,7 +33,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 2, textAlign: null },
-          content: [{ type: "text", text: "Description du Projet" }],
+          content: [{ type: "text", text: "Project Description" }],
         },
         {
           type: "paragraph",
@@ -41,7 +41,7 @@ export const pageTemplates: PageTemplate[] = [
           content: [
             {
               type: "text",
-              text: "Décrivez ici le contexte et les objectifs principaux du projet client...",
+              text: "Describe the context and main objectives of the client project here...",
               marks: [{ type: "italic" }],
             },
           ],
@@ -53,7 +53,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 2, textAlign: null },
-          content: [{ type: "text", text: "Tâches et Scopes" }],
+          content: [{ type: "text", text: "Tasks and Scopes" }],
         },
         {
           type: "paragraph",
@@ -61,7 +61,7 @@ export const pageTemplates: PageTemplate[] = [
           content: [
             {
               type: "text",
-              text: "Listez les différentes tâches et scopes du projet :",
+              text: "List the different tasks and scopes of the project:",
               marks: [{ type: "italic" }],
             },
           ],
@@ -76,7 +76,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Tâche 1 - Description de la tâche" }],
+                  content: [{ type: "text", text: "Task 1 - Task description" }],
                 },
               ],
             },
@@ -87,7 +87,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Tâche 2 - Description de la tâche" }],
+                  content: [{ type: "text", text: "Task 2 - Task description" }],
                 },
               ],
             },
@@ -98,7 +98,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Tâche 3 - Description de la tâche" }],
+                  content: [{ type: "text", text: "Task 3 - Task description" }],
                 },
               ],
             },
@@ -111,7 +111,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 2, textAlign: null },
-          content: [{ type: "text", text: "Ressources à Disposition" }],
+          content: [{ type: "text", text: "Available Resources" }],
         },
         {
           type: "paragraph",
@@ -119,7 +119,7 @@ export const pageTemplates: PageTemplate[] = [
           content: [
             {
               type: "text",
-              text: "Documentez les ressources disponibles pour la réalisation du projet :",
+              text: "Document the resources available for project completion:",
               marks: [{ type: "italic" }],
             },
           ],
@@ -134,8 +134,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "Équipe : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Membres de l'équipe et leurs rôles" },
+                    { type: "text", text: "Team: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Team members and their roles" },
                   ],
                 },
               ],
@@ -147,8 +147,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "Outils : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Technologies et outils utilisés" },
+                    { type: "text", text: "Tools: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Technologies and tools used" },
                   ],
                 },
               ],
@@ -160,8 +160,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "Documentation : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Liens vers la documentation pertinente" },
+                    { type: "text", text: "Documentation: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Links to relevant documentation" },
                   ],
                 },
               ],
@@ -173,8 +173,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "Budget : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Informations budgétaires si applicable" },
+                    { type: "text", text: "Budget: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Budget information if applicable" },
                   ],
                 },
               ],
@@ -190,8 +190,8 @@ export const pageTemplates: PageTemplate[] = [
   },
   {
     id: "technical-solution",
-    name: "Solution Technique",
-    description: "Description technique, roadmap détaillée et ressources nécessaires",
+    name: "Technical Solution",
+    description: "Technical description, detailed roadmap and required resources",
     icon: "⚙️",
     content: {
       type: "doc",
@@ -199,7 +199,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 2, textAlign: null },
-          content: [{ type: "text", text: "Description Technique" }],
+          content: [{ type: "text", text: "Technical Description" }],
         },
         {
           type: "paragraph",
@@ -207,7 +207,7 @@ export const pageTemplates: PageTemplate[] = [
           content: [
             {
               type: "text",
-              text: "Décrivez la solution technique, l'architecture et les choix technologiques...",
+              text: "Describe the technical solution, architecture and technology choices...",
               marks: [{ type: "italic" }],
             },
           ],
@@ -227,7 +227,7 @@ export const pageTemplates: PageTemplate[] = [
           content: [
             {
               type: "text",
-              text: "Diagramme ou description de l'architecture du système...",
+              text: "Diagram or description of the system architecture...",
               marks: [{ type: "italic" }],
             },
           ],
@@ -239,7 +239,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 3, textAlign: null },
-          content: [{ type: "text", text: "Technologies Utilisées" }],
+          content: [{ type: "text", text: "Technologies Used" }],
         },
         {
           type: "bulletList",
@@ -251,8 +251,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "Frontend : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Technologie(s) utilisée(s)" },
+                    { type: "text", text: "Frontend: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Technology(ies) used" },
                   ],
                 },
               ],
@@ -264,8 +264,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "Backend : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Technologie(s) utilisée(s)" },
+                    { type: "text", text: "Backend: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Technology(ies) used" },
                   ],
                 },
               ],
@@ -277,8 +277,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "Base de données : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Type et configuration" },
+                    { type: "text", text: "Database: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Type and configuration" },
                   ],
                 },
               ],
@@ -290,8 +290,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "Infrastructure : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Hébergement, CI/CD, etc." },
+                    { type: "text", text: "Infrastructure: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Hosting, CI/CD, etc." },
                   ],
                 },
               ],
@@ -305,7 +305,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 2, textAlign: null },
-          content: [{ type: "text", text: "Roadmap Détaillée" }],
+          content: [{ type: "text", text: "Detailed Roadmap" }],
         },
         {
           type: "paragraph",
@@ -313,7 +313,7 @@ export const pageTemplates: PageTemplate[] = [
           content: [
             {
               type: "text",
-              text: "Étapes détaillées pour reproduire ou implémenter le projet :",
+              text: "Detailed steps to reproduce or implement the project:",
               marks: [{ type: "italic" }],
             },
           ],
@@ -325,7 +325,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 3, textAlign: null },
-          content: [{ type: "text", text: "Phase 1 : Configuration Initiale" }],
+          content: [{ type: "text", text: "Phase 1: Initial Setup" }],
         },
         {
           type: "orderedList",
@@ -337,7 +337,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Configuration de l'environnement de développement" }],
+                  content: [{ type: "text", text: "Development environment configuration" }],
                 },
               ],
             },
@@ -347,7 +347,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Installation des dépendances" }],
+                  content: [{ type: "text", text: "Dependencies installation" }],
                 },
               ],
             },
@@ -357,7 +357,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Configuration de la base de données" }],
+                  content: [{ type: "text", text: "Database configuration" }],
                 },
               ],
             },
@@ -370,7 +370,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 3, textAlign: null },
-          content: [{ type: "text", text: "Phase 2 : Développement Core" }],
+          content: [{ type: "text", text: "Phase 2: Core Development" }],
         },
         {
           type: "orderedList",
@@ -382,7 +382,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Implémentation des fonctionnalités principales" }],
+                  content: [{ type: "text", text: "Implementation of main features" }],
                 },
               ],
             },
@@ -392,7 +392,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Tests unitaires et d'intégration" }],
+                  content: [{ type: "text", text: "Unit and integration testing" }],
                 },
               ],
             },
@@ -405,7 +405,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 3, textAlign: null },
-          content: [{ type: "text", text: "Phase 3 : Déploiement" }],
+          content: [{ type: "text", text: "Phase 3: Deployment" }],
         },
         {
           type: "orderedList",
@@ -417,7 +417,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Configuration de l'environnement de production" }],
+                  content: [{ type: "text", text: "Production environment configuration" }],
                 },
               ],
             },
@@ -427,7 +427,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Mise en production et monitoring" }],
+                  content: [{ type: "text", text: "Production deployment and monitoring" }],
                 },
               ],
             },
@@ -440,7 +440,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 2, textAlign: null },
-          content: [{ type: "text", text: "Ressources Nécessaires" }],
+          content: [{ type: "text", text: "Required Resources" }],
         },
         {
           type: "paragraph",
@@ -448,7 +448,7 @@ export const pageTemplates: PageTemplate[] = [
           content: [
             {
               type: "text",
-              text: "Listez toutes les ressources nécessaires à la réalisation du projet :",
+              text: "List all resources required for project completion:",
               marks: [{ type: "italic" }],
             },
           ],
@@ -460,7 +460,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 3, textAlign: null },
-          content: [{ type: "text", text: "Ressources Humaines" }],
+          content: [{ type: "text", text: "Human Resources" }],
         },
         {
           type: "bulletList",
@@ -471,7 +471,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Développeur(s) Full-Stack" }],
+                  content: [{ type: "text", text: "Full-Stack Developer(s)" }],
                 },
               ],
             },
@@ -491,7 +491,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Chef de projet / Product Owner" }],
+                  content: [{ type: "text", text: "Project Manager / Product Owner" }],
                 },
               ],
             },
@@ -504,7 +504,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 3, textAlign: null },
-          content: [{ type: "text", text: "Ressources Techniques" }],
+          content: [{ type: "text", text: "Technical Resources" }],
         },
         {
           type: "bulletList",
@@ -516,8 +516,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "Serveurs : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Spécifications requises" },
+                    { type: "text", text: "Servers: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Required specifications" },
                   ],
                 },
               ],
@@ -529,8 +529,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "API externes : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Services tiers utilisés" },
+                    { type: "text", text: "External APIs: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Third-party services used" },
                   ],
                 },
               ],
@@ -542,8 +542,8 @@ export const pageTemplates: PageTemplate[] = [
                   type: "paragraph",
                   attrs: { textAlign: null },
                   content: [
-                    { type: "text", text: "Licences : ", marks: [{ type: "bold" }] },
-                    { type: "text", text: "Logiciels payants nécessaires" },
+                    { type: "text", text: "Licenses: ", marks: [{ type: "bold" }] },
+                    { type: "text", text: "Required paid software" },
                   ],
                 },
               ],
@@ -557,7 +557,7 @@ export const pageTemplates: PageTemplate[] = [
         {
           type: "heading",
           attrs: { level: 3, textAlign: null },
-          content: [{ type: "text", text: "Documentation de Référence" }],
+          content: [{ type: "text", text: "Reference Documentation" }],
         },
         {
           type: "bulletList",
@@ -568,7 +568,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Lien vers la documentation officielle" }],
+                  content: [{ type: "text", text: "Link to official documentation" }],
                 },
               ],
             },
@@ -578,7 +578,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Tutoriels et guides pertinents" }],
+                  content: [{ type: "text", text: "Relevant tutorials and guides" }],
                 },
               ],
             },
@@ -588,7 +588,7 @@ export const pageTemplates: PageTemplate[] = [
                 {
                   type: "paragraph",
                   attrs: { textAlign: null },
-                  content: [{ type: "text", text: "Ressources de formation" }],
+                  content: [{ type: "text", text: "Training resources" }],
                 },
               ],
             },
