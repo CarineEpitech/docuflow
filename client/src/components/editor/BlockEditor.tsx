@@ -8,7 +8,7 @@ import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
-import Image from "@tiptap/extension-image";
+import { ResizableImage } from "./ResizableImage";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Dropcursor from "@tiptap/extension-dropcursor";
 import { common, createLowlight } from "lowlight";
@@ -93,11 +93,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
       }),
       TextStyle,
       Color,
-      Image.configure({
-        HTMLAttributes: {
-          class: "max-w-full rounded-lg",
-        },
-      }),
+      ResizableImage,
       CodeBlockLowlight.configure({
         lowlight,
         defaultLanguage: "javascript",
