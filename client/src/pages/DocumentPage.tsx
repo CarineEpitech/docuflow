@@ -37,6 +37,20 @@ export default function DocumentPage() {
     }
   }, [isAuthenticated, authLoading, toast, setLocation]);
 
+  // Warn user about unsaved changes when closing browser tab
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   const { data: pageDoc, isLoading: documentLoading } = useQuery<Document>({
     queryKey: ["/api/documents", documentId],
     enabled: !!documentId,
