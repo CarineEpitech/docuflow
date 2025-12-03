@@ -11,7 +11,7 @@ import {
   Trash2,
   Copy,
   X,
-  LayoutTemplate,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,9 +22,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -59,16 +63,12 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [pageName, setPageName] = useState("");
   
-  // Template selection state
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<PageTemplate | null>(null);
-  const [templateParentId, setTemplateParentId] = useState<string | null>(null);
-  const [templatePageName, setTemplatePageName] = useState("");
-  const templateInputRef = useRef<HTMLInputElement>(null);
-  
-  // Inline creation state (legacy, kept for compatibility)
+  // Inline creation state with template support
   const [inlineCreateParentId, setInlineCreateParentId] = useState<string | null | undefined>(undefined);
   const [inlinePageName, setInlinePageName] = useState("");
+  const [inlineTemplate, setInlineTemplate] = useState<PageTemplate>(pageTemplates[0]);
+  const [showPopover, setShowPopover] = useState(false);
+  const [popoverParentId, setPopoverParentId] = useState<string | null>(null);
   const inlineInputRef = useRef<HTMLInputElement>(null);
   
   // Focus the inline input when it appears
@@ -77,13 +77,6 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
       inlineInputRef.current.focus();
     }
   }, [inlineCreateParentId]);
-  
-  // Focus the template input when dialog opens
-  useEffect(() => {
-    if (showTemplateDialog && templateInputRef.current) {
-      setTimeout(() => templateInputRef.current?.focus(), 100);
-    }
-  }, [showTemplateDialog]);
 
   const { data: documents = [], isLoading } = useQuery<Document[]>({
     queryKey: ["/api/projects", projectId, "documents"],
@@ -96,7 +89,6 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
     onSuccess: (newDoc: Document) => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "documents"] });
       cancelInlineCreate();
-      closeTemplateDialog();
       toast({ title: "Page created successfully" });
       setLocation(`/document/${newDoc.id}`);
     },
@@ -196,53 +188,35 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
     });
   };
 
-  const openTemplateDialog = (parentDocId: string | null = null) => {
-    setTemplateParentId(parentDocId);
-    setTemplatePageName("");
-    setSelectedTemplate(pageTemplates[0]); // Default to blank template
-    setShowTemplateDialog(true);
-    // If creating under a parent, expand it
-    if (parentDocId) {
-      setExpandedIds((prev) => new Set(Array.from(prev).concat(parentDocId)));
-    }
+  const openPopover = (parentDocId: string | null = null) => {
+    setPopoverParentId(parentDocId);
+    setShowPopover(true);
   };
 
-  const closeTemplateDialog = () => {
-    setShowTemplateDialog(false);
-    setSelectedTemplate(null);
-    setTemplatePageName("");
-    setTemplateParentId(null);
-  };
-
-  const handleTemplateCreate = () => {
-    if (!templatePageName.trim() || !selectedTemplate || createDocumentMutation.isPending) return;
-    createDocumentMutation.mutate({ 
-      title: templatePageName.trim(), 
-      parentId: templateParentId,
-      content: selectedTemplate.content,
-      icon: selectedTemplate.icon,
-    });
-  };
-
-  const startInlineCreate = (parentDocId: string | null = null) => {
-    setInlineCreateParentId(parentDocId);
+  const selectTemplateAndStartInline = (template: PageTemplate) => {
+    setInlineTemplate(template);
+    setInlineCreateParentId(popoverParentId);
     setInlinePageName("");
+    setShowPopover(false);
     // If creating under a parent, expand it
-    if (parentDocId) {
-      setExpandedIds((prev) => new Set(Array.from(prev).concat(parentDocId)));
+    if (popoverParentId) {
+      setExpandedIds((prev) => new Set(Array.from(prev).concat(popoverParentId)));
     }
   };
 
   const cancelInlineCreate = () => {
     setInlineCreateParentId(undefined);
     setInlinePageName("");
+    setInlineTemplate(pageTemplates[0]);
   };
 
   const handleInlineCreate = () => {
     if (!inlinePageName.trim() || createDocumentMutation.isPending) return;
     createDocumentMutation.mutate({ 
       title: inlinePageName.trim(), 
-      parentId: inlineCreateParentId ?? null 
+      parentId: inlineCreateParentId ?? null,
+      content: inlineTemplate.content,
+      icon: inlineTemplate.icon,
     });
   };
 
@@ -289,8 +263,8 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
         className="flex items-center gap-1 py-1 px-2 rounded-md bg-accent/50"
         style={{ paddingLeft: `${depth * 20 + 8}px` }}
       >
-        <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-          <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center text-base">
+          {inlineTemplate.icon}
         </span>
         <Input
           ref={inlineInputRef}
@@ -307,6 +281,16 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           className="h-7 text-sm flex-1 bg-background"
           data-testid="input-inline-page-title"
         />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 flex-shrink-0"
+          onClick={handleInlineCreate}
+          disabled={!inlinePageName.trim() || createDocumentMutation.isPending}
+          data-testid="button-confirm-inline-create"
+        >
+          <Check className="w-3 h-3" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -364,18 +348,41 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           </Link>
 
           <div className="actions flex items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={(e) => {
-                e.stopPropagation();
-                openTemplateDialog(node.id);
+            <Popover 
+              open={showPopover && popoverParentId === node.id} 
+              onOpenChange={(open) => {
+                if (open) openPopover(node.id);
+                else setShowPopover(false);
               }}
-              data-testid={`button-add-subpage-${node.id}`}
             >
-              <Plus className="w-3 h-3" />
-            </Button>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={(e) => e.stopPropagation()}
+                  data-testid={`button-add-subpage-${node.id}`}
+                >
+                  <Plus className="w-3 h-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-56 p-1" sideOffset={4}>
+                <div className="text-xs font-medium text-muted-foreground px-2 py-1.5">
+                  Choose a template
+                </div>
+                {pageTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover-elevate text-left"
+                    onClick={() => selectTemplateAndStartInline(template)}
+                    data-testid={`button-template-${template.id}`}
+                  >
+                    <span className="text-base">{template.icon}</span>
+                    <span>{template.name}</span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -424,16 +431,40 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
     <div className="h-full flex flex-col bg-sidebar border-r border-sidebar-border">
       <div className="p-3 border-b border-sidebar-border flex items-center justify-between">
         <h3 className="font-medium text-sm">Pages</h3>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={() => openTemplateDialog(null)}
-          disabled={showTemplateDialog}
-          data-testid="button-new-page"
+        <Popover 
+          open={showPopover && popoverParentId === null} 
+          onOpenChange={(open) => {
+            if (open) openPopover(null);
+            else setShowPopover(false);
+          }}
         >
-          <Plus className="w-4 h-4" />
-        </Button>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              data-testid="button-new-page"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-56 p-1" sideOffset={4}>
+            <div className="text-xs font-medium text-muted-foreground px-2 py-1.5">
+              Choose a template
+            </div>
+            {pageTemplates.map((template) => (
+              <button
+                key={template.id}
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover-elevate text-left"
+                onClick={() => selectTemplateAndStartInline(template)}
+                data-testid={`button-template-root-${template.id}`}
+              >
+                <span className="text-base">{template.icon}</span>
+                <span>{template.name}</span>
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
@@ -445,15 +476,40 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           <div className="text-center py-8">
             <FileText className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-sm text-muted-foreground mb-3">No pages yet</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => openTemplateDialog(null)}
-              data-testid="button-create-first-page"
+            <Popover 
+              open={showPopover && popoverParentId === null} 
+              onOpenChange={(open) => {
+                if (open) openPopover(null);
+                else setShowPopover(false);
+              }}
             >
-              <Plus className="w-4 h-4 mr-1" />
-              New Page
-            </Button>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-create-first-page"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  New Page
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="center" className="w-56 p-1" sideOffset={4}>
+                <div className="text-xs font-medium text-muted-foreground px-2 py-1.5">
+                  Choose a template
+                </div>
+                {pageTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover-elevate text-left"
+                    onClick={() => selectTemplateAndStartInline(template)}
+                    data-testid={`button-template-empty-${template.id}`}
+                  >
+                    <span className="text-base">{template.icon}</span>
+                    <span>{template.name}</span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
           </div>
         ) : (
           <>
@@ -516,82 +572,6 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={showTemplateDialog} onOpenChange={(open) => !open && closeTemplateDialog()}>
-        <DialogContent className="max-w-lg" data-testid="dialog-template-select">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <LayoutTemplate className="w-5 h-5" />
-              New Page
-            </DialogTitle>
-            <DialogDescription>
-              Choose a template and name your page
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Page Name</label>
-              <Input
-                ref={templateInputRef}
-                placeholder="Page title..."
-                value={templatePageName}
-                onChange={(e) => setTemplatePageName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && templatePageName.trim()) {
-                    handleTemplateCreate();
-                  }
-                }}
-                data-testid="input-template-page-title"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Template</label>
-              <div className="grid gap-2">
-                {pageTemplates.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    className={cn(
-                      "flex items-start gap-3 p-3 rounded-lg border text-left transition-colors",
-                      "hover-elevate",
-                      selectedTemplate?.id === template.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border"
-                    )}
-                    onClick={() => setSelectedTemplate(template)}
-                    data-testid={`button-template-${template.id}`}
-                  >
-                    <span className="text-2xl flex-shrink-0">{template.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm">{template.name}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {template.description}
-                      </div>
-                    </div>
-                    {selectedTemplate?.id === template.id && (
-                      <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={closeTemplateDialog}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleTemplateCreate}
-              disabled={!templatePageName.trim() || !selectedTemplate || createDocumentMutation.isPending}
-              data-testid="button-create-page-with-template"
-            >
-              {createDocumentMutation.isPending ? "Creating..." : "Create Page"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
