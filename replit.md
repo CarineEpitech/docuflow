@@ -4,6 +4,15 @@
 
 DocuFlow is a Notion-like documentation application designed for organizing tech projects with a rich block-based editor, nested page hierarchies, and collaborative features. The application enables teams to create, organize, and maintain structured documentation across multiple projects with an intuitive, content-first interface.
 
+**Key Features:**
+- Block-based TipTap editor with rich formatting, code blocks, task lists
+- Nested page hierarchies with drag-and-drop reordering
+- Image and video embeds (YouTube, Loom, Fathom)
+- Full-text search across projects and pages
+- AI-powered chatbot assistant (GPT-4.1-nano) with documentation as knowledge base
+- Dark mode support
+- Page templates (Client Project, Technical Solution)
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
