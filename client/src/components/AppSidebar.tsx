@@ -221,16 +221,14 @@ export function AppSidebar() {
   return (
     <>
       <Sidebar collapsible="icon">
-        <SidebarHeader className="border-b border-sidebar-border p-3">
+        <SidebarHeader className={`border-b border-sidebar-border p-3 ${isCollapsed ? 'hidden' : ''}`}>
           <div className="flex items-center gap-2">
             <Link href="/">
-              <div className={`rounded-md bg-primary flex items-center justify-center cursor-pointer hover-elevate ${isCollapsed ? 'w-8 h-8' : 'w-7 h-7'}`}>
+              <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center cursor-pointer hover-elevate">
                 <Folder className="w-4 h-4 text-primary-foreground" />
               </div>
             </Link>
-            {!isCollapsed && (
-              <span className="font-semibold text-sm" data-testid="text-sidebar-brand">DocuFlow</span>
-            )}
+            <span className="font-semibold text-sm" data-testid="text-sidebar-brand">DocuFlow</span>
           </div>
         </SidebarHeader>
 
