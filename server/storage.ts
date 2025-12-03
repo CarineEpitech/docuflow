@@ -33,6 +33,9 @@ export interface IStorage {
   duplicateDocument(id: string): Promise<Document | undefined>;
   
   search(userId: string, query: string): Promise<Array<{ type: string; id: string; title: string; projectName?: string }>>;
+  
+  // Get all documents for a user across all projects (for chatbot knowledge base)
+  getAllUserDocuments(userId: string): Promise<Array<Document & { projectName: string }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -344,6 +347,25 @@ export class DatabaseStorage implements IStorage {
     }
 
     return results.slice(0, 20);
+  }
+
+  async getAllUserDocuments(userId: string): Promise<Array<Document & { projectName: string }>> {
+    const userProjects = await this.getProjects(userId);
+    const projectIds = userProjects.map((p) => p.id);
+    const projectMap = new Map(userProjects.map((p) => [p.id, p.name]));
+
+    if (projectIds.length === 0) return [];
+
+    const allDocs = await db
+      .select()
+      .from(documents)
+      .where(or(...projectIds.map((pid) => eq(documents.projectId, pid))))
+      .orderBy(documents.projectId, documents.position);
+
+    return allDocs.map(doc => ({
+      ...doc,
+      projectName: projectMap.get(doc.projectId) || "Unknown Project"
+    }));
   }
 }
 

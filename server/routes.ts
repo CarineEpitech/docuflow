@@ -437,6 +437,8 @@ export async function registerRoutes(
   });
 
   // Chat API endpoint - uses projects and pages as knowledge base
+  // Knowledge base is dynamic: always fetches fresh data from database
+  // When pages are created/updated/deleted, the next chat query will reflect those changes
   app.post("/api/chat", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req)!;
@@ -465,52 +467,97 @@ export async function registerRoutes(
         return res.status(500).json({ message: "Chat service is not configured. Please add your OpenAI API key." });
       }
       
-      // Build knowledge base from user's projects and pages with size limits
+      // Build comprehensive knowledge base from ALL user's projects and pages
+      // This is fetched fresh each time, so changes are immediately reflected
       const projects = await storage.getProjects(userId);
+      const allDocuments = await storage.getAllUserDocuments(userId);
+      
+      // Build structured knowledge base with full content
       let knowledgeBase = "";
-      const MAX_KNOWLEDGE_BASE_CHARS = 50000; // Limit to prevent oversized prompts
-      const MAX_PAGE_CONTENT_CHARS = 2000; // Limit per page
+      const MAX_TOTAL_CHARS = 100000; // Higher limit for comprehensive knowledge
+      
+      // First, list all projects
+      if (projects.length > 0) {
+        knowledgeBase += "# Projects Overview\n\n";
+        for (const project of projects) {
+          knowledgeBase += `- **${project.name}**`;
+          if (project.description) {
+            knowledgeBase += `: ${project.description}`;
+          }
+          knowledgeBase += "\n";
+        }
+        knowledgeBase += "\n";
+      }
+      
+      // Group documents by project for better organization
+      const docsByProject = new Map<string, typeof allDocuments>();
+      for (const doc of allDocuments) {
+        const projectDocs = docsByProject.get(doc.projectId) || [];
+        projectDocs.push(doc);
+        docsByProject.set(doc.projectId, projectDocs);
+      }
+      
+      // Add all document content organized by project
+      knowledgeBase += "# Documentation Content\n\n";
       
       for (const project of projects) {
-        if (knowledgeBase.length >= MAX_KNOWLEDGE_BASE_CHARS) {
-          knowledgeBase += "\n[Additional projects truncated due to size limits]\n";
+        if (knowledgeBase.length >= MAX_TOTAL_CHARS) {
+          knowledgeBase += "\n[Additional content truncated due to size limits]\n";
           break;
         }
         
-        knowledgeBase += `\n## Project: ${project.name}\n`;
-        if (project.description) {
-          knowledgeBase += `Description: ${project.description}\n`;
-        }
+        const projectDocs = docsByProject.get(project.id) || [];
+        if (projectDocs.length === 0) continue;
         
-        const documents = await storage.getDocuments(project.id);
-        for (const doc of documents) {
-          if (knowledgeBase.length >= MAX_KNOWLEDGE_BASE_CHARS) break;
+        knowledgeBase += `## Project: ${project.name}\n\n`;
+        
+        // Build hierarchy map for better context
+        const docMap = new Map(projectDocs.map(d => [d.id, d]));
+        
+        for (const doc of projectDocs) {
+          if (knowledgeBase.length >= MAX_TOTAL_CHARS) break;
           
-          knowledgeBase += `\n### Page: ${doc.title}\n`;
-          let textContent = extractTextFromContent(doc.content);
-          
-          // Truncate individual page content if too long
-          if (textContent.length > MAX_PAGE_CONTENT_CHARS) {
-            textContent = textContent.substring(0, MAX_PAGE_CONTENT_CHARS) + "... [truncated]";
+          // Determine nesting level for context
+          let depth = 0;
+          let parentId = doc.parentId;
+          while (parentId && depth < 5) {
+            const parent = docMap.get(parentId);
+            if (parent) {
+              parentId = parent.parentId;
+              depth++;
+            } else {
+              break;
+            }
           }
           
+          const indent = "  ".repeat(depth);
+          knowledgeBase += `${indent}### ${doc.title}\n`;
+          
+          // Extract and include FULL text content
+          const textContent = extractTextFromContent(doc.content);
           if (textContent) {
-            knowledgeBase += `${textContent}\n`;
+            // Add content with proper indentation context
+            const contentLines = textContent.split('\n').map(line => `${indent}${line}`).join('\n');
+            knowledgeBase += `${contentLines}\n\n`;
+          } else {
+            knowledgeBase += `${indent}(Empty page)\n\n`;
           }
         }
       }
       
       // Build messages array for OpenAI
-      const systemMessage = `You are DocuFlow Assistant, a helpful AI that assists users with their documentation projects. You have access to all of the user's projects and pages as your knowledge base.
+      const systemMessage = `You are DocuFlow Assistant, a helpful AI that assists users with their documentation projects. You have access to ALL of the user's projects and pages as your knowledge base. This knowledge is always up-to-date - when pages are created, updated, or deleted, you immediately have access to the latest content.
 
-Here is the user's documentation:
+Here is the user's complete documentation:
 ${knowledgeBase || "The user has no projects or pages yet."}
 
 Instructions:
 - Answer questions based on the user's documentation when relevant
+- You can reference specific pages, projects, and their content
 - Help with documentation-related tasks like organizing content, suggesting improvements, or finding information
 - Be concise and helpful
-- If asked about something not in the documentation, you can still help but clarify that the information isn't in their docs`;
+- If asked about something not in the documentation, you can still help but clarify that the information isn't in their docs
+- When referencing documentation, be specific about which project and page the information comes from`;
 
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: "system", content: systemMessage },
