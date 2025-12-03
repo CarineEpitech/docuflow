@@ -118,6 +118,7 @@ export default function DocumentPage() {
 
   const handleImageUpload = useCallback(async (): Promise<string | null> => {
     try {
+      // Get presigned upload URL
       const response = await apiRequest("POST", "/api/objects/upload");
       const { uploadURL } = response as { uploadURL: string };
       
@@ -133,6 +134,7 @@ export default function DocumentPage() {
           }
 
           try {
+            // Upload directly to storage (parallel with UI feedback already showing)
             await fetch(uploadURL, {
               method: "PUT",
               body: file,
@@ -141,10 +143,15 @@ export default function DocumentPage() {
               },
             });
 
+            // Register image and get final path
             const updateResponse = await apiRequest("PUT", "/api/document-images", {
               imageURL: uploadURL,
             }) as { objectPath: string };
 
+            toast({ 
+              title: "Image uploaded", 
+              description: "Image added to your document",
+            });
             resolve(updateResponse.objectPath);
           } catch (error) {
             toast({ title: "Failed to upload image", variant: "destructive" });

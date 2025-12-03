@@ -35,6 +35,7 @@ import {
   AlertCircle,
   Link as LinkIcon,
   Video,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -85,6 +86,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
   const [linkUrl, setLinkUrl] = useState("");
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
 
@@ -252,9 +254,14 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
         break;
       case "image":
         if (onImageUpload) {
-          const url = await onImageUpload();
-          if (url) {
-            editor.chain().focus().setImage({ src: url }).run();
+          setIsUploadingImage(true);
+          try {
+            const url = await onImageUpload();
+            if (url) {
+              editor.chain().focus().setImage({ src: url }).run();
+            }
+          } finally {
+            setIsUploadingImage(false);
           }
         }
         break;
@@ -560,17 +567,27 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className="h-8 w-8"
+          disabled={isUploadingImage}
           onClick={async () => {
-            if (onImageUpload) {
-              const url = await onImageUpload();
-              if (url) {
-                editor.chain().focus().setImage({ src: url }).run();
+            if (onImageUpload && !isUploadingImage) {
+              setIsUploadingImage(true);
+              try {
+                const url = await onImageUpload();
+                if (url) {
+                  editor.chain().focus().setImage({ src: url }).run();
+                }
+              } finally {
+                setIsUploadingImage(false);
               }
             }
           }}
           data-testid="button-image"
         >
-          <ImageIcon className="w-4 h-4" />
+          {isUploadingImage ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <ImageIcon className="w-4 h-4" />
+          )}
         </Button>
         <Button
           variant="ghost"
