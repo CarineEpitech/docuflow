@@ -9,7 +9,7 @@ DocuFlow is a Notion-like documentation application designed for organizing tech
 - Nested page hierarchies with drag-and-drop reordering
 - Image and video embeds (YouTube, Loom, Fathom)
 - Full-text search across projects and pages
-- AI-powered chatbot assistant (GPT-4.1-nano) with documentation as knowledge base
+- AI-powered chatbot assistant (GPT-4.1-nano) with pgvector-based semantic search for unlimited documentation access
 - Dark mode support
 - Page templates (Client Project, Technical Solution)
 
@@ -105,6 +105,15 @@ Preferred communication style: Simple, everyday language.
 - PostgreSQL session store for connect-pg-simple
 - Fields: sid (primary key), sess (JSONB), expire (timestamp with index)
 - Automatic session cleanup via TTL
+
+**Document Embeddings Table**
+- Stores vector embeddings for semantic search (pgvector extension)
+- Fields: id (UUID), documentId (FK), projectId (FK), ownerId (FK), chunkIndex (int), chunkText (text), contentHash (varchar), embedding (vector(1536)), metadata (JSONB), timestamps
+- Uses OpenAI text-embedding-3-small model for 1536-dimensional embeddings
+- Chunks documents into ~800 token segments with 100 token overlap
+- Hash-based change detection to avoid regenerating unchanged chunks
+- Cascade deletion when document or project is deleted
+- Cosine similarity indexing for fast semantic search
 
 **Object Storage**
 - **Google Cloud Storage** integration via `@google-cloud/storage`

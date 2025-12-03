@@ -145,35 +145,49 @@ export async function updateDocumentEmbeddings(
     existingEmbeddings.map(e => [e.chunkIndex, e.contentHash])
   );
   
-  const chunksToEmbed: { index: number; text: string; hash: string }[] = [];
-  
-  for (let i = 0; i < chunks.length; i++) {
-    const hash = computeHash(chunks[i]);
-    if (existingHashes.get(i) !== hash) {
-      chunksToEmbed.push({ index: i, text: chunks[i], hash });
+  // Check if content has changed by comparing chunk hashes
+  let needsUpdate = existingEmbeddings.length !== chunks.length;
+  if (!needsUpdate) {
+    for (let i = 0; i < chunks.length; i++) {
+      const hash = computeHash(chunks[i]);
+      if (existingHashes.get(i) !== hash) {
+        needsUpdate = true;
+        break;
+      }
     }
   }
   
-  if (chunksToEmbed.length > 0 || existingEmbeddings.length !== chunks.length) {
-    await db.delete(documentEmbeddings).where(eq(documentEmbeddings.documentId, documentId));
+  if (!needsUpdate) {
+    return; // No changes, skip embedding generation
+  }
+  
+  // Generate all embeddings FIRST before deleting existing ones
+  // This prevents data loss if embedding generation fails
+  let embeddings: number[][];
+  try {
+    embeddings = await generateEmbeddings(chunks);
+  } catch (error) {
+    console.error("Failed to generate embeddings for document:", documentId, error);
+    throw error; // Don't delete existing embeddings if we can't generate new ones
+  }
+  
+  // Now that we have new embeddings, delete old ones and insert new
+  await db.delete(documentEmbeddings).where(eq(documentEmbeddings.documentId, documentId));
+  
+  for (let i = 0; i < chunks.length; i++) {
+    const hash = computeHash(chunks[i]);
+    const embeddingArray = embeddings[i];
+    const embeddingString = `[${embeddingArray.join(",")}]`;
     
-    const embeddings = await generateEmbeddings(chunks);
-    
-    for (let i = 0; i < chunks.length; i++) {
-      const hash = computeHash(chunks[i]);
-      const embeddingArray = embeddings[i];
-      const embeddingString = `[${embeddingArray.join(",")}]`;
-      
-      await db.execute(sql`
-        INSERT INTO document_embeddings (
-          document_id, project_id, owner_id, chunk_index, chunk_text, content_hash, embedding, metadata
-        ) VALUES (
-          ${documentId}, ${projectId}, ${ownerId}, ${i}, ${chunks[i]}, ${hash}, 
-          ${embeddingString}::vector,
-          ${JSON.stringify({ title, projectName, breadcrumbs })}::jsonb
-        )
-      `);
-    }
+    await db.execute(sql`
+      INSERT INTO document_embeddings (
+        document_id, project_id, owner_id, chunk_index, chunk_text, content_hash, embedding, metadata
+      ) VALUES (
+        ${documentId}, ${projectId}, ${ownerId}, ${i}, ${chunks[i]}, ${hash}, 
+        ${embeddingString}::vector,
+        ${JSON.stringify({ title, projectName, breadcrumbs })}::jsonb
+      )
+    `);
   }
 }
 

@@ -576,6 +576,7 @@ export async function registerRoutes(
       // This allows unlimited access to all documentation without character limits
       let relevantContext = "";
       let searchResults: { chunkText: string; title: string; projectName: string; breadcrumbs: string[]; similarity: number }[] = [];
+      let usedFallback = false;
       
       try {
         // Search for chunks related to the user's question
@@ -609,7 +610,37 @@ export async function registerRoutes(
         }
       } catch (error) {
         console.error("Error searching embeddings:", error);
-        // Fall back to basic project overview if vector search fails
+        // Fall back to loading all documents directly
+      }
+      
+      // Fallback: If no embeddings found, load documents directly
+      if (searchResults.length === 0) {
+        usedFallback = true;
+        const allDocuments = await storage.getAllUserDocuments(userId);
+        const projectMap = new Map(projects.map(p => [p.id, p]));
+        
+        if (allDocuments.length > 0) {
+          relevantContext = "# Documentation Content\n\n";
+          const MAX_FALLBACK_CHARS = 50000;
+          
+          for (const doc of allDocuments) {
+            if (relevantContext.length >= MAX_FALLBACK_CHARS) {
+              relevantContext += "\n[Additional content available via semantic search...]\n";
+              break;
+            }
+            
+            const project = projectMap.get(doc.projectId);
+            const projectName = project?.name || "Unknown Project";
+            
+            relevantContext += `## ${projectName} / ${doc.title}\n`;
+            const textContent = extractTextFromContent(doc.content);
+            if (textContent) {
+              relevantContext += textContent + "\n\n";
+            } else {
+              relevantContext += "(Empty page)\n\n";
+            }
+          }
+        }
       }
       
       // Build system message with semantic search results
@@ -649,7 +680,8 @@ Instructions:
       res.json({ 
         message: assistantMessage,
         model: "gpt-4.1-nano",
-        relevantDocs: searchResults.length
+        relevantDocs: searchResults.length,
+        usedFallback
       });
     } catch (error: any) {
       console.error("Error in chat:", error);
