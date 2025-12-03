@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
-import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search, X, Check, FileText } from "lucide-react";
+import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search, X, Check, FileText, Sparkles } from "lucide-react";
+import { ChatBot } from "@/components/ChatBot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -399,7 +400,8 @@ export function AppSidebar() {
 
         <SidebarFooter className="border-t border-sidebar-border p-3">
           {isCollapsed ? (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center gap-2">
+              <ChatBot />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -431,33 +433,36 @@ export function AppSidebar() {
               </DropdownMenu>
             </div>
           ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-2 h-auto py-2 px-2"
-                  data-testid="button-user-menu"
-                >
-                  <Avatar className="h-7 w-7">
-                    <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
-                    <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-medium truncate">{userName}</p>
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="cursor-pointer"
-                  data-testid="button-logout"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex-1 justify-start gap-2 h-auto py-2 px-2"
+                    data-testid="button-user-menu"
+                  >
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
+                      <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-medium truncate">{userName}</p>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="cursor-pointer"
+                    data-testid="button-logout"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <ChatBot />
+            </div>
           )}
         </SidebarFooter>
       </Sidebar>

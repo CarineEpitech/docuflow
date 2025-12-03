@@ -6,6 +6,39 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import { insertProjectSchema, insertDocumentSchema } from "@shared/schema";
 import { z } from "zod";
+import OpenAI from "openai";
+
+// Helper to get OpenAI client lazily (only when needed, not at import time)
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY environment variable is not set");
+  }
+  // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+  return new OpenAI({ apiKey });
+}
+
+// Helper to extract text content from TipTap JSON
+function extractTextFromContent(content: any): string {
+  if (!content) return "";
+  
+  let text = "";
+  
+  function traverse(node: any) {
+    if (!node) return;
+    
+    if (node.type === "text" && node.text) {
+      text += node.text + " ";
+    }
+    
+    if (node.content && Array.isArray(node.content)) {
+      node.content.forEach(traverse);
+    }
+  }
+  
+  traverse(content);
+  return text.trim();
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -400,6 +433,110 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error setting image:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Chat API endpoint - uses projects and pages as knowledge base
+  app.post("/api/chat", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      
+      const chatSchema = z.object({
+        message: z.string().min(1),
+        conversationHistory: z.array(z.object({
+          role: z.enum(["user", "assistant"]),
+          content: z.string()
+        })).optional()
+      });
+      
+      const parsed = chatSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      const { message, conversationHistory = [] } = parsed.data;
+      
+      // Lazily get OpenAI client - handles missing API key gracefully
+      let openai: OpenAI;
+      try {
+        openai = getOpenAIClient();
+      } catch (error: any) {
+        console.error("OpenAI API key not configured:", error.message);
+        return res.status(500).json({ message: "Chat service is not configured. Please add your OpenAI API key." });
+      }
+      
+      // Build knowledge base from user's projects and pages with size limits
+      const projects = await storage.getProjects(userId);
+      let knowledgeBase = "";
+      const MAX_KNOWLEDGE_BASE_CHARS = 50000; // Limit to prevent oversized prompts
+      const MAX_PAGE_CONTENT_CHARS = 2000; // Limit per page
+      
+      for (const project of projects) {
+        if (knowledgeBase.length >= MAX_KNOWLEDGE_BASE_CHARS) {
+          knowledgeBase += "\n[Additional projects truncated due to size limits]\n";
+          break;
+        }
+        
+        knowledgeBase += `\n## Project: ${project.name}\n`;
+        if (project.description) {
+          knowledgeBase += `Description: ${project.description}\n`;
+        }
+        
+        const documents = await storage.getDocuments(project.id);
+        for (const doc of documents) {
+          if (knowledgeBase.length >= MAX_KNOWLEDGE_BASE_CHARS) break;
+          
+          knowledgeBase += `\n### Page: ${doc.title}\n`;
+          let textContent = extractTextFromContent(doc.content);
+          
+          // Truncate individual page content if too long
+          if (textContent.length > MAX_PAGE_CONTENT_CHARS) {
+            textContent = textContent.substring(0, MAX_PAGE_CONTENT_CHARS) + "... [truncated]";
+          }
+          
+          if (textContent) {
+            knowledgeBase += `${textContent}\n`;
+          }
+        }
+      }
+      
+      // Build messages array for OpenAI
+      const systemMessage = `You are DocuFlow Assistant, a helpful AI that assists users with their documentation projects. You have access to all of the user's projects and pages as your knowledge base.
+
+Here is the user's documentation:
+${knowledgeBase || "The user has no projects or pages yet."}
+
+Instructions:
+- Answer questions based on the user's documentation when relevant
+- Help with documentation-related tasks like organizing content, suggesting improvements, or finding information
+- Be concise and helpful
+- If asked about something not in the documentation, you can still help but clarify that the information isn't in their docs`;
+
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        { role: "system", content: systemMessage },
+        ...conversationHistory.map(msg => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content
+        })),
+        { role: "user", content: message }
+      ];
+      
+      // Call OpenAI with gpt-4.1-nano as requested by user
+      const response = await openai.chat.completions.create({
+        model: "gpt-4.1-nano",
+        messages,
+        max_completion_tokens: 1024,
+      });
+      
+      const assistantMessage = response.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+      
+      res.json({ 
+        message: assistantMessage,
+        model: "gpt-4.1-nano"
+      });
+    } catch (error: any) {
+      console.error("Error in chat:", error);
+      res.status(500).json({ message: "Failed to process chat request", error: error.message });
     }
   });
 
