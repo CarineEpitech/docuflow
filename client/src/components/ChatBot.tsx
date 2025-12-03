@@ -31,7 +31,7 @@ export function ChatBot() {
         message,
         conversationHistory: messages,
       });
-      return response.json();
+      return response;
     },
     onSuccess: (data) => {
       setMessages((prev) => [
