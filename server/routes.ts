@@ -480,6 +480,56 @@ export async function registerRoutes(
     }
   });
 
+  // Rebuild embeddings for all user documents
+  // This is useful for initial setup or after bulk imports
+  app.post("/api/embeddings/rebuild", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      
+      // Get all user's projects and documents
+      const projects = await storage.getProjects(userId);
+      const projectMap = new Map(projects.map(p => [p.id, p]));
+      const allDocuments = await storage.getAllUserDocuments(userId);
+      
+      // Rebuild embeddings for each document
+      const results = { processed: 0, errors: 0 };
+      
+      for (const doc of allDocuments) {
+        try {
+          const project = projectMap.get(doc.projectId);
+          if (!project) continue;
+          
+          const ancestors = await storage.getDocumentAncestors(doc.id);
+          const breadcrumbs = ancestors.map(a => a.title);
+          
+          await updateDocumentEmbeddings(
+            doc.id,
+            doc.projectId,
+            userId,
+            doc.title,
+            doc.content,
+            project.name,
+            breadcrumbs
+          );
+          
+          results.processed++;
+        } catch (error) {
+          console.error(`Error rebuilding embeddings for document ${doc.id}:`, error);
+          results.errors++;
+        }
+      }
+      
+      res.json({
+        message: "Embeddings rebuild complete",
+        ...results,
+        total: allDocuments.length
+      });
+    } catch (error: any) {
+      console.error("Error rebuilding embeddings:", error);
+      res.status(500).json({ message: "Failed to rebuild embeddings", error: error.message });
+    }
+  });
+
   // Chat API endpoint - uses projects and pages as knowledge base
   // Knowledge base is dynamic: always fetches fresh data from database
   // When pages are created/updated/deleted, the next chat query will reflect those changes
@@ -511,97 +561,72 @@ export async function registerRoutes(
         return res.status(500).json({ message: "Chat service is not configured. Please add your OpenAI API key." });
       }
       
-      // Build comprehensive knowledge base from ALL user's projects and pages
-      // This is fetched fresh each time, so changes are immediately reflected
+      // Get project overview for context
       const projects = await storage.getProjects(userId);
-      const allDocuments = await storage.getAllUserDocuments(userId);
-      
-      // Build structured knowledge base with full content
-      let knowledgeBase = "";
-      const MAX_TOTAL_CHARS = 100000; // Higher limit for comprehensive knowledge
-      
-      // First, list all projects
-      if (projects.length > 0) {
-        knowledgeBase += "# Projects Overview\n\n";
-        for (const project of projects) {
-          knowledgeBase += `- **${project.name}**`;
-          if (project.description) {
-            knowledgeBase += `: ${project.description}`;
-          }
-          knowledgeBase += "\n";
-        }
-        knowledgeBase += "\n";
-      }
-      
-      // Group documents by project for better organization
-      const docsByProject = new Map<string, typeof allDocuments>();
-      for (const doc of allDocuments) {
-        const projectDocs = docsByProject.get(doc.projectId) || [];
-        projectDocs.push(doc);
-        docsByProject.set(doc.projectId, projectDocs);
-      }
-      
-      // Add all document content organized by project
-      knowledgeBase += "# Documentation Content\n\n";
-      
+      let projectOverview = "# Available Projects\n\n";
       for (const project of projects) {
-        if (knowledgeBase.length >= MAX_TOTAL_CHARS) {
-          knowledgeBase += "\n[Additional content truncated due to size limits]\n";
-          break;
+        projectOverview += `- **${project.name}**`;
+        if (project.description) {
+          projectOverview += `: ${project.description}`;
         }
+        projectOverview += "\n";
+      }
+      
+      // Use vector search to find relevant documentation chunks
+      // This allows unlimited access to all documentation without character limits
+      let relevantContext = "";
+      let searchResults: { chunkText: string; title: string; projectName: string; breadcrumbs: string[]; similarity: number }[] = [];
+      
+      try {
+        // Search for chunks related to the user's question
+        searchResults = await searchSimilarChunks(userId, message, 15); // Get top 15 most relevant chunks
         
-        const projectDocs = docsByProject.get(project.id) || [];
-        if (projectDocs.length === 0) continue;
-        
-        knowledgeBase += `## Project: ${project.name}\n\n`;
-        
-        // Build hierarchy map for better context
-        const docMap = new Map(projectDocs.map(d => [d.id, d]));
-        
-        for (const doc of projectDocs) {
-          if (knowledgeBase.length >= MAX_TOTAL_CHARS) break;
+        if (searchResults.length > 0) {
+          relevantContext = "# Relevant Documentation\n\n";
           
-          // Determine nesting level for context
-          let depth = 0;
-          let parentId = doc.parentId;
-          while (parentId && depth < 5) {
-            const parent = docMap.get(parentId);
-            if (parent) {
-              parentId = parent.parentId;
-              depth++;
-            } else {
-              break;
+          // Group results by document for better context
+          const byDocument = new Map<string, typeof searchResults>();
+          for (const result of searchResults) {
+            const key = `${result.projectName}/${result.title}`;
+            const existing = byDocument.get(key) || [];
+            existing.push(result);
+            byDocument.set(key, existing);
+          }
+          
+          for (const [docKey, chunks] of byDocument) {
+            const first = chunks[0];
+            const breadcrumbPath = first.breadcrumbs.length > 0 
+              ? first.breadcrumbs.join(" > ") + " > " + first.title
+              : first.title;
+            
+            relevantContext += `## ${first.projectName} / ${breadcrumbPath}\n\n`;
+            
+            // Combine chunks from the same document
+            for (const chunk of chunks) {
+              relevantContext += chunk.chunkText + "\n\n";
             }
           }
-          
-          const indent = "  ".repeat(depth);
-          knowledgeBase += `${indent}### ${doc.title}\n`;
-          
-          // Extract and include FULL text content
-          const textContent = extractTextFromContent(doc.content);
-          if (textContent) {
-            // Add content with proper indentation context
-            const contentLines = textContent.split('\n').map(line => `${indent}${line}`).join('\n');
-            knowledgeBase += `${contentLines}\n\n`;
-          } else {
-            knowledgeBase += `${indent}(Empty page)\n\n`;
-          }
         }
+      } catch (error) {
+        console.error("Error searching embeddings:", error);
+        // Fall back to basic project overview if vector search fails
       }
       
-      // Build messages array for OpenAI
-      const systemMessage = `You are DocuFlow Assistant, a helpful AI that assists users with their documentation projects. You have access to ALL of the user's projects and pages as your knowledge base. This knowledge is always up-to-date - when pages are created, updated, or deleted, you immediately have access to the latest content.
+      // Build system message with semantic search results
+      const systemMessage = `You are DocuFlow Assistant, a helpful AI that assists users with their documentation projects. You have access to ALL of the user's projects and pages through semantic search - there are no character limits. When pages are created, updated, or deleted, the knowledge base is automatically updated.
 
-Here is the user's complete documentation:
-${knowledgeBase || "The user has no projects or pages yet."}
+${projectOverview}
+
+${relevantContext || "No specific documentation found related to this query. The user's documentation may be empty or their question may not relate to existing content."}
 
 Instructions:
-- Answer questions based on the user's documentation when relevant
+- Answer questions based on the user's documentation when the relevant content is shown above
 - You can reference specific pages, projects, and their content
 - Help with documentation-related tasks like organizing content, suggesting improvements, or finding information
 - Be concise and helpful
-- If asked about something not in the documentation, you can still help but clarify that the information isn't in their docs
-- When referencing documentation, be specific about which project and page the information comes from`;
+- If the relevant documentation section is empty or doesn't contain what was asked about, you can still help but clarify that the specific information wasn't found in their docs
+- When referencing documentation, be specific about which project and page the information comes from
+- For general questions about projects, you have access to all project names listed above`;
 
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: "system", content: systemMessage },
@@ -623,7 +648,8 @@ Instructions:
       
       res.json({ 
         message: assistantMessage,
-        model: "gpt-4.1-nano"
+        model: "gpt-4.1-nano",
+        relevantDocs: searchResults.length
       });
     } catch (error: any) {
       console.error("Error in chat:", error);
