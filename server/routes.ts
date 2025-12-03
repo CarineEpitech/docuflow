@@ -7,6 +7,14 @@ import { ObjectPermission } from "./objectAcl";
 import { insertProjectSchema, insertDocumentSchema } from "@shared/schema";
 import { z } from "zod";
 import OpenAI from "openai";
+import {
+  updateDocumentEmbeddings,
+  deleteDocumentEmbeddings,
+  deleteProjectEmbeddings,
+  searchSimilarChunks,
+  hasEmbeddings,
+  rebuildAllEmbeddings,
+} from "./embeddings";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
 function getOpenAIClient(): OpenAI {
@@ -139,6 +147,10 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden" });
       }
 
+      // Delete project embeddings (cascade should handle this, but be explicit)
+      deleteProjectEmbeddings(req.params.id)
+        .catch(err => console.error("Error deleting project embeddings:", err));
+
       await storage.deleteProject(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -202,6 +214,17 @@ export async function registerRoutes(
         projectId: req.params.projectId,
         position: 0,
       });
+
+      // Generate embeddings for the new document asynchronously
+      updateDocumentEmbeddings(
+        document.id,
+        req.params.projectId,
+        userId,
+        document.title,
+        document.content,
+        project.name,
+        []
+      ).catch(err => console.error("Error generating embeddings:", err));
 
       res.status(201).json(document);
     } catch (error) {
@@ -293,6 +316,23 @@ export async function registerRoutes(
       }
 
       const updated = await storage.updateDocument(req.params.id, parsed.data);
+      
+      // Update embeddings if title or content changed
+      if (updated && (parsed.data.title !== undefined || parsed.data.content !== undefined)) {
+        const ancestors = await storage.getDocumentAncestors(req.params.id);
+        const breadcrumbs = ancestors.map(a => a.title);
+        
+        updateDocumentEmbeddings(
+          updated.id,
+          updated.projectId,
+          userId,
+          updated.title,
+          updated.content,
+          project.name,
+          breadcrumbs
+        ).catch(err => console.error("Error updating embeddings:", err));
+      }
+      
       res.json(updated);
     } catch (error) {
       console.error("Error updating document:", error);
@@ -314,6 +354,10 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden" });
       }
 
+      // Delete embeddings first (cascade should handle this, but be explicit)
+      deleteDocumentEmbeddings(req.params.id)
+        .catch(err => console.error("Error deleting embeddings:", err));
+      
       await storage.deleteDocument(req.params.id);
       res.status(204).send();
     } catch (error) {
