@@ -221,14 +221,16 @@ export function AppSidebar() {
   return (
     <>
       <Sidebar collapsible="icon">
-        <SidebarHeader className={`border-b border-sidebar-border p-3 ${isCollapsed ? 'hidden' : ''}`}>
+        <SidebarHeader className="border-b border-sidebar-border p-3">
           <div className="flex items-center gap-2">
             <Link href="/">
-              <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center cursor-pointer hover-elevate">
+              <div className={`rounded-md bg-primary flex items-center justify-center cursor-pointer hover-elevate ${isCollapsed ? 'w-8 h-8' : 'w-7 h-7'}`}>
                 <Folder className="w-4 h-4 text-primary-foreground" />
               </div>
             </Link>
-            <span className="font-semibold text-sm" data-testid="text-sidebar-brand">DocuFlow</span>
+            {!isCollapsed && (
+              <span className="font-semibold text-sm" data-testid="text-sidebar-brand">DocuFlow</span>
+            )}
           </div>
         </SidebarHeader>
 
@@ -310,12 +312,12 @@ export function AppSidebar() {
                       >
                         <Link
                           href={`/project/${project.id}`}
-                          className="flex items-center gap-2 w-full"
+                          className="flex items-center gap-2 w-full group-data-[collapsible=icon]:hidden"
                           data-testid={`link-project-${project.id}`}
                         >
                           <span className="text-base">{getProjectIcon(project.icon)}</span>
-                          <span className="flex-1 truncate group-data-[collapsible=icon]:hidden">{project.name}</span>
-                          <ChevronRight className="w-4 h-4 opacity-50 group-data-[collapsible=icon]:hidden" />
+                          <span className="flex-1 truncate">{project.name}</span>
+                          <ChevronRight className="w-4 h-4 opacity-50" />
                         </Link>
                       </SidebarMenuButton>
                       <DropdownMenu>
