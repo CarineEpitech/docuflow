@@ -141,3 +141,44 @@ export interface TipTapContent {
   marks?: Array<{ type: string; attrs?: Record<string, any> }>;
   text?: string;
 }
+
+// Document embeddings table for vector search (uses pgvector)
+export const documentEmbeddings = pgTable("document_embeddings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  ownerId: varchar("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  chunkIndex: integer("chunk_index").notNull().default(0),
+  chunkText: text("chunk_text").notNull(),
+  contentHash: varchar("content_hash", { length: 64 }).notNull(),
+  metadata: jsonb("metadata").$type<{
+    title?: string;
+    projectName?: string;
+    breadcrumbs?: string[];
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_embeddings_document").on(table.documentId),
+  index("idx_embeddings_project").on(table.projectId),
+  index("idx_embeddings_owner").on(table.ownerId),
+  index("idx_embeddings_hash").on(table.contentHash),
+]);
+
+export const documentEmbeddingsRelations = relations(documentEmbeddings, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentEmbeddings.documentId],
+    references: [documents.id],
+  }),
+  project: one(projects, {
+    fields: [documentEmbeddings.projectId],
+    references: [projects.id],
+  }),
+  owner: one(users, {
+    fields: [documentEmbeddings.ownerId],
+    references: [users.id],
+  }),
+}));
+
+export type DocumentEmbedding = typeof documentEmbeddings.$inferSelect;
+export type InsertDocumentEmbedding = typeof documentEmbeddings.$inferInsert;
