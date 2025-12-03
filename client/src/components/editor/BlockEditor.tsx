@@ -14,7 +14,7 @@ import { VideoEmbed, extractVideoInfo } from "./VideoEmbed";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Dropcursor from "@tiptap/extension-dropcursor";
 import { common, createLowlight } from "lowlight";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   Bold,
   Italic,
@@ -85,6 +85,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
   const [linkUrl, setLinkUrl] = useState("");
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const slashMenuRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -176,10 +178,18 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           if (textBefore === "" || textBefore.endsWith(" ")) {
             setTimeout(() => {
               const coords = view.coordsAtPos(from);
-              setSlashMenuPosition({
-                top: coords.bottom + 8,
-                left: coords.left,
-              });
+              const containerRect = editorContainerRef.current?.getBoundingClientRect();
+              
+              if (containerRect) {
+                // Calculate position relative to container
+                const menuTop = coords.bottom - containerRect.top + 8;
+                const menuLeft = Math.max(0, coords.left - containerRect.left);
+                
+                setSlashMenuPosition({
+                  top: menuTop,
+                  left: menuLeft,
+                });
+              }
               setShowSlashMenu(true);
               setSlashFilter("");
               setSelectedIndex(0);
@@ -343,6 +353,36 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
     return () => document.removeEventListener("click", handleClickOutside);
   }, [showSlashMenu]);
 
+  // Adjust slash menu position if it would go off-screen
+  useEffect(() => {
+    if (!showSlashMenu || !slashMenuRef.current || !editorContainerRef.current) return;
+
+    const menu = slashMenuRef.current;
+    const container = editorContainerRef.current;
+    const menuRect = menu.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    let newTop = slashMenuPosition.top;
+    let newLeft = slashMenuPosition.left;
+
+    // If menu goes below viewport, position it above the cursor
+    if (menuRect.bottom > viewportHeight - 20) {
+      const cursorTop = containerRect.top + slashMenuPosition.top - 8;
+      newTop = slashMenuPosition.top - menuRect.height - 40;
+    }
+
+    // If menu goes beyond right edge, shift it left
+    if (menuRect.right > viewportWidth - 20) {
+      newLeft = Math.max(0, containerRect.width - menuRect.width - 20);
+    }
+
+    if (newTop !== slashMenuPosition.top || newLeft !== slashMenuPosition.left) {
+      setSlashMenuPosition({ top: Math.max(0, newTop), left: newLeft });
+    }
+  }, [showSlashMenu, slashMenuPosition.top, slashMenuPosition.left]);
+
   // Sync editor content when content prop changes (e.g., when navigating back to a page)
   useEffect(() => {
     if (!editor || !isInitialized) return;
@@ -370,7 +410,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
   }, {} as Record<string, typeof SLASH_COMMANDS>);
 
   return (
-    <div className="relative" data-testid="block-editor">
+    <div className="relative" ref={editorContainerRef} data-testid="block-editor">
       <div className="sticky top-0 z-10 bg-background border-b border-border mb-4 -mx-6 px-6 py-2 flex items-center gap-1 flex-wrap" data-testid="editor-toolbar">
         <Button
           variant="ghost"
@@ -520,6 +560,22 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className="h-8 w-8"
+          onClick={async () => {
+            if (onImageUpload) {
+              const url = await onImageUpload();
+              if (url) {
+                editor.chain().focus().setImage({ src: url }).run();
+              }
+            }
+          }}
+          data-testid="button-image"
+        >
+          <ImageIcon className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
           onClick={() => setShowVideoDialog(true)}
           data-testid="button-video"
         >
@@ -531,8 +587,14 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
 
       {showSlashMenu && filteredCommands.length > 0 && (
         <div
-          className="slash-menu fixed z-50"
-          style={{ top: slashMenuPosition.top, left: slashMenuPosition.left }}
+          ref={slashMenuRef}
+          className="slash-menu absolute z-50"
+          style={{ 
+            top: slashMenuPosition.top, 
+            left: slashMenuPosition.left,
+            maxHeight: '320px',
+            overflowY: 'auto'
+          }}
           onClick={(e) => e.stopPropagation()}
           data-testid="slash-menu"
         >
