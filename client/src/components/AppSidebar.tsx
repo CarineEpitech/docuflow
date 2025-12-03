@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
-import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search, X, Check } from "lucide-react";
+import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search, X, Check, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +15,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -40,6 +41,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -54,6 +60,8 @@ export function AppSidebar() {
   const [location] = useLocation();
   const params = useParams();
   const currentProjectId = params?.projectId;
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
@@ -68,6 +76,18 @@ export function AppSidebar() {
       inlineInputRef.current.focus();
     }
   }, [showInlineCreate]);
+
+  // Keyboard shortcut for search (Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -200,32 +220,59 @@ export function AppSidebar() {
 
   return (
     <>
-      <Sidebar>
-        <SidebarHeader className="border-b border-sidebar-border p-4">
+      <Sidebar collapsible="icon">
+        <SidebarHeader className="border-b border-sidebar-border p-3">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
-              <Folder className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-sm" data-testid="text-sidebar-brand">DocuFlow</span>
+            <Link href="/">
+              <div className={`rounded-md bg-primary flex items-center justify-center cursor-pointer hover-elevate ${isCollapsed ? 'w-8 h-8' : 'w-7 h-7'}`}>
+                <Folder className="w-4 h-4 text-primary-foreground" />
+              </div>
+            </Link>
+            {!isCollapsed && (
+              <span className="font-semibold text-sm" data-testid="text-sidebar-brand">DocuFlow</span>
+            )}
           </div>
         </SidebarHeader>
 
         <SidebarContent className="custom-scrollbar">
+          {/* Search - Popover instead of Modal */}
           <div className="p-3">
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2 text-muted-foreground"
-              onClick={() => setShowSearch(true)}
-              data-testid="button-search"
-            >
-              <Search className="w-4 h-4" />
-              <span className="flex-1 text-left">Search...</span>
-              <span className="kbd text-xs">⌘K</span>
-            </Button>
+            <Popover open={showSearch} onOpenChange={setShowSearch}>
+              <PopoverTrigger asChild>
+                {isCollapsed ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-8 h-8"
+                    data-testid="button-search-collapsed"
+                  >
+                    <Search className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2 text-muted-foreground"
+                    data-testid="button-search"
+                  >
+                    <Search className="w-4 h-4" />
+                    <span className="flex-1 text-left">Search...</span>
+                    <span className="kbd text-xs">⌘K</span>
+                  </Button>
+                )}
+              </PopoverTrigger>
+              <PopoverContent 
+                side="right" 
+                align="start" 
+                className="w-80 p-0"
+                data-testid="popover-search"
+              >
+                <SearchPopoverContent onClose={() => setShowSearch(false)} />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center justify-between">
+            <SidebarGroupLabel className="flex items-center justify-between group-data-[collapsible=icon]:hidden">
               <span>Projects</span>
               <Button
                 variant="ghost"
@@ -241,9 +288,9 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {isLoading ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">Loading...</div>
+                  <div className="px-3 py-2 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">Loading...</div>
                 ) : projects.length === 0 && !showInlineCreate ? (
-                  <div className="px-3 py-4 text-center">
+                  <div className="px-3 py-4 text-center group-data-[collapsible=icon]:hidden">
                     <p className="text-sm text-muted-foreground mb-2">No projects yet</p>
                     <Button
                       variant="outline"
@@ -269,8 +316,8 @@ export function AppSidebar() {
                           data-testid={`link-project-${project.id}`}
                         >
                           <span className="text-base">{getProjectIcon(project.icon)}</span>
-                          <span className="flex-1 truncate">{project.name}</span>
-                          <ChevronRight className="w-4 h-4 opacity-50" />
+                          <span className="flex-1 truncate group-data-[collapsible=icon]:hidden">{project.name}</span>
+                          <ChevronRight className="w-4 h-4 opacity-50 group-data-[collapsible=icon]:hidden" />
                         </Link>
                       </SidebarMenuButton>
                       <DropdownMenu>
@@ -278,7 +325,7 @@ export function AppSidebar() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100 group-data-[collapsible=icon]:hidden"
                             data-testid={`button-project-menu-${project.id}`}
                           >
                             <MoreHorizontal className="w-4 h-4" />
@@ -302,7 +349,7 @@ export function AppSidebar() {
                   ))}
                   
                   {/* Inline create row */}
-                  {showInlineCreate && (
+                  {showInlineCreate && !isCollapsed && (
                     <SidebarMenuItem>
                       <div className="px-2 py-1.5">
                         <div className="flex items-center gap-1">
@@ -351,33 +398,67 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter className="border-t border-sidebar-border p-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 h-auto py-2 px-2"
-                data-testid="button-user-menu"
-              >
-                <Avatar className="h-7 w-7">
-                  <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
-                  <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 text-left min-w-0">
-                  <p className="text-sm font-medium truncate">{userName}</p>
-                </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="cursor-pointer"
-                data-testid="button-logout"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isCollapsed ? (
+            <div className="flex flex-col items-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 p-0"
+                    data-testid="button-user-menu-collapsed"
+                  >
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
+                      <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="end" className="w-56">
+                  <div className="px-2 py-1.5 border-b border-border mb-1">
+                    <p className="text-sm font-medium">{userName}</p>
+                    {user?.email && <p className="text-xs text-muted-foreground">{user.email}</p>}
+                  </div>
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="cursor-pointer"
+                    data-testid="button-logout"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-2 h-auto py-2 px-2"
+                  data-testid="button-user-menu"
+                >
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
+                    <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium truncate">{userName}</p>
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="cursor-pointer"
+                  data-testid="button-logout"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </SidebarFooter>
       </Sidebar>
 
@@ -437,15 +518,18 @@ export function AppSidebar() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <SearchDialog open={showSearch} onOpenChange={setShowSearch} />
     </>
   );
 }
 
-function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function SearchPopoverContent({ onClose }: { onClose: () => void }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [, setLocation] = useLocation();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const { data: results = [], isLoading } = useQuery<Array<{ type: string; id: string; title: string; projectName?: string }>>({
     queryKey: ["/api/search", { q: searchQuery }],
@@ -465,62 +549,70 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
     } else {
       setLocation(`/document/${result.id}`);
     }
-    onOpenChange(false);
-    setSearchQuery("");
+    onClose();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      onClose();
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0" data-testid="dialog-search">
-        <div className="p-4 border-b border-border">
+    <div onKeyDown={handleKeyDown}>
+      <div className="p-3 border-b border-border">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
+            ref={inputRef}
             placeholder="Search projects and pages..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="border-0 focus-visible:ring-0 text-base"
-            autoFocus
+            className="pl-8 border-0 focus-visible:ring-0 bg-transparent"
             data-testid="input-search"
           />
         </div>
-        <div className="max-h-[300px] overflow-y-auto p-2">
-          {searchQuery.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8 text-sm">
-              Type to search projects and pages
-            </p>
-          ) : isLoading ? (
-            <p className="text-center text-muted-foreground py-8 text-sm">
-              Searching...
-            </p>
-          ) : results.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8 text-sm">
-              No results found
-            </p>
-          ) : (
-            <div className="space-y-1">
-              {results.map((result) => (
-                <button
-                  key={`${result.type}-${result.id}`}
-                  onClick={() => handleSelect(result)}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover-elevate text-left"
-                  data-testid={`search-result-${result.id}`}
-                >
-                  <span className="text-lg">
-                    {result.type === "project" ? "📁" : "📄"}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{result.title}</p>
-                    {result.projectName && (
-                      <p className="text-sm text-muted-foreground truncate">
-                        {result.projectName}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+      <div className="max-h-[280px] overflow-y-auto p-2">
+        {searchQuery.length === 0 ? (
+          <p className="text-center text-muted-foreground py-6 text-sm">
+            Type to search projects and pages
+          </p>
+        ) : isLoading ? (
+          <p className="text-center text-muted-foreground py-6 text-sm">
+            Searching...
+          </p>
+        ) : results.length === 0 ? (
+          <p className="text-center text-muted-foreground py-6 text-sm">
+            No results found
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {results.map((result) => (
+              <button
+                key={`${result.type}-${result.id}`}
+                onClick={() => handleSelect(result)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover-elevate text-left"
+                data-testid={`search-result-${result.id}`}
+              >
+                {result.type === "project" ? (
+                  <Folder className="w-4 h-4 text-muted-foreground shrink-0" />
+                ) : (
+                  <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate text-sm">{result.title}</p>
+                  {result.projectName && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {result.projectName}
+                    </p>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
