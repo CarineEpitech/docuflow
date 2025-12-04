@@ -1,6 +1,6 @@
 import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { signupSchema, loginSchema, type SafeUser } from "@shared/schema";
@@ -26,11 +26,13 @@ export async function verifyPassword(
 }
 
 export function setupAuth(app: Express): void {
-  const MemoryStore = createMemoryStore(session);
+  const PgSession = connectPgSimple(session);
 
   const sessionSettings: session.SessionOptions = {
-    store: new MemoryStore({
-      checkPeriod: 86400000,
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: false,
+      tableName: "sessions",
     }),
     secret: process.env.SESSION_SECRET || "docuflow-secret-key-change-in-production",
     resave: false,
@@ -47,11 +49,9 @@ export function setupAuth(app: Express): void {
   app.use(session(sessionSettings));
 
   app.post("/api/auth/signup", async (req: Request, res: Response) => {
-    console.log("[Auth] Signup request received");
     try {
       const parsed = signupSchema.safeParse(req.body);
       if (!parsed.success) {
-        console.log("[Auth] Validation failed");
         return res.status(400).json({
           message: "Validation failed",
           errors: parsed.error.errors,
@@ -59,25 +59,20 @@ export function setupAuth(app: Express): void {
       }
 
       const { email, password, firstName, lastName } = parsed.data;
-      console.log("[Auth] Checking for existing user:", email);
 
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
-        console.log("[Auth] Email already registered");
         return res.status(409).json({ message: "Email already registered" });
       }
 
-      console.log("[Auth] Hashing password");
       const passwordHash = await hashPassword(password);
 
-      console.log("[Auth] Creating user");
       const user = await storage.createUser({
         email,
         passwordHash,
         firstName,
         lastName,
       });
-      console.log("[Auth] User created:", user.id);
 
       req.session.userId = user.id;
 

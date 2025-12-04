@@ -182,30 +182,3 @@ export const documentEmbeddingsRelations = relations(documentEmbeddings, ({ one 
 
 export type DocumentEmbedding = typeof documentEmbeddings.$inferSelect;
 export type InsertDocumentEmbedding = typeof documentEmbeddings.$inferInsert;
-
-// Video transcripts table for storing extracted transcripts from Loom/Fathom videos
-export const videoTranscripts = pgTable("video_transcripts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  documentId: varchar("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
-  videoUrl: varchar("video_url", { length: 2048 }).notNull(),
-  provider: varchar("provider", { length: 50 }).notNull(), // 'loom', 'fathom', 'zoom'
-  transcript: text("transcript"),
-  status: varchar("status", { length: 50 }).notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed'
-  error: text("error"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_transcripts_document").on(table.documentId),
-  index("idx_transcripts_url").on(table.videoUrl),
-  index("idx_transcripts_status").on(table.status),
-]);
-
-export const videoTranscriptsRelations = relations(videoTranscripts, ({ one }) => ({
-  document: one(documents, {
-    fields: [videoTranscripts.documentId],
-    references: [documents.id],
-  }),
-}));
-
-export type VideoTranscript = typeof videoTranscripts.$inferSelect;
-export type InsertVideoTranscript = typeof videoTranscripts.$inferInsert;

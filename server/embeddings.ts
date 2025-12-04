@@ -59,12 +59,6 @@ export function extractTextFromContent(content: any): string {
   }
   
   traverse(content);
-  
-  // Include video transcripts if present (added by transcript extraction service)
-  if (content._transcripts) {
-    text += "\n\n" + content._transcripts;
-  }
-  
   return text.trim().replace(/\n{3,}/g, "\n\n");
 }
 

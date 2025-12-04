@@ -115,14 +115,6 @@ Preferred communication style: Simple, everyday language.
 - Cascade deletion when document or project is deleted
 - Cosine similarity indexing for fast semantic search
 
-**Video Transcripts Table**
-- Stores extracted transcripts from Loom/Fathom video embeds
-- Fields: id (UUID), documentId (FK), videoUrl (varchar), provider (varchar), transcript (text), status (varchar), error (text), timestamps
-- Automatic background extraction using Playwright/Chromium
-- Dynamic updates: transcripts added when videos embedded, removed when videos deleted
-- Integrates with embedding pipeline to add transcripts to knowledge base
-- Status tracking: pending, processing, completed, failed
-
 **Object Storage**
 - **Google Cloud Storage** integration via `@google-cloud/storage`
 - Authentication using Replit Sidecar OAuth2 flow

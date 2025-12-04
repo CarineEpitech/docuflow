@@ -15,7 +15,6 @@ import {
   hasEmbeddings,
   rebuildAllEmbeddings,
 } from "./embeddings";
-import { processDocumentVideos, deleteDocumentTranscripts } from "./transcripts";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
 function getOpenAIClient(): OpenAI {
@@ -216,30 +215,16 @@ export async function registerRoutes(
         position: 0,
       });
 
-      // Process video transcripts and generate embeddings for the new document asynchronously
-      if (parsed.data.content) {
-        // Process videos (handles both transcript extraction and embedding updates)
-        processDocumentVideos(
-          document.id,
-          req.params.projectId,
-          userId,
-          document.title,
-          document.content,
-          project.name,
-          []
-        ).catch(err => console.error("Error processing video transcripts:", err));
-      } else {
-        // No content, just generate basic embeddings
-        updateDocumentEmbeddings(
-          document.id,
-          req.params.projectId,
-          userId,
-          document.title,
-          document.content,
-          project.name,
-          []
-        ).catch(err => console.error("Error generating embeddings:", err));
-      }
+      // Generate embeddings for the new document asynchronously
+      updateDocumentEmbeddings(
+        document.id,
+        req.params.projectId,
+        userId,
+        document.title,
+        document.content,
+        project.name,
+        []
+      ).catch(err => console.error("Error generating embeddings:", err));
 
       res.status(201).json(document);
     } catch (error) {
@@ -332,34 +317,20 @@ export async function registerRoutes(
 
       const updated = await storage.updateDocument(req.params.id, parsed.data);
       
-      // Update embeddings and process video transcripts if title or content changed
+      // Update embeddings if title or content changed
       if (updated && (parsed.data.title !== undefined || parsed.data.content !== undefined)) {
         const ancestors = await storage.getDocumentAncestors(req.params.id);
         const breadcrumbs = ancestors.map(a => a.title);
         
-        // Process video transcripts in background (handles extraction and embedding updates)
-        if (parsed.data.content !== undefined) {
-          processDocumentVideos(
-            updated.id,
-            updated.projectId,
-            userId,
-            updated.title,
-            updated.content,
-            project.name,
-            breadcrumbs
-          ).catch(err => console.error("Error processing video transcripts:", err));
-        } else {
-          // Only title changed, just update embeddings
-          updateDocumentEmbeddings(
-            updated.id,
-            updated.projectId,
-            userId,
-            updated.title,
-            updated.content,
-            project.name,
-            breadcrumbs
-          ).catch(err => console.error("Error updating embeddings:", err));
-        }
+        updateDocumentEmbeddings(
+          updated.id,
+          updated.projectId,
+          userId,
+          updated.title,
+          updated.content,
+          project.name,
+          breadcrumbs
+        ).catch(err => console.error("Error updating embeddings:", err));
       }
       
       res.json(updated);
@@ -383,11 +354,9 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      // Delete embeddings and transcripts first (cascade should handle this, but be explicit)
-      Promise.all([
-        deleteDocumentEmbeddings(req.params.id),
-        deleteDocumentTranscripts(req.params.id)
-      ]).catch(err => console.error("Error deleting embeddings/transcripts:", err));
+      // Delete embeddings first (cascade should handle this, but be explicit)
+      deleteDocumentEmbeddings(req.params.id)
+        .catch(err => console.error("Error deleting embeddings:", err));
       
       await storage.deleteDocument(req.params.id);
       res.status(204).send();
@@ -625,7 +594,7 @@ export async function registerRoutes(
             byDocument.set(key, existing);
           }
           
-          Array.from(byDocument.entries()).forEach(([docKey, chunks]) => {
+          for (const [docKey, chunks] of byDocument) {
             const first = chunks[0];
             const breadcrumbPath = first.breadcrumbs.length > 0 
               ? first.breadcrumbs.join(" > ") + " > " + first.title
@@ -637,7 +606,7 @@ export async function registerRoutes(
             for (const chunk of chunks) {
               relevantContext += chunk.chunkText + "\n\n";
             }
-          });
+          }
         }
       } catch (error) {
         console.error("Error searching embeddings:", error);
