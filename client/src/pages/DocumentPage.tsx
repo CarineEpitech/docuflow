@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PageTree } from "@/components/PageTree";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { BlockEditor } from "@/components/editor/BlockEditor";
+import { TranscriptStatusBanner } from "@/components/TranscriptStatusBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -237,6 +238,7 @@ export default function DocumentPage() {
               className="text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 mb-8"
               data-testid="input-document-title"
             />
+            {documentId && <TranscriptStatusBanner documentId={documentId} />}
             <BlockEditor
               content={content}
               onChange={handleContentChange}

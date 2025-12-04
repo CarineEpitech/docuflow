@@ -182,3 +182,49 @@ export const documentEmbeddingsRelations = relations(documentEmbeddings, ({ one 
 
 export type DocumentEmbedding = typeof documentEmbeddings.$inferSelect;
 export type InsertDocumentEmbedding = typeof documentEmbeddings.$inferInsert;
+
+// Video transcripts table - tracks video embeds and their transcripts for the knowledge base
+export const videoTranscripts = pgTable("video_transcripts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  videoUrl: varchar("video_url", { length: 2000 }).notNull(),
+  videoId: varchar("video_id", { length: 255 }).notNull(),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  documentId: varchar("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  ownerId: varchar("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  transcript: text("transcript"),
+  status: varchar("status", { length: 50 }).notNull().default("pending"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_video_transcripts_document").on(table.documentId),
+  index("idx_video_transcripts_video_id").on(table.videoId),
+  index("idx_video_transcripts_owner").on(table.ownerId),
+  index("idx_video_transcripts_status").on(table.status),
+]);
+
+export const videoTranscriptsRelations = relations(videoTranscripts, ({ one }) => ({
+  document: one(documents, {
+    fields: [videoTranscripts.documentId],
+    references: [documents.id],
+  }),
+  project: one(projects, {
+    fields: [videoTranscripts.projectId],
+    references: [projects.id],
+  }),
+  owner: one(users, {
+    fields: [videoTranscripts.ownerId],
+    references: [users.id],
+  }),
+}));
+
+export const insertVideoTranscriptSchema = createInsertSchema(videoTranscripts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type VideoTranscript = typeof videoTranscripts.$inferSelect;
+export type InsertVideoTranscript = z.infer<typeof insertVideoTranscriptSchema>;
+export type VideoTranscriptStatus = "pending" | "processing" | "completed" | "error";

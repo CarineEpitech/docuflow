@@ -15,6 +15,11 @@ import {
   hasEmbeddings,
   rebuildAllEmbeddings,
 } from "./embeddings";
+import {
+  syncDocumentVideoTranscripts,
+  getTranscriptStatus,
+  retryTranscript,
+} from "./transcripts";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
 function getOpenAIClient(): OpenAI {
@@ -215,6 +220,13 @@ export async function registerRoutes(
         position: 0,
       });
 
+      // Get breadcrumbs from parent if it exists
+      let breadcrumbs: string[] = [];
+      if (parsed.data.parentId) {
+        const ancestors = await storage.getDocumentAncestors(document.id);
+        breadcrumbs = ancestors.map(a => a.title);
+      }
+
       // Generate embeddings for the new document asynchronously
       updateDocumentEmbeddings(
         document.id,
@@ -223,8 +235,21 @@ export async function registerRoutes(
         document.title,
         document.content,
         project.name,
-        []
+        breadcrumbs
       ).catch(err => console.error("Error generating embeddings:", err));
+
+      // Sync video transcripts asynchronously
+      if (document.content) {
+        syncDocumentVideoTranscripts(
+          document.id,
+          req.params.projectId,
+          userId,
+          document.content,
+          project.name,
+          document.title,
+          breadcrumbs
+        ).catch(err => console.error("Error syncing video transcripts:", err));
+      }
 
       res.status(201).json(document);
     } catch (error) {
@@ -331,6 +356,19 @@ export async function registerRoutes(
           project.name,
           breadcrumbs
         ).catch(err => console.error("Error updating embeddings:", err));
+
+        // Sync video transcripts when content changes
+        if (parsed.data.content !== undefined && updated.content) {
+          syncDocumentVideoTranscripts(
+            updated.id,
+            updated.projectId,
+            userId,
+            updated.content,
+            project.name,
+            updated.title,
+            breadcrumbs
+          ).catch(err => console.error("Error syncing video transcripts:", err));
+        }
       }
       
       res.json(updated);
@@ -355,8 +393,19 @@ export async function registerRoutes(
       }
 
       // Delete embeddings first (cascade should handle this, but be explicit)
-      deleteDocumentEmbeddings(req.params.id)
-        .catch(err => console.error("Error deleting embeddings:", err));
+      try {
+        await deleteDocumentEmbeddings(req.params.id);
+      } catch (err) {
+        console.error("Error deleting embeddings:", err);
+      }
+      
+      // Delete video transcripts and their embeddings
+      try {
+        const { deleteDocumentTranscripts } = await import("./transcripts");
+        await deleteDocumentTranscripts(req.params.id);
+      } catch (err) {
+        console.error("Error deleting video transcripts:", err);
+      }
       
       await storage.deleteDocument(req.params.id);
       res.status(204).send();
@@ -527,6 +576,124 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error rebuilding embeddings:", error);
       res.status(500).json({ message: "Failed to rebuild embeddings", error: error.message });
+    }
+  });
+
+  // Get transcript status for a document
+  app.get("/api/documents/:id/transcripts", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const document = await storage.getDocument(req.params.id);
+
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      const project = await storage.getProject(document.projectId);
+      if (!project || project.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const status = await getTranscriptStatus(req.params.id);
+      res.json(status);
+    } catch (error) {
+      console.error("Error fetching transcript status:", error);
+      res.status(500).json({ message: "Failed to fetch transcript status" });
+    }
+  });
+
+  // Retry a failed transcript extraction
+  app.post("/api/transcripts/:id/retry", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      
+      // Get transcript and verify ownership
+      const { db } = await import("./db");
+      const { videoTranscripts } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      
+      const [transcript] = await db
+        .select()
+        .from(videoTranscripts)
+        .where(eq(videoTranscripts.id, req.params.id));
+
+      if (!transcript) {
+        return res.status(404).json({ message: "Transcript not found" });
+      }
+
+      if (transcript.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const document = await storage.getDocument(transcript.documentId);
+      const project = await storage.getProject(transcript.projectId);
+      
+      if (!document || !project) {
+        return res.status(404).json({ message: "Document or project not found" });
+      }
+
+      // Get ancestors for breadcrumbs
+      const ancestors = await storage.getDocumentAncestors(document.id);
+      const breadcrumbs = ancestors.map(a => a.title);
+
+      const result = await retryTranscript(
+        transcript.id,
+        project.name,
+        document.title,
+        breadcrumbs
+      );
+
+      if (result.success) {
+        res.json({ message: "Transcript retry initiated" });
+      } else {
+        res.status(500).json({ message: result.error || "Failed to retry transcript" });
+      }
+    } catch (error) {
+      console.error("Error retrying transcript:", error);
+      res.status(500).json({ message: "Failed to retry transcript" });
+    }
+  });
+
+  // Manually trigger transcript sync for a document
+  app.post("/api/documents/:id/sync-transcripts", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const document = await storage.getDocument(req.params.id);
+
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      const project = await storage.getProject(document.projectId);
+      if (!project || project.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      if (!document.content) {
+        return res.json({ message: "No content to sync", added: 0, removed: 0 });
+      }
+
+      // Get ancestors for breadcrumbs
+      const ancestors = await storage.getDocumentAncestors(document.id);
+      const breadcrumbs = ancestors.map(a => a.title);
+
+      const result = await syncDocumentVideoTranscripts(
+        document.id,
+        document.projectId,
+        userId,
+        document.content,
+        project.name,
+        document.title,
+        breadcrumbs
+      );
+
+      res.json({
+        message: "Transcript sync initiated",
+        ...result
+      });
+    } catch (error) {
+      console.error("Error syncing transcripts:", error);
+      res.status(500).json({ message: "Failed to sync transcripts" });
     }
   });
 
