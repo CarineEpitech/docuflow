@@ -228,3 +228,131 @@ export const insertVideoTranscriptSchema = createInsertSchema(videoTranscripts).
 export type VideoTranscript = typeof videoTranscripts.$inferSelect;
 export type InsertVideoTranscript = z.infer<typeof insertVideoTranscriptSchema>;
 export type VideoTranscriptStatus = "pending" | "processing" | "completed" | "error";
+
+// CRM Project Status enum values
+export const crmProjectStatusValues = [
+  "lead",
+  "in_discussion", 
+  "closed",
+  "in_development",
+  "documented",
+  "finished"
+] as const;
+
+export type CrmProjectStatus = typeof crmProjectStatusValues[number];
+
+// CRM Clients table - companies/individuals associated with projects
+export const crmClients = pgTable("crm_clients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  company: varchar("company", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  notes: text("notes"),
+  ownerId: varchar("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_clients_owner").on(table.ownerId),
+]);
+
+export const crmClientsRelations = relations(crmClients, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [crmClients.ownerId],
+    references: [users.id],
+  }),
+  contacts: many(crmContacts),
+  crmProjects: many(crmProjects),
+}));
+
+export const insertCrmClientSchema = createInsertSchema(crmClients).omit({
+  id: true,
+  ownerId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CrmClient = typeof crmClients.$inferSelect;
+export type InsertCrmClient = z.infer<typeof insertCrmClientSchema>;
+
+// CRM Contacts table - contact persons for clients
+export const crmContacts = pgTable("crm_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").notNull().references(() => crmClients.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  role: varchar("role", { length: 100 }),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  isPrimary: integer("is_primary").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_contacts_client").on(table.clientId),
+]);
+
+export const crmContactsRelations = relations(crmContacts, ({ one }) => ({
+  client: one(crmClients, {
+    fields: [crmContacts.clientId],
+    references: [crmClients.id],
+  }),
+}));
+
+export const insertCrmContactSchema = createInsertSchema(crmContacts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CrmContact = typeof crmContacts.$inferSelect;
+export type InsertCrmContact = z.infer<typeof insertCrmContactSchema>;
+
+// CRM Projects table - CRM metadata for projects
+export const crmProjects = pgTable("crm_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  clientId: varchar("client_id").references(() => crmClients.id, { onDelete: "set null" }),
+  status: varchar("status", { length: 50 }).notNull().default("lead"),
+  assigneeId: varchar("assignee_id").references(() => users.id, { onDelete: "set null" }),
+  startDate: timestamp("start_date"),
+  dueDate: timestamp("due_date"),
+  actualFinishDate: timestamp("actual_finish_date"),
+  comments: text("comments"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_projects_project").on(table.projectId),
+  index("idx_crm_projects_client").on(table.clientId),
+  index("idx_crm_projects_assignee").on(table.assigneeId),
+  index("idx_crm_projects_status").on(table.status),
+]);
+
+export const crmProjectsRelations = relations(crmProjects, ({ one }) => ({
+  project: one(projects, {
+    fields: [crmProjects.projectId],
+    references: [projects.id],
+  }),
+  client: one(crmClients, {
+    fields: [crmProjects.clientId],
+    references: [crmClients.id],
+  }),
+  assignee: one(users, {
+    fields: [crmProjects.assigneeId],
+    references: [users.id],
+  }),
+}));
+
+export const insertCrmProjectSchema = createInsertSchema(crmProjects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CrmProject = typeof crmProjects.$inferSelect;
+export type InsertCrmProject = z.infer<typeof insertCrmProjectSchema>;
+
+// Extended CRM Project type with joined data for API responses
+export type CrmProjectWithDetails = CrmProject & {
+  project?: Project;
+  client?: CrmClient & { contacts?: CrmContact[] };
+  assignee?: SafeUser;
+};
