@@ -7,7 +7,8 @@ DocuFlow is a Notion-like documentation application designed for organizing tech
 **Key Features:**
 - Block-based TipTap editor with rich formatting, code blocks, task lists
 - Nested page hierarchies with drag-and-drop reordering
-- Image and video embeds (YouTube, Loom, Fathom)
+- Image and video embeds (YouTube, Loom, Fathom) with automatic transcript extraction
+- Automatic video transcript sync to AI knowledge base for Loom and Fathom videos
 - Full-text search across projects and pages
 - AI-powered chatbot assistant (GPT-4.1-nano) with pgvector-based semantic search for unlimited documentation access
 - Dark mode support
@@ -114,6 +115,15 @@ Preferred communication style: Simple, everyday language.
 - Hash-based change detection to avoid regenerating unchanged chunks
 - Cascade deletion when document or project is deleted
 - Cosine similarity indexing for fast semantic search
+
+**Video Transcripts Table**
+- Stores video transcript metadata for Loom and Fathom videos embedded in documents
+- Fields: id (UUID), videoUrl, videoId, provider (loom/fathom), documentId (FK), projectId (FK), ownerId (FK), status (pending/processing/completed/error), transcript (text), errorMessage, timestamps
+- Automatic sync: Videos added to documents trigger transcript extraction
+- Automatic cleanup: Videos removed from documents delete transcript and embeddings
+- Transcript embeddings stored in document_embeddings with metadata including transcriptId, videoProvider, projectName, breadcrumbs
+- Extraction methods: Fathom API (requires FATHOM_API_KEY) and Loom web scraping
+- Background processing for smooth UX with TranscriptStatusBanner showing real-time progress
 
 **Object Storage**
 - **Google Cloud Storage** integration via `@google-cloud/storage`
