@@ -3,6 +3,7 @@ import { videoTranscripts, documents, projects, documentEmbeddings } from "@shar
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { generateEmbeddings, chunkText } from "./embeddings";
 import crypto from "crypto";
+import { extractLoomTranscript, extractFathomTranscript } from "./browser-transcript";
 
 export interface VideoInfo {
   url: string;
@@ -84,219 +85,58 @@ export function extractVideosFromContent(content: any): VideoInfo[] {
   return videos;
 }
 
-async function fetchLoomTranscript(videoId: string): Promise<TranscriptResult> {
-  try {
-    const shareUrl = `https://www.loom.com/share/${videoId}`;
-    
-    const response = await fetch(shareUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-      },
-    });
-    
-    if (!response.ok) {
-      return { success: false, error: `Failed to fetch Loom page: ${response.status}` };
-    }
-    
-    const html = await response.text();
-    
-    const apolloStateMatch = html.match(/window\.__APOLLO_STATE__\s*=\s*({[\s\S]*?});\s*<\/script>/);
-    if (apolloStateMatch) {
-      try {
-        const apolloState = JSON.parse(apolloStateMatch[1]);
-        
-        for (const key of Object.keys(apolloState)) {
-          if (key.startsWith('Transcription:')) {
-            const transcription = apolloState[key];
-            if (transcription.source_text) {
-              return { success: true, transcript: transcription.source_text };
-            }
-          }
-        }
-        
-        for (const key of Object.keys(apolloState)) {
-          const value = apolloState[key];
-          if (value && typeof value === 'object') {
-            if (value.transcript_with_chapters || value.transcript) {
-              const transcript = value.transcript_with_chapters || value.transcript;
-              if (typeof transcript === 'string') {
-                return { success: true, transcript };
-              }
-              if (Array.isArray(transcript)) {
-                const text = transcript.map((t: any) => t.text || t.content || '').join(' ');
-                if (text) {
-                  return { success: true, transcript: text };
-                }
-              }
-            }
-          }
-        }
-      } catch (parseError) {
-        console.error("Failed to parse Apollo state:", parseError);
-      }
-    }
-    
-    const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>({[\s\S]*?})<\/script>/);
-    if (nextDataMatch) {
-      try {
-        const nextData = JSON.parse(nextDataMatch[1]);
-        const transcriptData = findTranscriptInObject(nextData);
-        if (transcriptData) {
-          return { success: true, transcript: transcriptData };
-        }
-      } catch (parseError) {
-        console.error("Failed to parse NEXT_DATA:", parseError);
-      }
-    }
-    
-    const embedUrl = `https://www.loom.com/embed/${videoId}`;
-    const embedResponse = await fetch(embedUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-    });
-    
-    if (embedResponse.ok) {
-      const embedHtml = await embedResponse.text();
-      
-      const embedApolloMatch = embedHtml.match(/window\.__APOLLO_STATE__\s*=\s*({[\s\S]*?});\s*<\/script>/);
-      if (embedApolloMatch) {
-        try {
-          const apolloState = JSON.parse(embedApolloMatch[1]);
-          for (const key of Object.keys(apolloState)) {
-            if (key.startsWith('Transcription:')) {
-              const transcription = apolloState[key];
-              if (transcription.source_text) {
-                return { success: true, transcript: transcription.source_text };
-              }
-            }
-          }
-        } catch (parseError) {
-          console.error("Failed to parse embed Apollo state:", parseError);
-        }
-      }
-    }
-    
-    return { success: false, error: "Transcript not found in Loom page. The video may not have transcription enabled." };
-  } catch (error: any) {
-    console.error("Error fetching Loom transcript:", error);
-    return { success: false, error: `Failed to fetch Loom transcript: ${error.message}` };
-  }
+async function fetchLoomTranscriptBrowser(videoId: string): Promise<TranscriptResult> {
+  console.log(`[Loom] Using Playwright browser extraction for video: ${videoId}`);
+  return await extractLoomTranscript(videoId);
 }
 
-function findTranscriptInObject(obj: any): string | null {
-  if (!obj || typeof obj !== 'object') return null;
-  
-  if (obj.transcript && typeof obj.transcript === 'string') {
-    return obj.transcript;
-  }
-  
-  if (obj.source_text && typeof obj.source_text === 'string') {
-    return obj.source_text;
-  }
-  
-  if (obj.transcription && typeof obj.transcription === 'object') {
-    if (obj.transcription.source_text) {
-      return obj.transcription.source_text;
-    }
-  }
-  
-  for (const key of Object.keys(obj)) {
-    const result = findTranscriptInObject(obj[key]);
-    if (result) return result;
-  }
-  
-  return null;
-}
-
-async function fetchFathomTranscript(videoId: string): Promise<TranscriptResult> {
+async function fetchFathomTranscriptBrowser(videoId: string): Promise<TranscriptResult> {
   const apiKey = process.env.FATHOM_API_KEY;
   
-  if (!apiKey) {
+  if (apiKey) {
     try {
-      const shareUrl = `https://fathom.video/share/${videoId}`;
-      const response = await fetch(shareUrl, {
+      const response = await fetch(`https://api.fathom.ai/external/v1/recordings/${videoId}/transcript`, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'X-Api-Key': apiKey,
+          'Content-Type': 'application/json',
         },
       });
       
       if (response.ok) {
-        const html = await response.text();
+        const data = await response.json();
         
-        const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>({[\s\S]*?})<\/script>/);
-        if (nextDataMatch) {
-          try {
-            const nextData = JSON.parse(nextDataMatch[1]);
-            const transcriptData = findTranscriptInObject(nextData);
-            if (transcriptData) {
-              return { success: true, transcript: transcriptData };
-            }
-          } catch (parseError) {
-            console.error("Failed to parse Fathom NEXT_DATA:", parseError);
-          }
+        if (data.transcript && Array.isArray(data.transcript)) {
+          const transcript = data.transcript.map((segment: any) => {
+            const speaker = segment.speaker?.display_name || 'Speaker';
+            const text = segment.text || '';
+            return `${speaker}: ${text}`;
+          }).join('\n');
+          
+          return { success: true, transcript };
         }
+        
+        if (typeof data.transcript === 'string') {
+          return { success: true, transcript: data.transcript };
+        }
+      } else if (response.status === 401) {
+        console.log('[Fathom] API key invalid, falling back to browser extraction');
+      } else if (response.status !== 404) {
+        console.log(`[Fathom] API error ${response.status}, falling back to browser extraction`);
       }
     } catch (error) {
-      console.error("Error scraping Fathom:", error);
+      console.error("[Fathom] API error, falling back to browser extraction:", error);
     }
-    
-    return { 
-      success: false, 
-      error: "FATHOM_API_KEY not configured. Please add your Fathom API key in Secrets to enable transcript extraction." 
-    };
   }
   
-  try {
-    const response = await fetch(`https://api.fathom.ai/external/v1/recordings/${videoId}/transcript`, {
-      headers: {
-        'X-Api-Key': apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      if (response.status === 404) {
-        return { success: false, error: "Video not found in Fathom" };
-      }
-      if (response.status === 401) {
-        return { success: false, error: "Invalid Fathom API key" };
-      }
-      return { success: false, error: `Fathom API error: ${response.status}` };
-    }
-    
-    const data = await response.json();
-    
-    if (data.transcript && Array.isArray(data.transcript)) {
-      const transcript = data.transcript.map((segment: any) => {
-        const speaker = segment.speaker?.display_name || 'Speaker';
-        const text = segment.text || '';
-        return `${speaker}: ${text}`;
-      }).join('\n');
-      
-      return { success: true, transcript };
-    }
-    
-    if (typeof data.transcript === 'string') {
-      return { success: true, transcript: data.transcript };
-    }
-    
-    return { success: false, error: "Unexpected transcript format from Fathom" };
-  } catch (error: any) {
-    console.error("Error fetching Fathom transcript:", error);
-    return { success: false, error: `Failed to fetch Fathom transcript: ${error.message}` };
-  }
+  console.log(`[Fathom] Using Playwright browser extraction for video: ${videoId}`);
+  return await extractFathomTranscript(videoId);
 }
 
 export async function fetchTranscript(provider: string, videoId: string): Promise<TranscriptResult> {
   if (provider === "loom") {
-    return fetchLoomTranscript(videoId);
+    return fetchLoomTranscriptBrowser(videoId);
   } else if (provider === "fathom") {
-    return fetchFathomTranscript(videoId);
+    return fetchFathomTranscriptBrowser(videoId);
   }
   
   return { success: false, error: `Unsupported video provider: ${provider}` };
