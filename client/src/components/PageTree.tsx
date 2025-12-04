@@ -67,8 +67,8 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
   const [inlineCreateParentId, setInlineCreateParentId] = useState<string | null | undefined>(undefined);
   const [inlinePageName, setInlinePageName] = useState("");
   const [inlineTemplate, setInlineTemplate] = useState<PageTemplate>(pageTemplates[0]);
-  const [showPopover, setShowPopover] = useState(false);
-  const [popoverParentId, setPopoverParentId] = useState<string | null>(null);
+  // Track which popover is open: "header", "empty", or a node id for subpages
+  const [activePopover, setActivePopover] = useState<string | null>(null);
   const inlineInputRef = useRef<HTMLInputElement>(null);
   
   // Focus the inline input when it appears
@@ -188,19 +188,22 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
     });
   };
 
-  const openPopover = (parentDocId: string | null = null) => {
-    setPopoverParentId(parentDocId);
-    setShowPopover(true);
+  const openPopover = (popoverId: string) => {
+    setActivePopover(popoverId);
   };
 
-  const selectTemplateAndStartInline = (template: PageTemplate) => {
+  const closePopover = () => {
+    setActivePopover(null);
+  };
+
+  const selectTemplateAndStartInline = (template: PageTemplate, parentId: string | null) => {
     setInlineTemplate(template);
-    setInlineCreateParentId(popoverParentId);
+    setInlineCreateParentId(parentId);
     setInlinePageName("");
-    setShowPopover(false);
+    setActivePopover(null);
     // If creating under a parent, expand it
-    if (popoverParentId) {
-      setExpandedIds((prev) => new Set(Array.from(prev).concat(popoverParentId)));
+    if (parentId) {
+      setExpandedIds((prev) => new Set(Array.from(prev).concat(parentId)));
     }
   };
 
@@ -349,10 +352,10 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
 
           <div className="actions flex items-center gap-0.5">
             <Popover 
-              open={showPopover && popoverParentId === node.id} 
+              open={activePopover === `subpage-${node.id}`} 
               onOpenChange={(open) => {
-                if (open) openPopover(node.id);
-                else setShowPopover(false);
+                if (open) openPopover(`subpage-${node.id}`);
+                else closePopover();
               }}
             >
               <PopoverTrigger asChild>
@@ -374,7 +377,7 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
                   <button
                     key={template.id}
                     className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover-elevate text-left"
-                    onClick={() => selectTemplateAndStartInline(template)}
+                    onClick={() => selectTemplateAndStartInline(template, node.id)}
                     data-testid={`button-template-${template.id}`}
                   >
                     <span className="text-base">{template.icon}</span>
@@ -432,10 +435,10 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
       <div className="p-3 border-b border-sidebar-border flex items-center justify-between">
         <h3 className="font-medium text-sm">Pages</h3>
         <Popover 
-          open={showPopover && popoverParentId === null} 
+          open={activePopover === "header"} 
           onOpenChange={(open) => {
-            if (open) openPopover(null);
-            else setShowPopover(false);
+            if (open) openPopover("header");
+            else closePopover();
           }}
         >
           <PopoverTrigger asChild>
@@ -456,7 +459,7 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
               <button
                 key={template.id}
                 className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover-elevate text-left"
-                onClick={() => selectTemplateAndStartInline(template)}
+                onClick={() => selectTemplateAndStartInline(template, null)}
                 data-testid={`button-template-root-${template.id}`}
               >
                 <span className="text-base">{template.icon}</span>
@@ -477,10 +480,10 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
             <FileText className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-sm text-muted-foreground mb-3">No pages yet</p>
             <Popover 
-              open={showPopover && popoverParentId === null} 
+              open={activePopover === "empty"} 
               onOpenChange={(open) => {
-                if (open) openPopover(null);
-                else setShowPopover(false);
+                if (open) openPopover("empty");
+                else closePopover();
               }}
             >
               <PopoverTrigger asChild>
@@ -501,7 +504,7 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
                   <button
                     key={template.id}
                     className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover-elevate text-left"
-                    onClick={() => selectTemplateAndStartInline(template)}
+                    onClick={() => selectTemplateAndStartInline(template, null)}
                     data-testid={`button-template-empty-${template.id}`}
                   >
                     <span className="text-base">{template.icon}</span>
