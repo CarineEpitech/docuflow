@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -33,7 +34,8 @@ import {
   Pencil,
   Trash2,
   UserPlus,
-  X
+  X,
+  FileText
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
@@ -97,10 +99,6 @@ export default function CrmPage() {
     queryKey: ["/api/users"],
   });
 
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-  });
-
   const updateCrmProjectMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CrmProjectWithDetails> }) => {
       return apiRequest("PATCH", `/api/crm/projects/${id}`, data);
@@ -115,16 +113,30 @@ export default function CrmPage() {
   });
 
   const createCrmProjectMutation = useMutation({
-    mutationFn: async (data: { projectId: string; clientId?: string | null }) => {
+    mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null }) => {
       return apiRequest("POST", "/api/crm/projects", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       setShowLinkProjectDialog(false);
-      toast({ title: "Project added to CRM" });
+      toast({ title: "Project created" });
     },
     onError: () => {
-      toast({ title: "Failed to add project", variant: "destructive" });
+      toast({ title: "Failed to create project", variant: "destructive" });
+    },
+  });
+
+  const toggleDocumentationMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      return apiRequest("PATCH", `/api/crm/projects/${id}/documentation`, { enabled });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/documentable"] });
+      toast({ title: "Documentation setting updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update documentation setting", variant: "destructive" });
     },
   });
 
@@ -174,9 +186,6 @@ export default function CrmPage() {
 
   const totalPages = crmProjectsData ? Math.ceil(crmProjectsData.total / pageSize) : 0;
 
-  const existingProjectIds = crmProjectsData?.data.map(cp => cp.projectId) || [];
-  const availableProjects = projects.filter(p => !existingProjectIds.includes(p.id));
-
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -195,11 +204,10 @@ export default function CrmPage() {
           </Button>
           <Button 
             onClick={() => setShowLinkProjectDialog(true)}
-            disabled={availableProjects.length === 0}
             data-testid="button-add-project"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Add Project
+            New Project
           </Button>
         </div>
       </div>
@@ -401,6 +409,7 @@ export default function CrmPage() {
           setShowAddContactDialog(true);
         }}
         onEditClient={(client) => setEditingClient(client)}
+        onToggleDocumentation={(id, enabled) => toggleDocumentationMutation.mutate({ id, enabled })}
       />
 
       <AddClientDialog 
@@ -429,10 +438,9 @@ export default function CrmPage() {
         isLoading={createContactMutation.isPending}
       />
 
-      <LinkProjectDialog
+      <CreateProjectDialog
         open={showLinkProjectDialog}
         onClose={() => setShowLinkProjectDialog(false)}
-        projects={availableProjects}
         clients={clients}
         onSubmit={(data) => createCrmProjectMutation.mutate(data)}
         isLoading={createCrmProjectMutation.isPending}
@@ -449,10 +457,13 @@ interface ProjectDetailSheetProps {
   onUpdate: (data: Partial<CrmProjectWithDetails>) => void;
   onAddContact: (clientId: string) => void;
   onEditClient: (client: CrmClient) => void;
+  onToggleDocumentation: (id: string, enabled: boolean) => void;
 }
 
-function ProjectDetailSheet({ project, onClose, clients, users, onUpdate, onAddContact, onEditClient }: ProjectDetailSheetProps) {
+function ProjectDetailSheet({ project, onClose, clients, users, onUpdate, onAddContact, onEditClient, onToggleDocumentation }: ProjectDetailSheetProps) {
   if (!project) return null;
+
+  const documentationEnabled = project.documentationEnabled === 1;
 
   return (
     <Sheet open={!!project} onOpenChange={(open) => !open && onClose()}>
@@ -460,11 +471,13 @@ function ProjectDetailSheet({ project, onClose, clients, users, onUpdate, onAddC
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             {project.project?.name}
-            <Link href={`/project/${project.projectId}`}>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <ExternalLink className="w-4 h-4" />
-              </Button>
-            </Link>
+            {documentationEnabled && (
+              <Link href={`/project/${project.projectId}`}>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
           </SheetTitle>
           <SheetDescription>
             Manage project details and timeline
@@ -472,6 +485,27 @@ function ProjectDetailSheet({ project, onClose, clients, users, onUpdate, onAddC
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-primary" />
+                  <div>
+                    <p className="font-medium text-sm">Documentation</p>
+                    <p className="text-xs text-muted-foreground">
+                      {documentationEnabled ? "This project appears in the Documentation section" : "Enable to document this project"}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={documentationEnabled}
+                  onCheckedChange={(checked) => onToggleDocumentation(project.id, checked)}
+                  data-testid="switch-documentation"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Status</label>
             <Select 
@@ -989,75 +1023,103 @@ function AddContactDialog({ open, onClose, clientId, onSubmit, isLoading }: AddC
   );
 }
 
-interface LinkProjectDialogProps {
+const createProjectFormSchema = z.object({
+  name: z.string().min(1, "Project name is required"),
+  description: z.string().optional(),
+  clientId: z.string().optional(),
+});
+
+interface CreateProjectDialogProps {
   open: boolean;
   onClose: () => void;
-  projects: Project[];
   clients: CrmClient[];
-  onSubmit: (data: { projectId: string; clientId?: string | null }) => void;
+  onSubmit: (data: { name: string; description?: string | null; clientId?: string | null }) => void;
   isLoading: boolean;
 }
 
-function LinkProjectDialog({ open, onClose, projects, clients, onSubmit, isLoading }: LinkProjectDialogProps) {
-  const [selectedProject, setSelectedProject] = useState<string>("");
-  const [selectedClient, setSelectedClient] = useState<string>("_none");
+function CreateProjectDialog({ open, onClose, clients, onSubmit, isLoading }: CreateProjectDialogProps) {
+  const form = useForm({
+    resolver: zodResolver(createProjectFormSchema),
+    defaultValues: { name: "", description: "", clientId: "_none" },
+  });
 
-  const handleSubmit = () => {
-    if (!selectedProject) return;
+  const handleSubmit = (data: z.infer<typeof createProjectFormSchema>) => {
     onSubmit({
-      projectId: selectedProject,
-      clientId: selectedClient === "_none" ? null : selectedClient,
+      name: data.name,
+      description: data.description || null,
+      clientId: data.clientId === "_none" ? null : data.clientId || null,
     });
-    setSelectedProject("");
-    setSelectedClient("_none");
+    form.reset();
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Project to CRM</DialogTitle>
-          <DialogDescription>Link an existing project to track in your CRM</DialogDescription>
+          <DialogTitle>Create New Project</DialogTitle>
+          <DialogDescription>Create a new project to track in your Project Management</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Project</label>
-            <Select value={selectedProject} onValueChange={setSelectedProject}>
-              <SelectTrigger data-testid="select-link-project">
-                <SelectValue placeholder="Select a project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map(project => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Client (Optional)</label>
-            <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger data-testid="select-link-client">
-                <SelectValue placeholder="Select a client" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">No client</SelectItem>
-                {clients.map(client => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name} {client.company ? `(${client.company})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={isLoading || !selectedProject} data-testid="button-link-project">
-            {isLoading ? "Adding..." : "Add to CRM"}
-          </Button>
-        </DialogFooter>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Project Name</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Enter project name" data-testid="input-project-name" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Brief project description" data-testid="textarea-project-description" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="clientId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Client (Optional)</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-project-client">
+                        <SelectValue placeholder="Select a client" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="_none">No client</SelectItem>
+                      {clients.map(client => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name} {client.company ? `(${client.company})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+              <Button type="submit" disabled={isLoading} data-testid="button-create-project">
+                {isLoading ? "Creating..." : "Create Project"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

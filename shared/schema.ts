@@ -317,6 +317,7 @@ export const crmProjects = pgTable("crm_projects", {
   dueDate: timestamp("due_date"),
   actualFinishDate: timestamp("actual_finish_date"),
   comments: text("comments"),
+  documentationEnabled: integer("documentation_enabled").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

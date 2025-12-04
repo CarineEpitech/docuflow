@@ -72,8 +72,14 @@ export interface IStorage {
   getCrmProject(id: string): Promise<CrmProjectWithDetails | undefined>;
   getCrmProjectByProjectId(projectId: string): Promise<CrmProject | undefined>;
   createCrmProject(crmProject: InsertCrmProject): Promise<CrmProject>;
+  createCrmProjectWithBase(projectData: InsertProject & { ownerId: string }, crmData?: Partial<InsertCrmProject>): Promise<{ project: Project; crmProject: CrmProject }>;
   updateCrmProject(id: string, data: Partial<InsertCrmProject>): Promise<CrmProject | undefined>;
   deleteCrmProject(id: string): Promise<void>;
+  toggleDocumentation(crmProjectId: string, enabled: boolean): Promise<CrmProject | undefined>;
+  getDocumentationEnabledProjects(userId: string): Promise<Project[]>;
+  
+  // Link orphan projects to CRM (for migration of existing projects)
+  linkOrphanProjectsToCrm(): Promise<{ linkedCount: number }>;
   
   // Get all users for assignee dropdown
   getAllUsers(): Promise<SafeUser[]>;
@@ -629,7 +635,99 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCrmProject(id: string): Promise<void> {
-    await db.delete(crmProjects).where(eq(crmProjects.id, id));
+    // First get the CRM project to find the linked project ID
+    const [crmProject] = await db.select().from(crmProjects).where(eq(crmProjects.id, id));
+    
+    if (crmProject && crmProject.projectId) {
+      // Delete the CRM project first (FK constraint)
+      await db.delete(crmProjects).where(eq(crmProjects.id, id));
+      // Then delete the base project
+      await db.delete(projects).where(eq(projects.id, crmProject.projectId));
+    } else {
+      // Just delete the CRM project if no linked project
+      await db.delete(crmProjects).where(eq(crmProjects.id, id));
+    }
+  }
+
+  async createCrmProjectWithBase(
+    projectData: InsertProject & { ownerId: string }, 
+    crmData?: Partial<InsertCrmProject>
+  ): Promise<{ project: Project; crmProject: CrmProject }> {
+    const project = await this.createProject(projectData);
+    
+    const crmProject = await this.createCrmProject({
+      projectId: project.id,
+      clientId: crmData?.clientId || null,
+      status: crmData?.status || "lead",
+      assigneeId: crmData?.assigneeId || null,
+      startDate: crmData?.startDate || null,
+      dueDate: crmData?.dueDate || null,
+      actualFinishDate: crmData?.actualFinishDate || null,
+      comments: crmData?.comments || null,
+      documentationEnabled: crmData?.documentationEnabled || 0,
+    });
+    
+    return { project, crmProject };
+  }
+
+  async toggleDocumentation(crmProjectId: string, enabled: boolean): Promise<CrmProject | undefined> {
+    const [updated] = await db
+      .update(crmProjects)
+      .set({ documentationEnabled: enabled ? 1 : 0, updatedAt: new Date() })
+      .where(eq(crmProjects.id, crmProjectId))
+      .returning();
+    return updated;
+  }
+
+  async getDocumentationEnabledProjects(userId: string): Promise<Project[]> {
+    const result = await db
+      .select({ project: projects })
+      .from(projects)
+      .innerJoin(crmProjects, eq(projects.id, crmProjects.projectId))
+      .where(and(
+        eq(projects.ownerId, userId),
+        eq(crmProjects.documentationEnabled, 1)
+      ))
+      .orderBy(desc(projects.updatedAt));
+    
+    return result.map(r => r.project);
+  }
+
+  async linkOrphanProjectsToCrm(): Promise<{ linkedCount: number }> {
+    // Find all projects that don't have a corresponding CRM project
+    const orphanProjects = await db
+      .select({ project: projects })
+      .from(projects)
+      .leftJoin(crmProjects, eq(projects.id, crmProjects.projectId))
+      .where(isNull(crmProjects.id));
+    
+    let linkedCount = 0;
+    
+    for (const { project } of orphanProjects) {
+      try {
+        // Create CRM project for the orphan project
+        // Default status is 'documented' since these are existing documentation projects
+        // Enable documentation by default since these were accessible before the CRM system
+        await db.insert(crmProjects).values({
+          id: randomUUID(),
+          projectId: project.id,
+          clientId: null,
+          status: "documented",
+          assigneeId: null,
+          startDate: null,
+          dueDate: null,
+          actualFinishDate: null,
+          comments: "Auto-migrated from standalone documentation project",
+          documentationEnabled: 1,
+        });
+        linkedCount++;
+        console.log(`Linked orphan project to CRM: ${project.name} (${project.id})`);
+      } catch (error) {
+        console.error(`Failed to link orphan project ${project.id}:`, error);
+      }
+    }
+    
+    return { linkedCount };
   }
 
   async getAllUsers(): Promise<SafeUser[]> {

@@ -77,6 +77,19 @@ export async function registerRoutes(
     }
   });
 
+  // Get documentation-enabled projects only (for documentation sidebar)
+  // NOTE: This must come BEFORE /api/projects/:id to avoid "documentable" matching :id
+  app.get("/api/projects/documentable", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const projects = await storage.getDocumentationEnabledProjects(userId);
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching documentable projects:", error);
+      res.status(500).json({ message: "Failed to fetch documentable projects" });
+    }
+  });
+
   app.get("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req)!;
@@ -97,27 +110,18 @@ export async function registerRoutes(
     }
   });
 
+  // NOTE: This endpoint is deprecated - projects must be created through CRM
+  // This endpoint now redirects to CRM project creation for backwards compatibility
   app.post("/api/projects", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = getUserId(req)!;
-      const parsed = insertProjectSchema.safeParse(req.body);
-
-      if (!parsed.success) {
-        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
-      }
-
-      const project = await storage.createProject({
-        ...parsed.data,
-        ownerId: userId,
-      });
-
-      res.status(201).json(project);
-    } catch (error) {
-      console.error("Error creating project:", error);
-      res.status(500).json({ message: "Failed to create project" });
-    }
+    // Return error indicating projects must be created through CRM
+    return res.status(400).json({ 
+      message: "Projects must be created through Project Management. Use POST /api/crm/projects instead.",
+      redirectTo: "/api/crm/projects"
+    });
   });
 
+  // NOTE: Project updates should go through CRM for metadata consistency
+  // This endpoint is restricted to only allow name updates (for sidebar rename functionality)
   app.patch("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req)!;
@@ -131,7 +135,10 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const updateSchema = insertProjectSchema.partial();
+      // Only allow name updates from this endpoint - other fields should go through CRM
+      const updateSchema = z.object({
+        name: z.string().min(1).optional(),
+      });
       const parsed = updateSchema.safeParse(req.body);
 
       if (!parsed.success) {
@@ -146,29 +153,14 @@ export async function registerRoutes(
     }
   });
 
+  // NOTE: Project deletion should go through CRM to maintain business rules
+  // This endpoint is deprecated - use DELETE /api/crm/projects/:id instead
   app.delete("/api/projects/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = getUserId(req)!;
-      const project = await storage.getProject(req.params.id);
-
-      if (!project) {
-        return res.status(404).json({ message: "Project not found" });
-      }
-
-      if (project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
-      // Delete project embeddings (cascade should handle this, but be explicit)
-      deleteProjectEmbeddings(req.params.id)
-        .catch(err => console.error("Error deleting project embeddings:", err));
-
-      await storage.deleteProject(req.params.id);
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting project:", error);
-      res.status(500).json({ message: "Failed to delete project" });
-    }
+    // Return error indicating projects must be deleted through CRM
+    return res.status(400).json({ 
+      message: "Projects must be deleted through Project Management. Use DELETE /api/crm/projects/:id instead.",
+      redirectTo: "/api/crm/projects"
+    });
   });
 
   app.get("/api/projects/:projectId/documents", isAuthenticated, async (req: any, res) => {
@@ -1089,13 +1081,15 @@ Instructions:
     }
   });
 
-  // Create CRM project (link CRM data to an existing project)
+  // Create CRM project with base project atomically (new flow: CRM is source of truth)
   app.post("/api/crm/projects", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req)!;
       
       const createSchema = z.object({
-        projectId: z.string(),
+        name: z.string().min(1, "Project name is required"),
+        description: z.string().nullable().optional(),
+        icon: z.string().optional(),
         clientId: z.string().nullable().optional(),
         status: z.enum(crmProjectStatusValues).optional(),
         assigneeId: z.string().nullable().optional(),
@@ -1111,36 +1105,59 @@ Instructions:
         return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
       }
       
-      // Verify the project belongs to the user
-      const project = await storage.getProject(parsed.data.projectId);
-      if (!project) {
-        return res.status(404).json({ message: "Project not found" });
-      }
-      if (project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
+      const { project, crmProject } = await storage.createCrmProjectWithBase(
+        {
+          name: parsed.data.name,
+          description: parsed.data.description || null,
+          icon: parsed.data.icon || "folder",
+          ownerId: userId,
+        },
+        {
+          clientId: parsed.data.clientId || null,
+          status: parsed.data.status || "lead",
+          assigneeId: parsed.data.assigneeId || null,
+          startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : null,
+          dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+          actualFinishDate: parsed.data.actualFinishDate ? new Date(parsed.data.actualFinishDate) : null,
+          comments: parsed.data.comments || null,
+        }
+      );
       
-      // Check if CRM project already exists for this project
-      const existing = await storage.getCrmProjectByProjectId(parsed.data.projectId);
-      if (existing) {
-        return res.status(400).json({ message: "CRM project already exists for this project" });
-      }
-      
-      const crmProject = await storage.createCrmProject({
-        projectId: parsed.data.projectId,
-        clientId: parsed.data.clientId || null,
-        status: parsed.data.status || "lead",
-        assigneeId: parsed.data.assigneeId || null,
-        startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : null,
-        dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
-        actualFinishDate: parsed.data.actualFinishDate ? new Date(parsed.data.actualFinishDate) : null,
-        comments: parsed.data.comments || null,
-      });
-      
-      res.status(201).json(crmProject);
+      res.status(201).json({ project, crmProject });
     } catch (error) {
       console.error("Error creating CRM project:", error);
       res.status(500).json({ message: "Failed to create CRM project" });
+    }
+  });
+
+  // Toggle documentation enabled for a CRM project
+  app.patch("/api/crm/projects/:id/documentation", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const crmProject = await storage.getCrmProject(req.params.id);
+      
+      if (!crmProject) {
+        return res.status(404).json({ message: "CRM Project not found" });
+      }
+      
+      if (crmProject.project && crmProject.project.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const toggleSchema = z.object({
+        enabled: z.boolean(),
+      });
+      
+      const parsed = toggleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const updated = await storage.toggleDocumentation(req.params.id, parsed.data.enabled);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error toggling documentation:", error);
+      res.status(500).json({ message: "Failed to toggle documentation" });
     }
   });
 

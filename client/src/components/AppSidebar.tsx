@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
-import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search, X, Check, FileText, Sparkles, Briefcase } from "lucide-react";
+import { Folder, ChevronRight, MoreHorizontal, Pencil, LogOut, Search, FileText, Sparkles, Briefcase } from "lucide-react";
 import { ChatBot } from "@/components/ChatBot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,16 +33,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -53,8 +43,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
 
-const DEFAULT_PROJECT_ICON = "folder";
-
 export function AppSidebar() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -64,19 +52,10 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
-  const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
-  const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectName, setProjectName] = useState("");
   const [showSearch, setShowSearch] = useState(false);
-  const inlineInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (showInlineCreate && inlineInputRef.current) {
-      inlineInputRef.current.focus();
-    }
-  }, [showInlineCreate]);
 
   // Keyboard shortcut for search (Cmd+K)
   useEffect(() => {
@@ -91,27 +70,8 @@ export function AppSidebar() {
   }, []);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+    queryKey: ["/api/projects/documentable"],
   });
-
-  const createProjectMutation = useMutation({
-    mutationFn: async (data: { name: string; icon: string }) => {
-      return await apiRequest("POST", "/api/projects", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      cancelInlineCreate();
-      toast({ title: "Project created successfully" });
-    },
-    onError: () => {
-      toast({ title: "Failed to create project", variant: "destructive" });
-    },
-  });
-
-  const cancelInlineCreate = () => {
-    setShowInlineCreate(false);
-    setProjectName("");
-  };
 
   const updateProjectMutation = useMutation({
     mutationFn: async (data: { id: string; name: string }) => {
@@ -119,6 +79,7 @@ export function AppSidebar() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/documentable"] });
       setShowEditProject(false);
       setSelectedProject(null);
       setProjectName("");
@@ -126,21 +87,6 @@ export function AppSidebar() {
     },
     onError: () => {
       toast({ title: "Failed to update project", variant: "destructive" });
-    },
-  });
-
-  const deleteProjectMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/projects/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      setShowDeleteProject(false);
-      setSelectedProject(null);
-      toast({ title: "Project deleted successfully" });
-    },
-    onError: () => {
-      toast({ title: "Failed to delete project", variant: "destructive" });
     },
   });
 
@@ -163,39 +109,15 @@ export function AppSidebar() {
     logoutMutation.mutate();
   }, [logoutMutation]);
 
-  const handleCreateProject = () => {
-    if (!projectName.trim() || createProjectMutation.isPending) return;
-    createProjectMutation.mutate({ name: projectName.trim(), icon: DEFAULT_PROJECT_ICON });
-  };
-
-  const handleInlineKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleCreateProject();
-    } else if (e.key === "Escape") {
-      cancelInlineCreate();
-    }
-  };
-
   const handleUpdateProject = () => {
     if (!selectedProject || !projectName.trim()) return;
     updateProjectMutation.mutate({ id: selectedProject.id, name: projectName.trim() });
-  };
-
-  const handleDeleteProject = () => {
-    if (!selectedProject) return;
-    deleteProjectMutation.mutate(selectedProject.id);
   };
 
   const openEditDialog = (project: Project) => {
     setSelectedProject(project);
     setProjectName(project.name);
     setShowEditProject(true);
-  };
-
-  const openDeleteDialog = (project: Project) => {
-    setSelectedProject(project);
-    setShowDeleteProject(true);
   };
 
   const getProjectIcon = (iconName: string | null) => {
@@ -297,38 +219,29 @@ export function AppSidebar() {
 
           <SidebarGroup>
             <SidebarGroupLabel className="flex items-center justify-between group-data-[collapsible=icon]:hidden">
-              <span>Projects</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5"
-                onClick={() => setShowInlineCreate(true)}
-                disabled={showInlineCreate}
-                data-testid="button-new-project"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
+              <span>Documentation</span>
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {isLoading ? (
                   <div className="px-3 py-2 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">Loading...</div>
-                ) : projects.length === 0 && !showInlineCreate ? (
+                ) : projects.length === 0 ? (
                   <div className="px-3 py-4 text-center group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm text-muted-foreground mb-2">No projects yet</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowInlineCreate(true)}
-                      data-testid="button-create-first-project"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Create Project
-                    </Button>
+                    <p className="text-sm text-muted-foreground mb-2">No documented projects</p>
+                    <p className="text-xs text-muted-foreground mb-3">Enable documentation for projects in Project Management</p>
+                    <Link href="/crm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid="button-go-to-crm"
+                      >
+                        <Briefcase className="w-4 h-4 mr-1" />
+                        Go to Projects
+                      </Button>
+                    </Link>
                   </div>
                 ) : (
-                  <>
-                  {projects.map((project) => (
+                  projects.map((project) => (
                     <SidebarMenuItem key={project.id} className="group">
                       <SidebarMenuButton
                         asChild
@@ -360,61 +273,10 @@ export function AppSidebar() {
                             <Pencil className="w-4 h-4 mr-2" />
                             Rename
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => openDeleteDialog(project)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </SidebarMenuItem>
-                  ))}
-                  
-                  {/* Inline create row */}
-                  {showInlineCreate && !isCollapsed && (
-                    <SidebarMenuItem>
-                      <div className="px-2 py-1.5">
-                        <div className="flex items-center gap-1">
-                          <span className="text-base pl-1">📁</span>
-                          <Input
-                            ref={inlineInputRef}
-                            value={projectName}
-                            onChange={(e) => setProjectName(e.target.value)}
-                            onKeyDown={handleInlineKeyDown}
-                            onBlur={() => {
-                              if (!projectName.trim()) {
-                                cancelInlineCreate();
-                              }
-                            }}
-                            placeholder="Project name..."
-                            className="h-7 text-sm flex-1"
-                            data-testid="input-project-name-sidebar"
-                          />
-                          <Button
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={handleCreateProject}
-                            disabled={!projectName.trim() || createProjectMutation.isPending}
-                            data-testid="button-create-project-sidebar"
-                          >
-                            <Check className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={cancelInlineCreate}
-                            data-testid="button-cancel-project-sidebar"
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </SidebarMenuItem>
-                  )}
-                  </>
+                  ))
                 )}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -525,27 +387,6 @@ export function AppSidebar() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={showDeleteProject} onOpenChange={setShowDeleteProject}>
-        <AlertDialogContent data-testid="dialog-delete-project">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Project</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{selectedProject?.name}"? This action cannot be undone.
-              All pages within this project will also be deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteProject}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete"
-            >
-              {deleteProjectMutation.isPending ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
