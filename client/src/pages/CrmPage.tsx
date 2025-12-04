@@ -494,14 +494,14 @@ function ProjectDetailSheet({ project, onClose, clients, users, onUpdate, onAddC
           <div className="space-y-2">
             <label className="text-sm font-medium">Client</label>
             <Select 
-              value={project.clientId || ""} 
-              onValueChange={(v) => onUpdate({ clientId: v || null })}
+              value={project.clientId || "_none"} 
+              onValueChange={(v) => onUpdate({ clientId: v === "_none" ? null : v })}
             >
               <SelectTrigger data-testid="select-project-client">
                 <SelectValue placeholder="Select client" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No client</SelectItem>
+                <SelectItem value="_none">No client</SelectItem>
                 {clients.map(client => (
                   <SelectItem key={client.id} value={client.id}>
                     {client.name} {client.company ? `(${client.company})` : ""}
@@ -591,14 +591,14 @@ function ProjectDetailSheet({ project, onClose, clients, users, onUpdate, onAddC
           <div className="space-y-2">
             <label className="text-sm font-medium">Assigned To</label>
             <Select 
-              value={project.assigneeId || ""} 
-              onValueChange={(v) => onUpdate({ assigneeId: v || null })}
+              value={project.assigneeId || "_none"} 
+              onValueChange={(v) => onUpdate({ assigneeId: v === "_none" ? null : v })}
             >
               <SelectTrigger data-testid="select-project-assignee">
                 <SelectValue placeholder="Select assignee" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Unassigned</SelectItem>
+                <SelectItem value="_none">Unassigned</SelectItem>
                 {users.map(user => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.firstName} {user.lastName}
@@ -1000,16 +1000,16 @@ interface LinkProjectDialogProps {
 
 function LinkProjectDialog({ open, onClose, projects, clients, onSubmit, isLoading }: LinkProjectDialogProps) {
   const [selectedProject, setSelectedProject] = useState<string>("");
-  const [selectedClient, setSelectedClient] = useState<string>("");
+  const [selectedClient, setSelectedClient] = useState<string>("_none");
 
   const handleSubmit = () => {
     if (!selectedProject) return;
     onSubmit({
       projectId: selectedProject,
-      clientId: selectedClient || null,
+      clientId: selectedClient === "_none" ? null : selectedClient,
     });
     setSelectedProject("");
-    setSelectedClient("");
+    setSelectedClient("_none");
   };
 
   return (
@@ -1042,7 +1042,7 @@ function LinkProjectDialog({ open, onClose, projects, clients, onSubmit, isLoadi
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No client</SelectItem>
+                <SelectItem value="_none">No client</SelectItem>
                 {clients.map(client => (
                   <SelectItem key={client.id} value={client.id}>
                     {client.name} {client.company ? `(${client.company})` : ""}
