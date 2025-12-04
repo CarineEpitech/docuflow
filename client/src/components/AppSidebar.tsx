@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
-import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search, X, Check, FileText, Sparkles } from "lucide-react";
+import { Plus, Folder, ChevronRight, MoreHorizontal, Pencil, Trash2, LogOut, Search, X, Check, FileText, Sparkles, Briefcase } from "lucide-react";
 import { ChatBot } from "@/components/ChatBot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -271,6 +271,29 @@ export function AppSidebar() {
               </PopoverContent>
             </Popover>
           </div>
+
+          {/* CRM Navigation */}
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/crm"}
+                  >
+                    <Link
+                      href="/crm"
+                      className="flex items-center gap-2 w-full"
+                      data-testid="link-crm"
+                    >
+                      <Briefcase className="w-4 h-4" />
+                      {!isCollapsed && <span>Project Management</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
 
           <SidebarGroup>
             <SidebarGroupLabel className="flex items-center justify-between group-data-[collapsible=icon]:hidden">
