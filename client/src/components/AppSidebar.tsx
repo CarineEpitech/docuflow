@@ -96,8 +96,9 @@ export function AppSidebar() {
       return await apiRequest("POST", "/api/auth/logout");
     },
     onSuccess: () => {
+      queryClient.setQueryData(["/api/auth/user"], null);
       queryClient.clear();
-      setLocation("/");
+      window.location.href = "/";
     },
     onError: () => {
       toast({ title: "Failed to log out", variant: "destructive" });
