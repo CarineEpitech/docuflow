@@ -14,6 +14,7 @@ import Home from "@/pages/Home";
 import ProjectPage from "@/pages/ProjectPage";
 import DocumentPage from "@/pages/DocumentPage";
 import CrmPage from "@/pages/CrmPage";
+import CrmProjectPage from "@/pages/CrmProjectPage";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -69,6 +70,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/crm" component={CrmPage} />
+        <Route path="/crm/project/:id" component={CrmProjectPage} />
         <Route path="/project/:projectId" component={ProjectPage} />
         <Route path="/document/:documentId" component={DocumentPage} />
         <Route component={NotFound} />
