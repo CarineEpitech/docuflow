@@ -218,66 +218,23 @@ export function AppSidebar() {
           </SidebarGroup>
 
           <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center justify-between group-data-[collapsible=icon]:hidden">
-              <span>Documentation</span>
-            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {isLoading ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">Loading...</div>
-                ) : projects.length === 0 ? (
-                  <div className="px-3 py-4 text-center group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm text-muted-foreground mb-2">No documented projects</p>
-                    <p className="text-xs text-muted-foreground mb-3">Enable documentation for projects in Project Management</p>
-                    <Link href="/crm">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        data-testid="button-go-to-crm"
-                      >
-                        <Briefcase className="w-4 h-4 mr-1" />
-                        Go to Projects
-                      </Button>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/documentation" || location.startsWith("/project/")}
+                  >
+                    <Link
+                      href="/documentation"
+                      className="flex items-center gap-2 w-full"
+                      data-testid="link-documentation"
+                    >
+                      <FileText className="w-4 h-4" />
+                      {!isCollapsed && <span>Documentation</span>}
                     </Link>
-                  </div>
-                ) : (
-                  projects.map((project) => (
-                    <SidebarMenuItem key={project.id} className="group">
-                      <SidebarMenuButton
-                        asChild
-                        isActive={currentProjectId === project.id}
-                      >
-                        <Link
-                          href={`/project/${project.id}`}
-                          className="flex items-center gap-2 w-full group-data-[collapsible=icon]:hidden"
-                          data-testid={`link-project-${project.id}`}
-                        >
-                          <span className="text-base">{getProjectIcon(project.icon)}</span>
-                          <span className="flex-1 truncate">{project.name}</span>
-                          <ChevronRight className="w-4 h-4 opacity-50" />
-                        </Link>
-                      </SidebarMenuButton>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100 group-data-[collapsible=icon]:hidden"
-                            data-testid={`button-project-menu-${project.id}`}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDialog(project)}>
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Rename
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </SidebarMenuItem>
-                  ))
-                )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

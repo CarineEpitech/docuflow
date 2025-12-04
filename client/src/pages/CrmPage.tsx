@@ -22,7 +22,6 @@ import {
   ChevronLeft, 
   ChevronRight,
   User,
-  Briefcase,
   ExternalLink,
   CheckCircle,
   CalendarDays
@@ -221,12 +220,6 @@ export default function CrmPage() {
                           <div className="flex items-center gap-2">
                             <User className="w-4 h-4 text-muted-foreground" />
                             <span>{crmProject.client.name}</span>
-                            {crmProject.client.company && (
-                              <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                                <Briefcase className="w-3 h-3" />
-                                <span>{crmProject.client.company}</span>
-                              </div>
-                            )}
                           </div>
                         ) : (
                           <span className="text-muted-foreground">No client</span>

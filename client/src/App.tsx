@@ -15,6 +15,7 @@ import ProjectPage from "@/pages/ProjectPage";
 import DocumentPage from "@/pages/DocumentPage";
 import CrmPage from "@/pages/CrmPage";
 import CrmProjectPage from "@/pages/CrmProjectPage";
+import DocumentationPage from "@/pages/DocumentationPage";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -71,6 +72,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/crm" component={CrmPage} />
         <Route path="/crm/project/:id" component={CrmProjectPage} />
+        <Route path="/documentation" component={DocumentationPage} />
         <Route path="/project/:projectId" component={ProjectPage} />
         <Route path="/document/:documentId" component={DocumentPage} />
         <Route component={NotFound} />
