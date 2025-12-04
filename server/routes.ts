@@ -4,7 +4,14 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated, getUserId } from "./auth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
-import { insertProjectSchema, insertDocumentSchema } from "@shared/schema";
+import { 
+  insertProjectSchema, 
+  insertDocumentSchema, 
+  insertCrmClientSchema,
+  insertCrmContactSchema,
+  insertCrmProjectSchema,
+  crmProjectStatusValues 
+} from "@shared/schema";
 import { z } from "zod";
 import OpenAI from "openai";
 import {
@@ -853,6 +860,372 @@ Instructions:
     } catch (error: any) {
       console.error("Error in chat:", error);
       res.status(500).json({ message: "Failed to process chat request", error: error.message });
+    }
+  });
+
+  // ========== CRM Routes ==========
+
+  // Get all CRM clients for the user
+  app.get("/api/crm/clients", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const clients = await storage.getCrmClients(userId);
+      res.json(clients);
+    } catch (error) {
+      console.error("Error fetching CRM clients:", error);
+      res.status(500).json({ message: "Failed to fetch clients" });
+    }
+  });
+
+  // Get single CRM client with contacts
+  app.get("/api/crm/clients/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const client = await storage.getCrmClient(req.params.id);
+      
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      if (client.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const contacts = await storage.getCrmContacts(client.id);
+      res.json({ ...client, contacts });
+    } catch (error) {
+      console.error("Error fetching CRM client:", error);
+      res.status(500).json({ message: "Failed to fetch client" });
+    }
+  });
+
+  // Create CRM client
+  app.post("/api/crm/clients", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const parsed = insertCrmClientSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const client = await storage.createCrmClient({ ...parsed.data, ownerId: userId });
+      res.status(201).json(client);
+    } catch (error) {
+      console.error("Error creating CRM client:", error);
+      res.status(500).json({ message: "Failed to create client" });
+    }
+  });
+
+  // Update CRM client
+  app.patch("/api/crm/clients/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const client = await storage.getCrmClient(req.params.id);
+      
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      if (client.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const updateSchema = insertCrmClientSchema.partial();
+      const parsed = updateSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const updated = await storage.updateCrmClient(req.params.id, parsed.data);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating CRM client:", error);
+      res.status(500).json({ message: "Failed to update client" });
+    }
+  });
+
+  // Delete CRM client
+  app.delete("/api/crm/clients/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const client = await storage.getCrmClient(req.params.id);
+      
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      if (client.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      await storage.deleteCrmClient(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting CRM client:", error);
+      res.status(500).json({ message: "Failed to delete client" });
+    }
+  });
+
+  // Create CRM contact for a client
+  app.post("/api/crm/clients/:clientId/contacts", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const client = await storage.getCrmClient(req.params.clientId);
+      
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      if (client.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const parsed = insertCrmContactSchema.safeParse({ ...req.body, clientId: req.params.clientId });
+      
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const contact = await storage.createCrmContact(parsed.data);
+      res.status(201).json(contact);
+    } catch (error) {
+      console.error("Error creating CRM contact:", error);
+      res.status(500).json({ message: "Failed to create contact" });
+    }
+  });
+
+  // Update CRM contact
+  app.patch("/api/crm/contacts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const contact = await storage.getCrmContact(req.params.id);
+      
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      
+      const client = await storage.getCrmClient(contact.clientId);
+      if (!client || client.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const updateSchema = insertCrmContactSchema.partial().omit({ clientId: true });
+      const parsed = updateSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const updated = await storage.updateCrmContact(req.params.id, parsed.data);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating CRM contact:", error);
+      res.status(500).json({ message: "Failed to update contact" });
+    }
+  });
+
+  // Delete CRM contact
+  app.delete("/api/crm/contacts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const contact = await storage.getCrmContact(req.params.id);
+      
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      
+      const client = await storage.getCrmClient(contact.clientId);
+      if (!client || client.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      await storage.deleteCrmContact(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting CRM contact:", error);
+      res.status(500).json({ message: "Failed to delete contact" });
+    }
+  });
+
+  // Get paginated CRM projects
+  app.get("/api/crm/projects", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 10;
+      const status = req.query.status as string | undefined;
+      const search = req.query.search as string | undefined;
+      
+      const result = await storage.getCrmProjects(userId, { page, pageSize, status, search });
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching CRM projects:", error);
+      res.status(500).json({ message: "Failed to fetch CRM projects" });
+    }
+  });
+
+  // Get single CRM project with details
+  app.get("/api/crm/projects/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const crmProject = await storage.getCrmProject(req.params.id);
+      
+      if (!crmProject) {
+        return res.status(404).json({ message: "CRM Project not found" });
+      }
+      
+      // Verify ownership via the linked project
+      if (crmProject.project && crmProject.project.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      res.json(crmProject);
+    } catch (error) {
+      console.error("Error fetching CRM project:", error);
+      res.status(500).json({ message: "Failed to fetch CRM project" });
+    }
+  });
+
+  // Create CRM project (link CRM data to an existing project)
+  app.post("/api/crm/projects", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      
+      const createSchema = z.object({
+        projectId: z.string(),
+        clientId: z.string().nullable().optional(),
+        status: z.enum(crmProjectStatusValues).optional(),
+        assigneeId: z.string().nullable().optional(),
+        startDate: z.string().nullable().optional(),
+        dueDate: z.string().nullable().optional(),
+        actualFinishDate: z.string().nullable().optional(),
+        comments: z.string().nullable().optional(),
+      });
+      
+      const parsed = createSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      // Verify the project belongs to the user
+      const project = await storage.getProject(parsed.data.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      if (project.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      // Check if CRM project already exists for this project
+      const existing = await storage.getCrmProjectByProjectId(parsed.data.projectId);
+      if (existing) {
+        return res.status(400).json({ message: "CRM project already exists for this project" });
+      }
+      
+      const crmProject = await storage.createCrmProject({
+        projectId: parsed.data.projectId,
+        clientId: parsed.data.clientId || null,
+        status: parsed.data.status || "lead",
+        assigneeId: parsed.data.assigneeId || null,
+        startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : null,
+        dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+        actualFinishDate: parsed.data.actualFinishDate ? new Date(parsed.data.actualFinishDate) : null,
+        comments: parsed.data.comments || null,
+      });
+      
+      res.status(201).json(crmProject);
+    } catch (error) {
+      console.error("Error creating CRM project:", error);
+      res.status(500).json({ message: "Failed to create CRM project" });
+    }
+  });
+
+  // Update CRM project
+  app.patch("/api/crm/projects/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const crmProject = await storage.getCrmProject(req.params.id);
+      
+      if (!crmProject) {
+        return res.status(404).json({ message: "CRM Project not found" });
+      }
+      
+      // Verify ownership via the linked project
+      if (crmProject.project && crmProject.project.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const updateSchema = z.object({
+        clientId: z.string().nullable().optional(),
+        status: z.enum(crmProjectStatusValues).optional(),
+        assigneeId: z.string().nullable().optional(),
+        startDate: z.string().nullable().optional(),
+        dueDate: z.string().nullable().optional(),
+        actualFinishDate: z.string().nullable().optional(),
+        comments: z.string().nullable().optional(),
+      }).partial();
+      
+      const parsed = updateSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      // Convert date strings to Date objects
+      const updateData: any = { ...parsed.data };
+      if (parsed.data.startDate !== undefined) {
+        updateData.startDate = parsed.data.startDate ? new Date(parsed.data.startDate) : null;
+      }
+      if (parsed.data.dueDate !== undefined) {
+        updateData.dueDate = parsed.data.dueDate ? new Date(parsed.data.dueDate) : null;
+      }
+      if (parsed.data.actualFinishDate !== undefined) {
+        updateData.actualFinishDate = parsed.data.actualFinishDate ? new Date(parsed.data.actualFinishDate) : null;
+      }
+      
+      const updated = await storage.updateCrmProject(req.params.id, updateData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating CRM project:", error);
+      res.status(500).json({ message: "Failed to update CRM project" });
+    }
+  });
+
+  // Delete CRM project
+  app.delete("/api/crm/projects/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const crmProject = await storage.getCrmProject(req.params.id);
+      
+      if (!crmProject) {
+        return res.status(404).json({ message: "CRM Project not found" });
+      }
+      
+      // Verify ownership via the linked project
+      if (crmProject.project && crmProject.project.ownerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      await storage.deleteCrmProject(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting CRM project:", error);
+      res.status(500).json({ message: "Failed to delete CRM project" });
+    }
+  });
+
+  // Get all users for assignee dropdown
+  app.get("/api/users", isAuthenticated, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
