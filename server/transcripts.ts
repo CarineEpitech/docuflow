@@ -356,12 +356,20 @@ export async function processDocumentVideos(
     });
   }
   
-  if (videosToRemove.length > 0) {
-    await regenerateDocumentEmbeddings(documentId, projectId, ownerId, title, content, projectName, breadcrumbs);
-  }
-  
+  // If there are videos to add, process them asynchronously
+  // Error handling ensures embeddings are regenerated even if extraction fails
   if (videosToAdd.length > 0) {
-    processTranscriptQueue(documentId, projectId, ownerId, title, content, projectName, breadcrumbs);
+    processTranscriptQueue(documentId, projectId, ownerId, title, content, projectName, breadcrumbs)
+      .catch(err => {
+        console.error("[Transcripts] Queue processing failed, regenerating embeddings anyway:", err);
+        // Ensure embeddings are still generated even if transcript extraction fails
+        regenerateDocumentEmbeddings(documentId, projectId, ownerId, title, content, projectName, breadcrumbs)
+          .catch(embErr => console.error("[Transcripts] Fallback embedding generation also failed:", embErr));
+      });
+  } else {
+    // No new videos to process - regenerate embeddings now
+    // This handles: content changes, video removals, or documents with no videos
+    await regenerateDocumentEmbeddings(documentId, projectId, ownerId, title, content, projectName, breadcrumbs);
   }
 }
 

@@ -216,16 +216,30 @@ export async function registerRoutes(
         position: 0,
       });
 
-      // Generate embeddings for the new document asynchronously
-      updateDocumentEmbeddings(
-        document.id,
-        req.params.projectId,
-        userId,
-        document.title,
-        document.content,
-        project.name,
-        []
-      ).catch(err => console.error("Error generating embeddings:", err));
+      // Process video transcripts and generate embeddings for the new document asynchronously
+      if (parsed.data.content) {
+        // Process videos (handles both transcript extraction and embedding updates)
+        processDocumentVideos(
+          document.id,
+          req.params.projectId,
+          userId,
+          document.title,
+          document.content,
+          project.name,
+          []
+        ).catch(err => console.error("Error processing video transcripts:", err));
+      } else {
+        // No content, just generate basic embeddings
+        updateDocumentEmbeddings(
+          document.id,
+          req.params.projectId,
+          userId,
+          document.title,
+          document.content,
+          project.name,
+          []
+        ).catch(err => console.error("Error generating embeddings:", err));
+      }
 
       res.status(201).json(document);
     } catch (error) {
