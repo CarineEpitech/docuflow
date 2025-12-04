@@ -1,0 +1,529 @@
+import { chromium, Browser, Page, BrowserContext } from 'playwright';
+
+/**
+ * Playwright-based transcript extraction utilities
+ * Supports automatic transcript extraction from Loom, Fathom, and Zoom
+ */
+
+// Configuration
+const BROWSER_TIMEOUT = 30000; // 30 seconds
+const HEADLESS = true; // Always headless on Replit (no X Server available)
+const SLOW_MO = parseInt(process.env.PLAYWRIGHT_SLOWMO || '0'); // No slowdown in production
+
+/**
+ * Launch browser with appropriate settings
+ */
+async function launchBrowser(): Promise<Browser> {
+  // Use system Chromium on Replit/Nix instead of Playwright's bundled version
+  const executablePath = process.env.CHROMIUM_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+  
+  console.log(`[Browser] Launching browser (headless: ${HEADLESS}, slowMo: ${SLOW_MO}ms)`);
+  
+  return await chromium.launch({
+    executablePath,
+    headless: HEADLESS,
+    slowMo: SLOW_MO, // Slow down actions so you can see them
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+    ],
+  });
+}
+
+/**
+ * Create browser context with clipboard permissions
+ */
+async function createContext(browser: Browser): Promise<BrowserContext> {
+  return await browser.newContext({
+    permissions: ['clipboard-read', 'clipboard-write'],
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 },
+  });
+}
+
+/**
+ * Extract transcript from Loom video URL
+ */
+export async function extractLoomTranscript(url: string): Promise<string> {
+  let browser: Browser | null = null;
+  
+  try {
+    console.log(`[Loom] Starting extraction from: ${url}`);
+    
+    browser = await launchBrowser();
+    const context = await createContext(browser);
+    const page = await context.newPage();
+    
+    // Navigate to Loom video
+    console.log('[Loom] Navigating to URL...');
+    await page.goto(url, { waitUntil: 'networkidle', timeout: BROWSER_TIMEOUT });
+    console.log('[Loom] Page loaded successfully');
+    
+    // Take screenshot
+    await page.screenshot({ path: '/tmp/loom-page-loaded.png' });
+    console.log('[Loom] Screenshot saved: /tmp/loom-page-loaded.png');
+    
+    // Grant clipboard permissions for the Loom origin
+    const urlObj = new URL(url);
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { 
+      origin: `${urlObj.protocol}//${urlObj.host}` 
+    });
+    console.log('[Loom] Clipboard permissions granted');
+    
+    // Try to find and click the transcript button/tab
+    console.log('[Loom] Looking for transcript button/tab...');
+    const transcriptButtonSelectors = [
+      'button:has-text("Transcript")',
+      '[aria-label="Transcript"]',
+      '[data-qa="transcript-button"]',
+      'button:has-text("Show transcript")',
+      '.transcript-toggle',
+      '[role="tab"]:has-text("Transcript")'
+    ];
+    
+    let transcriptButtonClicked = false;
+    for (const selector of transcriptButtonSelectors) {
+      try {
+        const button = page.locator(selector).first();
+        await button.waitFor({ state: 'visible', timeout: 3000 });
+        await button.click();
+        console.log(`[Loom] Clicked transcript button: ${selector}`);
+        await page.waitForTimeout(2000); // Wait for panel to appear
+        transcriptButtonClicked = true;
+        break;
+      } catch (e) {
+        // Try next selector
+      }
+    }
+    
+    if (!transcriptButtonClicked) {
+      console.log('[Loom] No transcript button found, transcript may already be visible');
+    }
+    
+    // Take screenshot after clicking
+    await page.screenshot({ path: '/tmp/loom-transcript-visible.png' });
+    console.log('[Loom] Screenshot saved: /tmp/loom-transcript-visible.png');
+    
+    // Debug: Log all elements with "transcript" in their attributes
+    const debugInfo = await page.evaluate(() => {
+      const allElements = document.querySelectorAll('*');
+      const transcriptElements: string[] = [];
+      allElements.forEach((el) => {
+        const classNames = el.className?.toString() || '';
+        const dataAttrs = Array.from(el.attributes || [])
+          .map(attr => `${attr.name}="${attr.value}"`)
+          .join(' ');
+        
+        if (classNames.toLowerCase().includes('transcript') || 
+            dataAttrs.toLowerCase().includes('transcript')) {
+          transcriptElements.push(`${el.tagName} - class: ${classNames} - attrs: ${dataAttrs}`);
+        }
+      });
+      return {
+        count: transcriptElements.length,
+        elements: transcriptElements.slice(0, 10) // First 10 elements
+      };
+    });
+    
+    console.log(`[Loom Debug] Found ${debugInfo.count} elements with "transcript" in class/attrs`);
+    if (debugInfo.elements.length > 0) {
+      console.log('[Loom Debug] First few elements:', debugInfo.elements);
+    }
+    
+    // Wait for transcript panel to be visible
+    const transcriptPanelSelectors = [
+      '[data-testid="transcript-panel"]',
+      '.transcript-container',
+      '[data-qa="transcript-panel"]',
+      '.transcript-list',
+      '[role="region"][aria-label*="ranscript"]',
+      '[class*="Transcript"]', // Case-sensitive class match
+      'div[data-testid*="transcript"]' // Any data-testid with transcript
+    ];
+    
+    let transcriptPanelFound = false;
+    for (const selector of transcriptPanelSelectors) {
+      try {
+        await page.waitForSelector(selector, { state: 'visible', timeout: 5000 });
+        console.log(`[Loom] Transcript panel found: ${selector}`);
+        transcriptPanelFound = true;
+        break;
+      } catch (e) {
+        // Try next selector
+      }
+    }
+    
+    if (!transcriptPanelFound) {
+      console.log('[Loom] Transcript panel not found with any selector, trying DOM extraction');
+      const domTranscript = await extractTranscriptFromDOM(page);
+      if (domTranscript) {
+        return domTranscript;
+      }
+      throw new Error('Transcript panel not found. Video may not have a transcript available.');
+    }
+    
+    // Try to use copy button first
+    try {
+      const copyButton = page.locator('button:has-text("Copy")').first();
+      console.log('[Loom] Waiting for Copy button...');
+      await copyButton.waitFor({ state: 'visible', timeout: 10000 });
+      
+      // Screenshot before clicking
+      await page.screenshot({ path: '/tmp/loom-before-copy.png' });
+      console.log('[Loom] Screenshot before clicking: /tmp/loom-before-copy.png');
+      
+      await copyButton.click();
+      console.log('[Loom] Copy button clicked');
+      
+      // Screenshot after clicking
+      await page.screenshot({ path: '/tmp/loom-after-copy.png' });
+      console.log('[Loom] Screenshot after clicking: /tmp/loom-after-copy.png');
+      
+      // Wait for clipboard operation to complete
+      await page.waitForTimeout(1000);
+      
+      // Read clipboard content
+      const transcript = await page.evaluate(async () => {
+        try {
+          return await navigator.clipboard.readText();
+        } catch (err) {
+          console.error('Clipboard read failed:', err);
+          return null;
+        }
+      });
+      
+      if (transcript && transcript.trim().length > 0) {
+        console.log(`[Loom] Transcript extracted via clipboard (${transcript.length} characters)`);
+        return transcript;
+      }
+      
+      console.log('[Loom] Clipboard empty, falling back to DOM extraction');
+    } catch (error: any) {
+      console.log('[Loom] Copy button not found or failed, trying DOM extraction');
+    }
+    
+    // Fallback to DOM extraction
+    const domTranscript = await extractTranscriptFromDOM(page);
+    if (!domTranscript) {
+      throw new Error('Could not extract transcript via clipboard or DOM');
+    }
+    
+    console.log(`[Loom] Transcript extracted via DOM (${domTranscript.length} characters)`);
+    return domTranscript;
+    
+  } catch (error: any) {
+    console.error('[Loom] Extraction failed:', error.message);
+    throw new Error(`Failed to extract Loom transcript: ${error.message}`);
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}
+
+/**
+ * Extract transcript from Fathom video URL
+ */
+export async function extractFathomTranscript(url: string): Promise<string> {
+  let browser: Browser | null = null;
+  
+  try {
+    console.log(`[Fathom] Starting extraction from: ${url}`);
+    
+    browser = await launchBrowser();
+    const context = await createContext(browser);
+    const page = await context.newPage();
+    
+    // Navigate to Fathom video
+    console.log('[Fathom] Navigating to URL...');
+    await page.goto(url, { waitUntil: 'networkidle', timeout: BROWSER_TIMEOUT });
+    console.log('[Fathom] Page loaded successfully');
+    
+    // Take screenshot
+    await page.screenshot({ path: '/tmp/fathom-page-loaded.png' });
+    console.log('[Fathom] Screenshot saved: /tmp/fathom-page-loaded.png');
+    
+    // Grant clipboard permissions for the Fathom origin
+    const urlObj = new URL(url);
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { 
+      origin: `${urlObj.protocol}//${urlObj.host}` 
+    });
+    console.log('[Fathom] Clipboard permissions granted');
+    
+    // Click on TRANSCRIPT tab to reveal transcript content
+    try {
+      console.log('[Fathom] Looking for TRANSCRIPT tab...');
+      const transcriptTab = page.locator('text=TRANSCRIPT').first();
+      await transcriptTab.waitFor({ state: 'visible', timeout: 5000 });
+      console.log('[Fathom] TRANSCRIPT tab found, clicking...');
+      await transcriptTab.click();
+      console.log('[Fathom] TRANSCRIPT tab clicked');
+      
+      // Wait for transcript content to load
+      await page.waitForTimeout(1500);
+      
+      // Take screenshot after clicking transcript tab
+      await page.screenshot({ path: '/tmp/fathom-transcript-tab-clicked.png' });
+      console.log('[Fathom] Screenshot after clicking tab: /tmp/fathom-transcript-tab-clicked.png');
+    } catch (error) {
+      console.log('[Fathom] Could not find TRANSCRIPT tab, continuing anyway...');
+    }
+    
+    // Wait for video player to load
+    await page.waitForSelector('video, [class*="player"]', { timeout: BROWSER_TIMEOUT });
+    
+    // Try multiple possible copy button selectors
+    const transcriptSelectors = [
+      'button:has-text("Copy transcript")',
+      'button:has-text("Copy Transcript")',
+      '[aria-label*="transcript" i]',
+      '.transcript-copy-button',
+    ];
+    
+    // Try to use copy button with clipboard
+    for (const selector of transcriptSelectors) {
+      try {
+        const button = page.locator(selector).first();
+        console.log(`[Fathom] Looking for button with selector: ${selector}`);
+        await button.waitFor({ state: 'visible', timeout: 5000 });
+        
+        // Screenshot before clicking
+        await page.screenshot({ path: `/tmp/fathom-before-${selector.replace(/[^a-z0-9]/gi, '_')}.png` });
+        console.log(`[Fathom] Screenshot before clicking: /tmp/fathom-before-${selector.replace(/[^a-z0-9]/gi, '_')}.png`);
+        
+        await button.click();
+        console.log(`[Fathom] Copy button found and clicked: ${selector}`);
+        
+        await page.waitForTimeout(1000);
+        
+        const transcript = await page.evaluate(async () => {
+          try {
+            return await navigator.clipboard.readText();
+          } catch (err) {
+            console.error('Clipboard read failed:', err);
+            return null;
+          }
+        });
+        
+        if (transcript && transcript.trim().length > 0) {
+          console.log(`[Fathom] Transcript extracted via clipboard (${transcript.length} characters)`);
+          return transcript;
+        }
+      } catch {
+        continue;
+      }
+    }
+    
+    // Fallback to DOM extraction
+    console.log('[Fathom] Copy button not found or clipboard empty, trying DOM extraction');
+    const domTranscript = await extractTranscriptFromDOM(page);
+    if (!domTranscript) {
+      throw new Error('Could not find transcript copy button or transcript text in DOM');
+    }
+    
+    console.log(`[Fathom] Transcript extracted via DOM (${domTranscript.length} characters)`);
+    return domTranscript;
+    
+  } catch (error: any) {
+    console.error('[Fathom] Extraction failed:', error.message);
+    throw new Error(`Failed to extract Fathom transcript: ${error.message}`);
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}
+
+/**
+ * Extract transcript from Zoom video URL
+ */
+export async function extractZoomTranscript(url: string): Promise<string> {
+  let browser: Browser | null = null;
+  
+  try {
+    console.log(`[Zoom] Starting extraction from: ${url}`);
+    
+    browser = await launchBrowser();
+    const context = await createContext(browser);
+    const page = await context.newPage();
+    
+    // Navigate to Zoom video
+    console.log('[Zoom] Navigating to URL...');
+    await page.goto(url, { waitUntil: 'networkidle', timeout: BROWSER_TIMEOUT });
+    console.log('[Zoom] Page loaded successfully');
+    
+    // Take screenshot
+    await page.screenshot({ path: '/tmp/zoom-page-loaded.png' });
+    console.log('[Zoom] Screenshot saved: /tmp/zoom-page-loaded.png');
+    
+    // Grant clipboard permissions for the Zoom origin
+    const urlObj = new URL(url);
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { 
+      origin: `${urlObj.protocol}//${urlObj.host}` 
+    });
+    console.log('[Zoom] Clipboard permissions granted');
+    
+    // Wait for video player
+    await page.waitForSelector('video, #player', { timeout: BROWSER_TIMEOUT });
+    
+    // Look for transcript/captions toggle
+    const transcriptSelectors = [
+      'button:has-text("Transcript")',
+      'button:has-text("Show transcript")',
+      '[aria-label*="transcript" i]',
+      'button:has-text("CC")',
+      'button:has-text("Captions")',
+    ];
+    
+    // Try to enable transcript view
+    for (const selector of transcriptSelectors) {
+      try {
+        const button = page.locator(selector).first();
+        await button.waitFor({ state: 'visible', timeout: 5000 });
+        await button.click();
+        console.log(`[Zoom] Transcript button clicked: ${selector}`);
+        await page.waitForTimeout(1000);
+        break;
+      } catch {
+        continue;
+      }
+    }
+    
+    // Try to find copy button with clipboard
+    try {
+      const copyButton = page.locator('button:has-text("Copy")').first();
+      await copyButton.waitFor({ state: 'visible', timeout: 5000 });
+      await copyButton.click();
+      await page.waitForTimeout(1000);
+      
+      const transcript = await page.evaluate(async () => {
+        try {
+          return await navigator.clipboard.readText();
+        } catch (err) {
+          console.error('Clipboard read failed:', err);
+          return null;
+        }
+      });
+      
+      if (transcript && transcript.trim().length > 0) {
+        console.log(`[Zoom] Transcript extracted via clipboard (${transcript.length} characters)`);
+        return transcript;
+      }
+    } catch {
+      console.log('[Zoom] Copy button not found, trying DOM extraction');
+    }
+    
+    // Fallback to DOM extraction
+    const domTranscript = await extractTranscriptFromDOM(page);
+    if (!domTranscript) {
+      throw new Error('Could not find or extract transcript content via clipboard or DOM');
+    }
+    
+    console.log(`[Zoom] Transcript extracted via DOM (${domTranscript.length} characters)`);
+    return domTranscript;
+    
+  } catch (error: any) {
+    console.error('[Zoom] Extraction failed:', error.message);
+    throw new Error(`Failed to extract Zoom transcript: ${error.message}`);
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}
+
+/**
+ * Fallback: Extract transcript text directly from DOM
+ */
+async function extractTranscriptFromDOM(page: Page): Promise<string | null> {
+  try {
+    console.log('[DOM] Attempting to extract transcript from page DOM');
+    
+    // Common selectors for transcript elements (Loom, Fathom, Zoom)
+    const selectors = [
+      '[data-testid="transcript-segment"]',
+      '[data-testid="transcript-text"]',
+      '[data-qa="transcript-text"]',
+      '.transcript-segment',
+      '.transcript-text',
+      '.transcript-line',
+      '.caption-line',
+      '[class*="TranscriptLine"]',
+      '[class*="transcript-item"]',
+      '[class*="transcript"] [class*="text"]',
+      '[class*="transcript" i] p',
+      '[class*="caption" i] p',
+      '[role="region"][aria-label*="ranscript"] p',
+      '[role="region"][aria-label*="ranscript"] div[class*="text"]',
+    ];
+    
+    for (const selector of selectors) {
+      try {
+        const elements = await page.locator(selector).all();
+        if (elements.length > 0) {
+          const texts = await Promise.all(
+            elements.map(async (el) => {
+              const text = await el.textContent();
+              return text?.trim() || '';
+            })
+          );
+          
+          const transcript = texts.filter(Boolean).join('\n');
+          if (transcript.length > 50) { // Minimum viable transcript
+            console.log(`[DOM] Transcript extracted using selector: ${selector}`);
+            return transcript;
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+    
+    console.log('[DOM] No transcript found in page DOM');
+    return null;
+  } catch (error) {
+    console.error('[DOM] Error extracting from DOM:', error);
+    return null;
+  }
+}
+
+/**
+ * Main entry point: Extract transcript based on platform
+ */
+export async function extractTranscriptFromPlatform(url: string): Promise<string> {
+  const platform = detectPlatform(url);
+  
+  console.log(`[Extractor] Detected platform: ${platform} for URL: ${url}`);
+  
+  switch (platform) {
+    case 'loom':
+      return await extractLoomTranscript(url);
+    
+    case 'fathom':
+      return await extractFathomTranscript(url);
+    
+    case 'zoom':
+      return await extractZoomTranscript(url);
+    
+    default:
+      throw new Error(
+        `Unsupported platform: ${platform}. ` +
+        `Please use the manual transcript upload feature for this video.`
+      );
+  }
+}
+
+/**
+ * Detect video platform from URL
+ */
+function detectPlatform(url: string): string {
+  const urlLower = url.toLowerCase();
+  
+  if (urlLower.includes('loom.com')) return 'loom';
+  if (urlLower.includes('fathom.video') || urlLower.includes('fathom')) return 'fathom';
+  if (urlLower.includes('zoom.us') || urlLower.includes('zoom')) return 'zoom';
+  
+  return 'unknown';
+}
