@@ -3,14 +3,25 @@ import {
   users,
   projects,
   documents,
+  crmProjects,
+  crmClients,
+  crmContacts,
   type User,
+  type SafeUser,
   type Project,
   type InsertProject,
   type Document,
   type InsertDocument,
+  type CrmProject,
+  type InsertCrmProject,
+  type CrmClient,
+  type InsertCrmClient,
+  type CrmContact,
+  type InsertCrmContact,
+  type CrmProjectWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, like, or, isNull, sql, gt } from "drizzle-orm";
+import { eq, and, desc, like, or, isNull, sql, gt, asc, count } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -36,6 +47,36 @@ export interface IStorage {
   
   // Get all documents for a user across all projects (for chatbot knowledge base)
   getAllUserDocuments(userId: string): Promise<Array<Document & { projectName: string }>>;
+  
+  // CRM Clients
+  getCrmClients(userId: string): Promise<CrmClient[]>;
+  getCrmClient(id: string): Promise<CrmClient | undefined>;
+  createCrmClient(client: InsertCrmClient & { ownerId: string }): Promise<CrmClient>;
+  updateCrmClient(id: string, data: Partial<InsertCrmClient>): Promise<CrmClient | undefined>;
+  deleteCrmClient(id: string): Promise<void>;
+  
+  // CRM Contacts
+  getCrmContacts(clientId: string): Promise<CrmContact[]>;
+  getCrmContact(id: string): Promise<CrmContact | undefined>;
+  createCrmContact(contact: InsertCrmContact): Promise<CrmContact>;
+  updateCrmContact(id: string, data: Partial<InsertCrmContact>): Promise<CrmContact | undefined>;
+  deleteCrmContact(id: string): Promise<void>;
+  
+  // CRM Projects
+  getCrmProjects(userId: string, options?: { 
+    page?: number; 
+    pageSize?: number; 
+    status?: string;
+    search?: string;
+  }): Promise<{ data: CrmProjectWithDetails[]; total: number; page: number; pageSize: number }>;
+  getCrmProject(id: string): Promise<CrmProjectWithDetails | undefined>;
+  getCrmProjectByProjectId(projectId: string): Promise<CrmProject | undefined>;
+  createCrmProject(crmProject: InsertCrmProject): Promise<CrmProject>;
+  updateCrmProject(id: string, data: Partial<InsertCrmProject>): Promise<CrmProject | undefined>;
+  deleteCrmProject(id: string): Promise<void>;
+  
+  // Get all users for assignee dropdown
+  getAllUsers(): Promise<SafeUser[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -366,6 +407,234 @@ export class DatabaseStorage implements IStorage {
       ...doc,
       projectName: projectMap.get(doc.projectId) || "Unknown Project"
     }));
+  }
+
+  // CRM Clients
+  async getCrmClients(userId: string): Promise<CrmClient[]> {
+    return db
+      .select()
+      .from(crmClients)
+      .where(eq(crmClients.ownerId, userId))
+      .orderBy(asc(crmClients.name));
+  }
+
+  async getCrmClient(id: string): Promise<CrmClient | undefined> {
+    const [client] = await db.select().from(crmClients).where(eq(crmClients.id, id));
+    return client;
+  }
+
+  async createCrmClient(client: InsertCrmClient & { ownerId: string }): Promise<CrmClient> {
+    const [newClient] = await db.insert(crmClients).values(client).returning();
+    return newClient;
+  }
+
+  async updateCrmClient(id: string, data: Partial<InsertCrmClient>): Promise<CrmClient | undefined> {
+    const [updated] = await db
+      .update(crmClients)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(crmClients.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCrmClient(id: string): Promise<void> {
+    await db.delete(crmClients).where(eq(crmClients.id, id));
+  }
+
+  // CRM Contacts
+  async getCrmContacts(clientId: string): Promise<CrmContact[]> {
+    return db
+      .select()
+      .from(crmContacts)
+      .where(eq(crmContacts.clientId, clientId))
+      .orderBy(desc(crmContacts.isPrimary), asc(crmContacts.name));
+  }
+
+  async getCrmContact(id: string): Promise<CrmContact | undefined> {
+    const [contact] = await db.select().from(crmContacts).where(eq(crmContacts.id, id));
+    return contact;
+  }
+
+  async createCrmContact(contact: InsertCrmContact): Promise<CrmContact> {
+    const [newContact] = await db.insert(crmContacts).values(contact).returning();
+    return newContact;
+  }
+
+  async updateCrmContact(id: string, data: Partial<InsertCrmContact>): Promise<CrmContact | undefined> {
+    const [updated] = await db
+      .update(crmContacts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(crmContacts.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCrmContact(id: string): Promise<void> {
+    await db.delete(crmContacts).where(eq(crmContacts.id, id));
+  }
+
+  // CRM Projects
+  async getCrmProjects(userId: string, options?: { 
+    page?: number; 
+    pageSize?: number; 
+    status?: string;
+    search?: string;
+  }): Promise<{ data: CrmProjectWithDetails[]; total: number; page: number; pageSize: number }> {
+    const page = options?.page || 1;
+    const pageSize = options?.pageSize || 10;
+    const offset = (page - 1) * pageSize;
+
+    // Get user's projects first
+    const userProjects = await this.getProjects(userId);
+    const projectIds = userProjects.map((p) => p.id);
+
+    if (projectIds.length === 0) {
+      return { data: [], total: 0, page, pageSize };
+    }
+
+    // Build conditions
+    const conditions = [
+      or(...projectIds.map((pid) => eq(crmProjects.projectId, pid)))
+    ];
+
+    if (options?.status) {
+      conditions.push(eq(crmProjects.status, options.status));
+    }
+
+    // Count total
+    const [countResult] = await db
+      .select({ count: count() })
+      .from(crmProjects)
+      .where(and(...conditions));
+
+    const total = countResult?.count || 0;
+
+    // Get paginated data
+    const crmProjectRows = await db
+      .select()
+      .from(crmProjects)
+      .where(and(...conditions))
+      .orderBy(desc(crmProjects.updatedAt))
+      .limit(pageSize)
+      .offset(offset);
+
+    // Get all related data
+    const projectMap = new Map(userProjects.map((p) => [p.id, p]));
+
+    // Get clients
+    const clientIds = crmProjectRows.map((cp) => cp.clientId).filter(Boolean) as string[];
+    const clientsData = clientIds.length > 0 
+      ? await db.select().from(crmClients).where(or(...clientIds.map((id) => eq(crmClients.id, id))))
+      : [];
+    const clientMap = new Map(clientsData.map((c) => [c.id, c]));
+
+    // Get contacts for clients
+    const contactsData = clientIds.length > 0
+      ? await db.select().from(crmContacts).where(or(...clientIds.map((id) => eq(crmContacts.clientId, id))))
+      : [];
+    const contactsByClient = new Map<string, CrmContact[]>();
+    contactsData.forEach((contact) => {
+      const existing = contactsByClient.get(contact.clientId) || [];
+      existing.push(contact);
+      contactsByClient.set(contact.clientId, existing);
+    });
+
+    // Get assignees
+    const assigneeIds = crmProjectRows.map((cp) => cp.assigneeId).filter(Boolean) as string[];
+    const assigneesData = assigneeIds.length > 0
+      ? await db.select().from(users).where(or(...assigneeIds.map((id) => eq(users.id, id))))
+      : [];
+    const assigneeMap = new Map(assigneesData.map((u) => [u.id, {
+      id: u.id,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      profileImageUrl: u.profileImageUrl,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+    } as SafeUser]));
+
+    // Build result with search filter if needed
+    let data: CrmProjectWithDetails[] = crmProjectRows.map((cp) => {
+      const project = projectMap.get(cp.projectId);
+      const client = cp.clientId ? clientMap.get(cp.clientId) : undefined;
+      const clientContacts = cp.clientId ? contactsByClient.get(cp.clientId) : undefined;
+      const assignee = cp.assigneeId ? assigneeMap.get(cp.assigneeId) : undefined;
+
+      return {
+        ...cp,
+        project,
+        client: client ? { ...client, contacts: clientContacts } : undefined,
+        assignee,
+      };
+    });
+
+    // Filter by search if provided
+    if (options?.search) {
+      const searchLower = options.search.toLowerCase();
+      data = data.filter((item) => 
+        item.project?.name.toLowerCase().includes(searchLower) ||
+        item.client?.name.toLowerCase().includes(searchLower) ||
+        item.client?.company?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return { data, total: Number(total), page, pageSize };
+  }
+
+  async getCrmProject(id: string): Promise<CrmProjectWithDetails | undefined> {
+    const [crmProject] = await db.select().from(crmProjects).where(eq(crmProjects.id, id));
+    if (!crmProject) return undefined;
+
+    const project = await this.getProject(crmProject.projectId);
+    
+    let client: (CrmClient & { contacts?: CrmContact[] }) | undefined;
+    if (crmProject.clientId) {
+      const clientData = await this.getCrmClient(crmProject.clientId);
+      if (clientData) {
+        const contacts = await this.getCrmContacts(clientData.id);
+        client = { ...clientData, contacts };
+      }
+    }
+
+    let assignee: SafeUser | undefined;
+    if (crmProject.assigneeId) {
+      const user = await this.getUser(crmProject.assigneeId);
+      if (user) {
+        const { passwordHash, ...safeUser } = user;
+        assignee = safeUser;
+      }
+    }
+
+    return { ...crmProject, project, client, assignee };
+  }
+
+  async getCrmProjectByProjectId(projectId: string): Promise<CrmProject | undefined> {
+    const [crmProject] = await db.select().from(crmProjects).where(eq(crmProjects.projectId, projectId));
+    return crmProject;
+  }
+
+  async createCrmProject(crmProject: InsertCrmProject): Promise<CrmProject> {
+    const [newCrmProject] = await db.insert(crmProjects).values(crmProject).returning();
+    return newCrmProject;
+  }
+
+  async updateCrmProject(id: string, data: Partial<InsertCrmProject>): Promise<CrmProject | undefined> {
+    const [updated] = await db
+      .update(crmProjects)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(crmProjects.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCrmProject(id: string): Promise<void> {
+    await db.delete(crmProjects).where(eq(crmProjects.id, id));
+  }
+
+  async getAllUsers(): Promise<SafeUser[]> {
+    const allUsers = await db.select().from(users).orderBy(asc(users.firstName), asc(users.lastName));
+    return allUsers.map(({ passwordHash, ...safeUser }) => safeUser);
   }
 }
 
