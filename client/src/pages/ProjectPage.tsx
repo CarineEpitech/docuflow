@@ -93,7 +93,16 @@ export default function ProjectPage() {
         <PageTree projectId={projectId} />
       </div>
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="border-b border-border px-6 py-3">
+        <div className="border-b border-border px-6 py-3 flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setLocation("/documentation")}
+            data-testid="button-back-to-docs"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back
+          </Button>
           <Breadcrumbs project={project} />
         </div>
         <div className="max-w-3xl mx-auto px-6 py-8">

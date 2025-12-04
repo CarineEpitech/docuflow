@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
 import { Folder, ChevronRight, MoreHorizontal, Pencil, LogOut, Search, FileText, Sparkles, Briefcase } from "lucide-react";
-import { ChatBot } from "@/components/ChatBot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -243,7 +242,6 @@ export function AppSidebar() {
         <SidebarFooter className="border-t border-sidebar-border p-3">
           {isCollapsed ? (
             <div className="flex flex-col items-center gap-2">
-              <ChatBot />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -303,7 +301,6 @@ export function AppSidebar() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <ChatBot />
             </div>
           )}
         </SidebarFooter>
