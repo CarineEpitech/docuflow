@@ -15,6 +15,7 @@ import {
   hasEmbeddings,
   rebuildAllEmbeddings,
 } from "./embeddings";
+import { processDocumentVideos, deleteDocumentTranscripts } from "./transcripts";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
 function getOpenAIClient(): OpenAI {
@@ -317,20 +318,34 @@ export async function registerRoutes(
 
       const updated = await storage.updateDocument(req.params.id, parsed.data);
       
-      // Update embeddings if title or content changed
+      // Update embeddings and process video transcripts if title or content changed
       if (updated && (parsed.data.title !== undefined || parsed.data.content !== undefined)) {
         const ancestors = await storage.getDocumentAncestors(req.params.id);
         const breadcrumbs = ancestors.map(a => a.title);
         
-        updateDocumentEmbeddings(
-          updated.id,
-          updated.projectId,
-          userId,
-          updated.title,
-          updated.content,
-          project.name,
-          breadcrumbs
-        ).catch(err => console.error("Error updating embeddings:", err));
+        // Process video transcripts in background (handles extraction and embedding updates)
+        if (parsed.data.content !== undefined) {
+          processDocumentVideos(
+            updated.id,
+            updated.projectId,
+            userId,
+            updated.title,
+            updated.content,
+            project.name,
+            breadcrumbs
+          ).catch(err => console.error("Error processing video transcripts:", err));
+        } else {
+          // Only title changed, just update embeddings
+          updateDocumentEmbeddings(
+            updated.id,
+            updated.projectId,
+            userId,
+            updated.title,
+            updated.content,
+            project.name,
+            breadcrumbs
+          ).catch(err => console.error("Error updating embeddings:", err));
+        }
       }
       
       res.json(updated);
@@ -354,9 +369,11 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      // Delete embeddings first (cascade should handle this, but be explicit)
-      deleteDocumentEmbeddings(req.params.id)
-        .catch(err => console.error("Error deleting embeddings:", err));
+      // Delete embeddings and transcripts first (cascade should handle this, but be explicit)
+      Promise.all([
+        deleteDocumentEmbeddings(req.params.id),
+        deleteDocumentTranscripts(req.params.id)
+      ]).catch(err => console.error("Error deleting embeddings/transcripts:", err));
       
       await storage.deleteDocument(req.params.id);
       res.status(204).send();
@@ -594,7 +611,7 @@ export async function registerRoutes(
             byDocument.set(key, existing);
           }
           
-          for (const [docKey, chunks] of byDocument) {
+          Array.from(byDocument.entries()).forEach(([docKey, chunks]) => {
             const first = chunks[0];
             const breadcrumbPath = first.breadcrumbs.length > 0 
               ? first.breadcrumbs.join(" > ") + " > " + first.title
@@ -606,7 +623,7 @@ export async function registerRoutes(
             for (const chunk of chunks) {
               relevantContext += chunk.chunkText + "\n\n";
             }
-          }
+          });
         }
       } catch (error) {
         console.error("Error searching embeddings:", error);
