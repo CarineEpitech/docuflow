@@ -1700,33 +1700,29 @@ Instructions:
   });
 
   // Get invite info by code (public endpoint for invite link preview)
+  // Returns minimal information to prevent enumeration attacks
   app.get("/api/invite/:code", async (req, res) => {
     try {
       const invite = await storage.getTeamInviteByCode(req.params.code);
       
-      if (!invite) {
-        return res.status(404).json({ message: "Invitation not found" });
-      }
+      // Use generic error message to prevent enumeration
+      const invalidMessage = "This invitation is no longer valid";
       
-      if (invite.isActive !== "true") {
-        return res.status(410).json({ message: "This invitation is no longer active" });
+      if (!invite || invite.isActive !== "true") {
+        return res.status(404).json({ message: invalidMessage });
       }
       
       if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
-        return res.status(410).json({ message: "This invitation has expired" });
+        return res.status(404).json({ message: invalidMessage });
       }
       
       if (invite.maxUses && invite.useCount >= invite.maxUses) {
-        return res.status(410).json({ message: "This invitation has reached its maximum uses" });
+        return res.status(404).json({ message: invalidMessage });
       }
       
-      // Return limited info for preview
+      // Return only team name for minimal information exposure
       res.json({
-        teamName: invite.team?.name,
-        teamDescription: invite.team?.description,
-        createdByName: invite.createdBy?.firstName 
-          ? `${invite.createdBy.firstName} ${invite.createdBy.lastName || ""}`
-          : invite.createdBy?.email,
+        teamName: invite.team?.name || "Unknown Team",
       });
     } catch (error) {
       console.error("Error fetching invite:", error);

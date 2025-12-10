@@ -18,6 +18,8 @@ import CrmProjectPage from "@/pages/CrmProjectPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
 import DocumentationPage from "@/pages/DocumentationPage";
 import CompanyDocumentsPage from "@/pages/CompanyDocumentsPage";
+import TeamManagementPage from "@/pages/TeamManagementPage";
+import JoinTeamPage from "@/pages/JoinTeamPage";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -65,6 +67,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/join/:code" component={JoinTeamPage} />
         <Route component={Landing} />
       </Switch>
     );
@@ -79,6 +82,8 @@ function Router() {
         <Route path="/crm/client/:id" component={ClientDetailPage} />
         <Route path="/documentation" component={DocumentationPage} />
         <Route path="/company-documents" component={CompanyDocumentsPage} />
+        <Route path="/teams" component={TeamManagementPage} />
+        <Route path="/join/:code" component={JoinTeamPage} />
         <Route path="/project/:projectId" component={ProjectPage} />
         <Route path="/document/:documentId" component={DocumentPage} />
         <Route component={NotFound} />

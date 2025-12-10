@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
-import { Folder, ChevronRight, MoreHorizontal, Pencil, LogOut, Search, FileText, Sparkles, Briefcase, Building2 } from "lucide-react";
+import { Folder, ChevronRight, MoreHorizontal, Pencil, LogOut, Search, FileText, Sparkles, Briefcase, Building2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -245,6 +245,28 @@ export function AppSidebar() {
                     >
                       <Building2 className="w-4 h-4" />
                       {!isCollapsed && <span>Company Documents</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/teams"}
+                  >
+                    <Link
+                      href="/teams"
+                      className="flex items-center gap-2 w-full"
+                      data-testid="link-teams"
+                    >
+                      <Users className="w-4 h-4" />
+                      {!isCollapsed && <span>Team Management</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
