@@ -47,15 +47,21 @@ interface CrmClient {
   updatedAt: string;
 }
 
-interface CrmProject {
+interface CrmProjectWithDetails {
   id: string;
-  name: string;
-  description: string | null;
-  status: string;
+  projectId: string;
   clientId: string | null;
-  ownerId: string;
+  status: string;
+  assigneeId: string | null;
+  documentationEnabled: number;
   createdAt: string;
   updatedAt: string;
+  project: {
+    id: string;
+    name: string;
+    description: string | null;
+    ownerId: string;
+  };
 }
 
 export default function ClientDetailPage() {
@@ -76,7 +82,7 @@ export default function ClientDetailPage() {
     enabled: !!id,
   });
 
-  const { data: allProjects = [] } = useQuery<CrmProject[]>({
+  const { data: allProjects = [] } = useQuery<CrmProjectWithDetails[]>({
     queryKey: ["/api/crm/projects/all"],
     queryFn: async () => {
       const res = await fetch("/api/crm/projects?pageSize=1000", { credentials: "include" });
@@ -109,6 +115,7 @@ export default function ClientDetailPage() {
     },
     onSuccess: () => {
       toast({ title: "Project linked successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       setShowLinkProjectDialog(false);
       setSelectedProjectId("");
@@ -124,6 +131,7 @@ export default function ClientDetailPage() {
     },
     onSuccess: () => {
       toast({ title: "Project unlinked successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
     },
     onError: () => {
@@ -293,29 +301,29 @@ export default function ClientDetailPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {clientProjects.map((project) => (
+              {clientProjects.map((crmProject) => (
                 <div
-                  key={project.id}
+                  key={crmProject.id}
                   className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
-                  data-testid={`card-project-${project.id}`}
+                  data-testid={`card-project-${crmProject.id}`}
                 >
                   <div className="flex items-center gap-3">
                     <FolderOpen className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="font-medium">{project.name}</p>
-                      {project.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-1">{project.description}</p>
+                      <p className="font-medium">{crmProject.project.name}</p>
+                      {crmProject.project.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-1">{crmProject.project.description}</p>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{project.status}</Badge>
+                    <Badge variant="secondary">{crmProject.status}</Badge>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => unlinkProjectMutation.mutate(project.id)}
+                      onClick={() => unlinkProjectMutation.mutate(crmProject.id)}
                       disabled={unlinkProjectMutation.isPending}
-                      data-testid={`button-unlink-project-${project.id}`}
+                      data-testid={`button-unlink-project-${crmProject.id}`}
                     >
                       <Link2 className="h-4 w-4" />
                     </Button>
@@ -362,9 +370,9 @@ export default function ClientDetailPage() {
                 <SelectValue placeholder="Select a project" />
               </SelectTrigger>
               <SelectContent>
-                {unlinkedProjects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
+                {unlinkedProjects.map((crmProject) => (
+                  <SelectItem key={crmProject.id} value={crmProject.id}>
+                    {crmProject.project.name}
                   </SelectItem>
                 ))}
               </SelectContent>
