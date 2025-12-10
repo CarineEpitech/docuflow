@@ -343,3 +343,40 @@ export type CrmProjectWithDetails = CrmProject & {
   client?: CrmClient & { contacts?: CrmContact[] };
   assignee?: SafeUser;
 };
+
+// Company Documents table - company terms, policies, and other documents
+export const companyDocuments = pgTable("company_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 500 }).notNull(),
+  description: text("description"),
+  fileName: varchar("file_name", { length: 500 }).notNull(),
+  fileSize: integer("file_size").notNull(),
+  mimeType: varchar("mime_type", { length: 100 }).notNull(),
+  storagePath: varchar("storage_path", { length: 1000 }).notNull(),
+  uploadedById: varchar("uploaded_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_company_documents_uploaded_by").on(table.uploadedById),
+]);
+
+export const companyDocumentsRelations = relations(companyDocuments, ({ one }) => ({
+  uploadedBy: one(users, {
+    fields: [companyDocuments.uploadedById],
+    references: [users.id],
+  }),
+}));
+
+export const insertCompanyDocumentSchema = createInsertSchema(companyDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CompanyDocument = typeof companyDocuments.$inferSelect;
+export type InsertCompanyDocument = z.infer<typeof insertCompanyDocumentSchema>;
+
+// Company document with uploader info
+export type CompanyDocumentWithUploader = CompanyDocument & {
+  uploadedBy?: SafeUser;
+};
