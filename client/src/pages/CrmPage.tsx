@@ -10,9 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,17 +28,18 @@ import {
   ExternalLink,
   CheckCircle,
   CalendarDays,
-  ChevronDown,
-  ChevronUp,
   Building2,
   Mail,
-  Trash2
+  Trash2,
+  FolderKanban,
+  Users,
+  MoreHorizontal,
+  Pencil
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
   CrmProjectWithDetails, 
   CrmClient, 
-  SafeUser,
   CrmProjectStatus
 } from "@shared/schema";
 
@@ -60,12 +64,15 @@ interface CrmProjectsResponse {
 export default function CrmPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState<string>("projects");
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
   const [showAddClientDialog, setShowAddClientDialog] = useState(false);
   const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
-  const [showClientsSection, setShowClientsSection] = useState(true);
+  const [selectedClient, setSelectedClient] = useState<CrmClient | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const pageSize = 10;
 
   const { data: crmProjectsData, isLoading } = useQuery<CrmProjectsResponse>({
@@ -82,9 +89,16 @@ export default function CrmPage() {
     },
   });
 
-  const { data: clients = [] } = useQuery<CrmClient[]>({
+  const { data: clients = [], isLoading: clientsLoading } = useQuery<CrmClient[]>({
     queryKey: ["/api/crm/clients"],
   });
+
+  const filteredClients = clients.filter(client => 
+    clientSearch === "" || 
+    client.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    client.company?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    client.email?.toLowerCase().includes(clientSearch.toLowerCase())
+  );
 
   const createCrmProjectMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null }) => {
@@ -120,6 +134,7 @@ export default function CrmPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
+      setSelectedClient(null);
       toast({ title: "Client deleted" });
     },
     onError: () => {
@@ -136,269 +151,424 @@ export default function CrmPage() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
           <p className="text-muted-foreground">Manage your projects and client relationships</p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => setShowAddClientDialog(true)}
-            data-testid="button-add-client"
-          >
-            <User className="w-4 h-4 mr-2" />
-            Add Client
-          </Button>
-          <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
-            <Plus className="w-4 h-4 mr-2" />
-            New Project
-          </Button>
-        </div>
       </div>
 
-      {/* Clients Section */}
-      <Card>
-        <CardContent className="p-0">
-          <button
-            type="button"
-            className="w-full flex items-center justify-between p-4 hover-elevate"
-            onClick={() => setShowClientsSection(!showClientsSection)}
-            data-testid="button-toggle-clients"
-          >
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              <span className="font-medium">Clients ({clients.length})</span>
-            </div>
-            {showClientsSection ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-          {showClientsSection && (
-            <div className="border-t">
-              {clients.length === 0 ? (
-                <div className="p-6 text-center text-muted-foreground">
-                  No clients yet. Add a client to get started.
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList>
+            <TabsTrigger value="projects" className="gap-2" data-testid="tab-projects">
+              <FolderKanban className="w-4 h-4" />
+              Projects
+            </TabsTrigger>
+            <TabsTrigger value="clients" className="gap-2" data-testid="tab-clients">
+              <Users className="w-4 h-4" />
+              Clients
+              {clients.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          <div className="flex gap-2">
+            {activeTab === "clients" ? (
+              <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-client">
+                <Plus className="w-4 h-4 mr-2" />
+                New Client
+              </Button>
+            ) : (
+              <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
+                <Plus className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <TabsContent value="projects" className="space-y-4 mt-0">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search projects..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
+                    className="pl-9"
+                    data-testid="input-search"
+                  />
                 </div>
-              ) : (
-                <div className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {clients.map((client) => (
-                    <div
-                      key={client.id}
-                      className="flex items-start justify-between gap-2 p-3 rounded-md border bg-card"
-                      data-testid={`card-client-${client.id}`}
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {statusOptions.map(status => (
+                      <SelectItem key={status} value={status}>
+                        {crmStatusConfig[status].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left p-4 font-medium">Project</th>
+                      <th className="text-left p-4 font-medium">Client</th>
+                      <th className="text-left p-4 font-medium">Status</th>
+                      <th className="text-left p-4 font-medium">Assigned</th>
+                      <th className="text-left p-4 font-medium">Start Date</th>
+                      <th className="text-left p-4 font-medium">Due Date</th>
+                      <th className="text-left p-4 font-medium">Finished</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                          Loading projects...
+                        </td>
+                      </tr>
+                    ) : !crmProjectsData?.data.length ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                          No projects found. Add your first project to get started.
+                        </td>
+                      </tr>
+                    ) : (
+                      crmProjectsData?.data.map((crmProject) => (
+                        <tr 
+                          key={crmProject.id} 
+                          className="border-b hover-elevate cursor-pointer"
+                          onClick={() => setLocation(`/crm/project/${crmProject.id}`)}
+                          data-testid={`row-crm-project-${crmProject.id}`}
+                        >
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{crmProject.project?.name || "Unknown"}</span>
+                              {crmProject.documentationEnabled === 1 && (
+                                <Link 
+                                  href={`/project/${crmProject.projectId}`} 
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                                </Link>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            {crmProject.client ? (
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-muted-foreground" />
+                                <span>{crmProject.client.name}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">No client</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <Badge variant={crmStatusConfig[crmProject.status as CrmProjectStatus].variant}>
+                              {crmStatusConfig[crmProject.status as CrmProjectStatus].label}
+                            </Badge>
+                          </td>
+                          <td className="p-4">
+                            {crmProject.assignee ? (
+                              <div className="flex items-center gap-2">
+                                <Avatar className="w-6 h-6">
+                                  <AvatarImage src={crmProject.assignee.profileImageUrl || undefined} />
+                                  <AvatarFallback className="text-xs">
+                                    {crmProject.assignee.firstName?.[0]}{crmProject.assignee.lastName?.[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm">{crmProject.assignee.firstName} {crmProject.assignee.lastName}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">Unassigned</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            {crmProject.startDate ? (
+                              <div className="flex items-center gap-1.5 text-sm">
+                                <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                                <span>{format(new Date(crmProject.startDate), "MMM d, yyyy")}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            {crmProject.dueDate ? (
+                              <span className={new Date(crmProject.dueDate) < new Date() && crmProject.status !== "finished" ? "text-destructive text-sm" : "text-sm"}>
+                                {format(new Date(crmProject.dueDate), "MMM d, yyyy")}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            {crmProject.actualFinishDate ? (
+                              <div className="flex items-center gap-1.5">
+                                <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                <span className="text-sm text-green-600 dark:text-green-400">
+                                  {format(new Date(crmProject.actualFinishDate), "MMM d, yyyy")}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <div className="p-4 border-t">
+                  <div className="flex items-center justify-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      data-testid="button-prev-page"
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate" data-testid={`text-client-name-${client.id}`}>
-                          {client.name}
-                        </div>
-                        {client.company && (
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground truncate">
-                            <Building2 className="w-3 h-3 shrink-0" />
-                            <span className="truncate">{client.company}</span>
-                          </div>
-                        )}
-                        {client.email && (
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground truncate">
-                            <Mail className="w-3 h-3 shrink-0" />
-                            <span className="truncate">{client.email}</span>
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm("Are you sure you want to delete this client?")) {
-                            deleteClientMutation.mutate(client.id);
-                          }
-                        }}
-                        disabled={deleteClientMutation.isPending}
-                        data-testid={`button-delete-client-${client.id}`}
-                      >
-                        <Trash2 className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                    </div>
-                  ))}
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm">
+                      Page {page} of {totalPages}
+                    </span>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      data-testid="button-next-page"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search projects..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-9"
-                data-testid="input-search"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {statusOptions.map(status => (
-                  <SelectItem key={status} value={status}>
-                    {crmStatusConfig[status].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="clients" className="space-y-4 mt-0">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search clients by name, company, or email..."
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-client-search"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left p-4 font-medium">Project</th>
-                  <th className="text-left p-4 font-medium">Client</th>
-                  <th className="text-left p-4 font-medium">Status</th>
-                  <th className="text-left p-4 font-medium">Assigned</th>
-                  <th className="text-left p-4 font-medium">Start Date</th>
-                  <th className="text-left p-4 font-medium">Due Date</th>
-                  <th className="text-left p-4 font-medium">Finished</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                      Loading projects...
-                    </td>
-                  </tr>
-                ) : !crmProjectsData?.data.length ? (
-                  <tr>
-                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                      No projects found. Add your first project to get started.
-                    </td>
-                  </tr>
-                ) : (
-                  crmProjectsData?.data.map((crmProject) => (
-                    <tr 
-                      key={crmProject.id} 
-                      className="border-b hover-elevate cursor-pointer"
-                      onClick={() => setLocation(`/crm/project/${crmProject.id}`)}
-                      data-testid={`row-crm-project-${crmProject.id}`}
-                    >
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{crmProject.project?.name || "Unknown"}</span>
-                          {crmProject.documentationEnabled === 1 && (
-                            <Link 
-                              href={`/project/${crmProject.projectId}`} 
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-                            </Link>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        {crmProject.client ? (
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-muted-foreground" />
-                            <span>{crmProject.client.name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">No client</span>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <Badge variant={crmStatusConfig[crmProject.status as CrmProjectStatus].variant}>
-                          {crmStatusConfig[crmProject.status as CrmProjectStatus].label}
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        {crmProject.assignee ? (
-                          <div className="flex items-center gap-2">
-                            <Avatar className="w-6 h-6">
-                              <AvatarImage src={crmProject.assignee.profileImageUrl || undefined} />
-                              <AvatarFallback className="text-xs">
-                                {crmProject.assignee.firstName?.[0]}{crmProject.assignee.lastName?.[0]}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm">{crmProject.assignee.firstName} {crmProject.assignee.lastName}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">Unassigned</span>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        {crmProject.startDate ? (
-                          <div className="flex items-center gap-1.5 text-sm">
-                            <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span>{format(new Date(crmProject.startDate), "MMM d, yyyy")}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">—</span>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        {crmProject.dueDate ? (
-                          <span className={new Date(crmProject.dueDate) < new Date() && crmProject.status !== "finished" ? "text-destructive text-sm" : "text-sm"}>
-                            {format(new Date(crmProject.dueDate), "MMM d, yyyy")}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">—</span>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        {crmProject.actualFinishDate ? (
-                          <div className="flex items-center gap-1.5">
-                            <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                            <span className="text-sm text-green-600 dark:text-green-400">
-                              {format(new Date(crmProject.actualFinishDate), "MMM d, yyyy")}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">—</span>
-                        )}
-                      </td>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left p-4 font-medium">Name</th>
+                      <th className="text-left p-4 font-medium">Company</th>
+                      <th className="text-left p-4 font-medium">Email</th>
+                      <th className="text-left p-4 font-medium">Created</th>
+                      <th className="text-right p-4 font-medium w-20">Actions</th>
                     </tr>
-                  ))
+                  </thead>
+                  <tbody>
+                    {clientsLoading ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                          Loading clients...
+                        </td>
+                      </tr>
+                    ) : filteredClients.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                          {clients.length === 0 
+                            ? "No clients yet. Add your first client to get started."
+                            : "No clients match your search."}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredClients.map((client) => (
+                        <tr 
+                          key={client.id} 
+                          className="border-b hover-elevate cursor-pointer"
+                          onClick={() => setSelectedClient(client)}
+                          data-testid={`row-client-${client.id}`}
+                        >
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="w-4 h-4 text-primary" />
+                              </div>
+                              <span className="font-medium" data-testid={`text-client-name-${client.id}`}>
+                                {client.name}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            {client.company ? (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Building2 className="w-4 h-4" />
+                                <span>{client.company}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            {client.email ? (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Mail className="w-4 h-4" />
+                                <span>{client.email}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="p-4 text-muted-foreground text-sm">
+                            {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : "—"}
+                          </td>
+                          <td className="p-4 text-right">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedClient(client);
+                              }}
+                              data-testid={`button-view-client-${client.id}`}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Client Detail Sheet */}
+      <Sheet open={!!selectedClient} onOpenChange={(open) => !open && setSelectedClient(null)}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+              <span>{selectedClient?.name}</span>
+            </SheetTitle>
+            <SheetDescription>
+              Client details and information
+            </SheetDescription>
+          </SheetHeader>
+          
+          {selectedClient && (
+            <div className="mt-6 space-y-6">
+              <div className="space-y-4">
+                {selectedClient.company && (
+                  <div className="flex items-start gap-3">
+                    <Building2 className="w-5 h-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Company</p>
+                      <p className="font-medium">{selectedClient.company}</p>
+                    </div>
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-          {totalPages > 1 && (
-            <div className="p-4 border-t">
-              <div className="flex items-center justify-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  data-testid="button-prev-page"
+                {selectedClient.email && (
+                  <div className="flex items-start gap-3">
+                    <Mail className="w-5 h-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="font-medium">{selectedClient.email}</p>
+                    </div>
+                  </div>
+                )}
+                {selectedClient.notes && (
+                  <div className="pt-2">
+                    <p className="text-sm text-muted-foreground mb-2">Notes</p>
+                    <p className="text-sm bg-muted/50 p-3 rounded-md">{selectedClient.notes}</p>
+                  </div>
+                )}
+                {selectedClient.createdAt && (
+                  <div className="flex items-start gap-3">
+                    <CalendarDays className="w-5 h-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Added</p>
+                      <p className="font-medium">{format(new Date(selectedClient.createdAt), "MMMM d, yyyy")}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-4 border-t">
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleteClientMutation.isPending}
+                  data-testid="button-delete-client"
                 >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <span className="text-sm">
-                  Page {page} of {totalPages}
-                </span>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  data-testid="button-next-page"
-                >
-                  <ChevronRight className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Client
                 </Button>
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Client</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedClient?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (selectedClient) {
+                  deleteClientMutation.mutate(selectedClient.id);
+                  setShowDeleteConfirm(false);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AddClientDialog 
         open={showAddClientDialog}
@@ -510,7 +680,7 @@ function AddClientDialog({ open, onClose, onSubmit, isLoading }: AddClientDialog
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel-client">Cancel</Button>
               <Button type="submit" disabled={isLoading} data-testid="button-submit-client">
                 {isLoading ? "Creating..." : "Create Client"}
               </Button>
@@ -522,7 +692,7 @@ function AddClientDialog({ open, onClose, onSubmit, isLoading }: AddClientDialog
   );
 }
 
-const createProjectFormSchema = z.object({
+const projectFormSchema = z.object({
   name: z.string().min(1, "Project name is required"),
   description: z.string().optional(),
   clientId: z.string().optional(),
@@ -538,15 +708,15 @@ interface CreateProjectDialogProps {
 
 function CreateProjectDialog({ open, onClose, clients, onSubmit, isLoading }: CreateProjectDialogProps) {
   const form = useForm({
-    resolver: zodResolver(createProjectFormSchema),
-    defaultValues: { name: "", description: "", clientId: "_none" },
+    resolver: zodResolver(projectFormSchema),
+    defaultValues: { name: "", description: "", clientId: "" },
   });
 
-  const handleSubmit = (data: z.infer<typeof createProjectFormSchema>) => {
+  const handleSubmit = (data: z.infer<typeof projectFormSchema>) => {
     onSubmit({
       name: data.name,
       description: data.description || null,
-      clientId: data.clientId === "_none" ? null : data.clientId || null,
+      clientId: data.clientId || null,
     });
     form.reset();
   };
@@ -556,7 +726,7 @@ function CreateProjectDialog({ open, onClose, clients, onSubmit, isLoading }: Cr
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
-          <DialogDescription>Create a new project to track in your Project Management</DialogDescription>
+          <DialogDescription>Add a new project to track in your CRM</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -578,9 +748,9 @@ function CreateProjectDialog({ open, onClose, clients, onSubmit, isLoading }: Cr
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="Brief project description" data-testid="textarea-project-description" />
+                    <Textarea {...field} placeholder="Project description (optional)" data-testid="textarea-project-description" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -592,17 +762,16 @@ function CreateProjectDialog({ open, onClose, clients, onSubmit, isLoading }: Cr
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Client (Optional)</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-project-client">
                         <SelectValue placeholder="Select a client" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="_none">No client</SelectItem>
                       {clients.map(client => (
                         <SelectItem key={client.id} value={client.id}>
-                          {client.name} {client.company ? `(${client.company})` : ""}
+                          {client.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -612,8 +781,8 @@ function CreateProjectDialog({ open, onClose, clients, onSubmit, isLoading }: Cr
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-              <Button type="submit" disabled={isLoading} data-testid="button-create-project">
+              <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel-project">Cancel</Button>
+              <Button type="submit" disabled={isLoading} data-testid="button-submit-project">
                 {isLoading ? "Creating..." : "Create Project"}
               </Button>
             </DialogFooter>
