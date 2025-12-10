@@ -17,6 +17,7 @@ import CrmPage from "@/pages/CrmPage";
 import CrmProjectPage from "@/pages/CrmProjectPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
 import DocumentationPage from "@/pages/DocumentationPage";
+import CompanyDocumentsPage from "@/pages/CompanyDocumentsPage";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -77,6 +78,7 @@ function Router() {
         <Route path="/crm/project/:id" component={CrmProjectPage} />
         <Route path="/crm/client/:id" component={ClientDetailPage} />
         <Route path="/documentation" component={DocumentationPage} />
+        <Route path="/company-documents" component={CompanyDocumentsPage} />
         <Route path="/project/:projectId" component={ProjectPage} />
         <Route path="/document/:documentId" component={DocumentPage} />
         <Route component={NotFound} />
