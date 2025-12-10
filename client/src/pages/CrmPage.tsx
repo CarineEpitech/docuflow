@@ -10,12 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,7 +28,6 @@ import {
   CalendarDays,
   Building2,
   Mail,
-  Trash2,
   FolderKanban,
   Users,
   MoreHorizontal,
@@ -71,8 +68,6 @@ export default function CrmPage() {
   const [clientSearch, setClientSearch] = useState("");
   const [showAddClientDialog, setShowAddClientDialog] = useState(false);
   const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<CrmClient | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const pageSize = 10;
 
   const { data: crmProjectsData, isLoading } = useQuery<CrmProjectsResponse>({
@@ -128,19 +123,6 @@ export default function CrmPage() {
     },
   });
 
-  const deleteClientMutation = useMutation({
-    mutationFn: async (clientId: string) => {
-      return apiRequest("DELETE", `/api/crm/clients/${clientId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
-      setSelectedClient(null);
-      toast({ title: "Client deleted" });
-    },
-    onError: () => {
-      toast({ title: "Failed to delete client", variant: "destructive" });
-    },
-  });
 
   const totalPages = crmProjectsData ? Math.ceil(crmProjectsData.total / pageSize) : 0;
 
@@ -413,7 +395,7 @@ export default function CrmPage() {
                         <tr 
                           key={client.id} 
                           className="border-b hover-elevate cursor-pointer"
-                          onClick={() => setSelectedClient(client)}
+                          onClick={() => setLocation(`/crm/client/${client.id}`)}
                           data-testid={`row-client-${client.id}`}
                         >
                           <td className="p-4">
@@ -455,7 +437,7 @@ export default function CrmPage() {
                               variant="ghost"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedClient(client);
+                                setLocation(`/crm/client/${client.id}`);
                               }}
                               data-testid={`button-view-client-${client.id}`}
                             >
@@ -472,103 +454,6 @@ export default function CrmPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Client Detail Sheet */}
-      <Sheet open={!!selectedClient} onOpenChange={(open) => !open && setSelectedClient(null)}>
-        <SheetContent className="sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="w-5 h-5 text-primary" />
-              </div>
-              <span>{selectedClient?.name}</span>
-            </SheetTitle>
-            <SheetDescription>
-              Client details and information
-            </SheetDescription>
-          </SheetHeader>
-          
-          {selectedClient && (
-            <div className="mt-6 space-y-6">
-              <div className="space-y-4">
-                {selectedClient.company && (
-                  <div className="flex items-start gap-3">
-                    <Building2 className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Company</p>
-                      <p className="font-medium">{selectedClient.company}</p>
-                    </div>
-                  </div>
-                )}
-                {selectedClient.email && (
-                  <div className="flex items-start gap-3">
-                    <Mail className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Email</p>
-                      <p className="font-medium">{selectedClient.email}</p>
-                    </div>
-                  </div>
-                )}
-                {selectedClient.notes && (
-                  <div className="pt-2">
-                    <p className="text-sm text-muted-foreground mb-2">Notes</p>
-                    <p className="text-sm bg-muted/50 p-3 rounded-md">{selectedClient.notes}</p>
-                  </div>
-                )}
-                {selectedClient.createdAt && (
-                  <div className="flex items-start gap-3">
-                    <CalendarDays className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Added</p>
-                      <p className="font-medium">{format(new Date(selectedClient.createdAt), "MMMM d, yyyy")}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 pt-4 border-t">
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={deleteClientMutation.isPending}
-                  data-testid="button-delete-client"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Client
-                </Button>
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Client</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{selectedClient?.name}"? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (selectedClient) {
-                  deleteClientMutation.mutate(selectedClient.id);
-                  setShowDeleteConfirm(false);
-                }
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AddClientDialog 
         open={showAddClientDialog}

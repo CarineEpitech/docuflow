@@ -15,6 +15,7 @@ import ProjectPage from "@/pages/ProjectPage";
 import DocumentPage from "@/pages/DocumentPage";
 import CrmPage from "@/pages/CrmPage";
 import CrmProjectPage from "@/pages/CrmProjectPage";
+import ClientDetailPage from "@/pages/ClientDetailPage";
 import DocumentationPage from "@/pages/DocumentationPage";
 import NotFound from "@/pages/not-found";
 
@@ -74,6 +75,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/crm" component={CrmPage} />
         <Route path="/crm/project/:id" component={CrmProjectPage} />
+        <Route path="/crm/client/:id" component={ClientDetailPage} />
         <Route path="/documentation" component={DocumentationPage} />
         <Route path="/project/:projectId" component={ProjectPage} />
         <Route path="/document/:documentId" component={DocumentPage} />
