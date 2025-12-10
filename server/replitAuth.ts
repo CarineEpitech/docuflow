@@ -116,9 +116,24 @@ export async function setupAuth(app: Express) {
     ensureStrategy(req.hostname);
     const returnTo = (req.session as any).returnTo || "/";
     delete (req.session as any).returnTo;
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: returnTo,
-      failureRedirect: "/api/login",
+    passport.authenticate(`replitauth:${req.hostname}`, (err: any, user: any) => {
+      if (err) {
+        return next(err);
+      }
+      if (!user) {
+        return res.redirect("/api/login");
+      }
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          return next(loginErr);
+        }
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            return next(saveErr);
+          }
+          res.redirect(returnTo);
+        });
+      });
     })(req, res, next);
   });
 
