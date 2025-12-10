@@ -24,7 +24,12 @@ import {
   User,
   ExternalLink,
   CheckCircle,
-  CalendarDays
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  Building2,
+  Mail,
+  Trash2
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
@@ -60,6 +65,7 @@ export default function CrmPage() {
   const [search, setSearch] = useState("");
   const [showAddClientDialog, setShowAddClientDialog] = useState(false);
   const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
+  const [showClientsSection, setShowClientsSection] = useState(true);
   const pageSize = 10;
 
   const { data: crmProjectsData, isLoading } = useQuery<CrmProjectsResponse>({
@@ -108,6 +114,19 @@ export default function CrmPage() {
     },
   });
 
+  const deleteClientMutation = useMutation({
+    mutationFn: async (clientId: string) => {
+      return apiRequest("DELETE", `/api/crm/clients/${clientId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
+      toast({ title: "Client deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete client", variant: "destructive" });
+    },
+  });
+
   const totalPages = crmProjectsData ? Math.ceil(crmProjectsData.total / pageSize) : 0;
 
   return (
@@ -132,6 +151,75 @@ export default function CrmPage() {
           </Button>
         </div>
       </div>
+
+      {/* Clients Section */}
+      <Card>
+        <CardContent className="p-0">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between p-4 hover-elevate"
+            onClick={() => setShowClientsSection(!showClientsSection)}
+            data-testid="button-toggle-clients"
+          >
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              <span className="font-medium">Clients ({clients.length})</span>
+            </div>
+            {showClientsSection ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+          {showClientsSection && (
+            <div className="border-t">
+              {clients.length === 0 ? (
+                <div className="p-6 text-center text-muted-foreground">
+                  No clients yet. Add a client to get started.
+                </div>
+              ) : (
+                <div className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {clients.map((client) => (
+                    <div
+                      key={client.id}
+                      className="flex items-start justify-between gap-2 p-3 rounded-md border bg-card"
+                      data-testid={`card-client-${client.id}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate" data-testid={`text-client-name-${client.id}`}>
+                          {client.name}
+                        </div>
+                        {client.company && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground truncate">
+                            <Building2 className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{client.company}</span>
+                          </div>
+                        )}
+                        {client.email && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground truncate">
+                            <Mail className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{client.email}</span>
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm("Are you sure you want to delete this client?")) {
+                            deleteClientMutation.mutate(client.id);
+                          }
+                        }}
+                        disabled={deleteClientMutation.isPending}
+                        data-testid={`button-delete-client-${client.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="pt-6">
