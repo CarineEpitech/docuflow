@@ -6,6 +6,7 @@ import {
   crmProjects,
   crmClients,
   crmContacts,
+  companyDocuments,
   type User,
   type SafeUser,
   type UpsertUser,
@@ -20,6 +21,9 @@ import {
   type CrmContact,
   type InsertCrmContact,
   type CrmProjectWithDetails,
+  type CompanyDocument,
+  type InsertCompanyDocument,
+  type CompanyDocumentWithUploader,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, like, or, isNull, sql, gt, asc, count } from "drizzle-orm";
@@ -84,6 +88,12 @@ export interface IStorage {
   
   // Get all users for assignee dropdown
   getAllUsers(): Promise<SafeUser[]>;
+  
+  // Company Documents
+  getCompanyDocuments(): Promise<CompanyDocumentWithUploader[]>;
+  getCompanyDocument(id: string): Promise<CompanyDocument | undefined>;
+  createCompanyDocument(doc: InsertCompanyDocument): Promise<CompanyDocument>;
+  deleteCompanyDocument(id: string): Promise<CompanyDocument | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -735,6 +745,41 @@ export class DatabaseStorage implements IStorage {
   async getAllUsers(): Promise<SafeUser[]> {
     const allUsers = await db.select().from(users).orderBy(asc(users.firstName), asc(users.lastName));
     return allUsers;
+  }
+
+  // Company Documents
+  async getCompanyDocuments(): Promise<CompanyDocumentWithUploader[]> {
+    const docs = await db
+      .select()
+      .from(companyDocuments)
+      .orderBy(desc(companyDocuments.createdAt));
+    
+    // Get all uploaders
+    const uploaderIds = [...new Set(docs.map(d => d.uploadedById))];
+    const uploadersData = uploaderIds.length > 0
+      ? await db.select().from(users).where(or(...uploaderIds.map(id => eq(users.id, id))))
+      : [];
+    const uploaderMap = new Map(uploadersData.map(u => [u.id, u]));
+    
+    return docs.map(doc => ({
+      ...doc,
+      uploadedBy: uploaderMap.get(doc.uploadedById),
+    }));
+  }
+
+  async getCompanyDocument(id: string): Promise<CompanyDocument | undefined> {
+    const [doc] = await db.select().from(companyDocuments).where(eq(companyDocuments.id, id));
+    return doc;
+  }
+
+  async createCompanyDocument(doc: InsertCompanyDocument): Promise<CompanyDocument> {
+    const [newDoc] = await db.insert(companyDocuments).values(doc).returning();
+    return newDoc;
+  }
+
+  async deleteCompanyDocument(id: string): Promise<CompanyDocument | undefined> {
+    const [deleted] = await db.delete(companyDocuments).where(eq(companyDocuments.id, id)).returning();
+    return deleted;
   }
 }
 
