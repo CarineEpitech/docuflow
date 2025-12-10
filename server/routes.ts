@@ -1266,5 +1266,130 @@ Instructions:
     }
   });
 
+  // ==================== Company Documents ====================
+  
+  // List all company documents
+  app.get("/api/company-documents", isAuthenticated, async (req: any, res) => {
+    try {
+      const documents = await storage.getCompanyDocuments();
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching company documents:", error);
+      res.status(500).json({ message: "Failed to fetch company documents" });
+    }
+  });
+
+  // Get upload URL for company document
+  app.post("/api/company-documents/upload-url", isAuthenticated, async (req: any, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  // Create company document record after upload
+  app.post("/api/company-documents", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      
+      const createSchema = z.object({
+        name: z.string().min(1, "Name is required"),
+        description: z.string().optional(),
+        fileName: z.string().min(1),
+        fileSize: z.number().positive(),
+        mimeType: z.string().min(1),
+        storagePath: z.string().min(1),
+      });
+      
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      // Set the file as private with user as owner
+      const objectStorageService = new ObjectStorageService();
+      await objectStorageService.trySetObjectEntityAclPolicy(
+        parsed.data.storagePath,
+        {
+          owner: userId,
+          visibility: "private",
+        }
+      );
+      
+      const document = await storage.createCompanyDocument({
+        ...parsed.data,
+        description: parsed.data.description || null,
+        uploadedById: userId,
+      });
+      
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Error creating company document:", error);
+      res.status(500).json({ message: "Failed to create company document" });
+    }
+  });
+
+  // Download company document
+  app.get("/api/company-documents/:id/download", isAuthenticated, async (req: any, res) => {
+    try {
+      const document = await storage.getCompanyDocument(req.params.id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const objectStorageService = new ObjectStorageService();
+      
+      try {
+        const objectFile = await objectStorageService.getObjectEntityFile(document.storagePath);
+        
+        // Set content disposition for download with original filename
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(document.fileName)}"`);
+        res.setHeader('Content-Type', document.mimeType);
+        
+        objectStorageService.downloadObject(objectFile, res);
+      } catch (error) {
+        if (error instanceof ObjectNotFoundError) {
+          return res.status(404).json({ message: "File not found in storage" });
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error downloading company document:", error);
+      res.status(500).json({ message: "Failed to download document" });
+    }
+  });
+
+  // Delete company document
+  app.delete("/api/company-documents/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const user = await storage.getUser(userId);
+      
+      // Only admins can delete company documents
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can delete company documents" });
+      }
+      
+      const document = await storage.getCompanyDocument(req.params.id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Note: File remains in object storage but database record is deleted
+      // Object storage files can be cleaned up separately if needed
+      await storage.deleteCompanyDocument(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting company document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
   return httpServer;
 }
