@@ -91,26 +91,14 @@ export function AppSidebar() {
 
   const [, setLocation] = useLocation();
 
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("POST", "/api/auth/logout");
-    },
-    onSuccess: () => {
-      queryClient.cancelQueries();
-      queryClient.setQueryData(["/api/auth/user"], null);
-      queryClient.removeQueries({
-        predicate: ({ queryKey }) => queryKey[0] !== "/api/auth/user",
-      });
-      setLocation("/");
-    },
-    onError: () => {
-      toast({ title: "Failed to log out", variant: "destructive" });
-    },
-  });
-
   const handleLogout = useCallback(() => {
-    logoutMutation.mutate();
-  }, [logoutMutation]);
+    queryClient.cancelQueries();
+    queryClient.setQueryData(["/api/auth/user"], null);
+    queryClient.removeQueries({
+      predicate: ({ queryKey }) => queryKey[0] !== "/api/auth/user",
+    });
+    window.location.href = "/api/logout";
+  }, []);
 
   const handleUpdateProject = () => {
     if (!selectedProject || !projectName.trim()) return;

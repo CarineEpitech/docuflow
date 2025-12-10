@@ -162,3 +162,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return;
   }
 };
+
+export function getUserId(req: any): string | undefined {
+  return req.user?.claims?.sub;
+}

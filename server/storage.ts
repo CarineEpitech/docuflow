@@ -8,6 +8,7 @@ import {
   crmContacts,
   type User,
   type SafeUser,
+  type UpsertUser,
   type Project,
   type InsertProject,
   type Document,
@@ -26,7 +27,7 @@ import { eq, and, desc, like, or, isNull, sql, gt, asc, count } from "drizzle-or
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(data: { email: string; passwordHash: string; firstName: string; lastName: string }): Promise<User>;
+  upsertUser(userData: UpsertUser): Promise<User>;
   
   getProjects(userId: string): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
@@ -96,14 +97,16 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(data: { email: string; passwordHash: string; firstName: string; lastName: string }): Promise<User> {
+  async upsertUser(userData: UpsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values({
-        email: data.email,
-        passwordHash: data.passwordHash,
-        firstName: data.firstName,
-        lastName: data.lastName,
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
       })
       .returning();
     return user;
@@ -607,8 +610,7 @@ export class DatabaseStorage implements IStorage {
     if (crmProject.assigneeId) {
       const user = await this.getUser(crmProject.assigneeId);
       if (user) {
-        const { passwordHash, ...safeUser } = user;
-        assignee = safeUser;
+        assignee = user;
       }
     }
 
@@ -732,7 +734,7 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<SafeUser[]> {
     const allUsers = await db.select().from(users).orderBy(asc(users.firstName), asc(users.lastName));
-    return allUsers.map(({ passwordHash, ...safeUser }) => safeUser);
+    return allUsers;
   }
 }
 
