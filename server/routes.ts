@@ -64,7 +64,27 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  setupAuth(app);
+  await setupAuth(app);
+
+  // Auth user endpoint - returns current user info or null if not authenticated
+  app.get("/api/auth/user", async (req: Request, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.json(null);
+      }
+      
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.json(null);
+      }
+      
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching auth user:", error);
+      res.json(null);
+    }
+  });
 
   app.get("/api/projects", isAuthenticated, async (req: Request, res) => {
     try {
