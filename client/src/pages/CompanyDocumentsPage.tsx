@@ -99,8 +99,8 @@ export default function CompanyDocumentsPage() {
         throw new Error("Failed to upload file");
       }
       
-      // Get the storage path from the upload URL
-      const storagePath = new URL(uploadURL).pathname;
+      // Get the base URL without query parameters for storage path
+      const storagePath = uploadURL.split("?")[0];
       
       // Create document record
       const document = await apiRequest("POST", "/api/company-documents", {
