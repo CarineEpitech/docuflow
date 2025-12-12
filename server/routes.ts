@@ -2,7 +2,8 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { randomBytes } from "crypto";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, getUserId } from "./replitAuth";
+import { setupAuth, isAuthenticated, getUserId, hashPassword, verifyPassword, regenerateSession } from "./auth";
+import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import { 
@@ -13,7 +14,6 @@ import {
   insertCrmProjectSchema,
   crmProjectStatusValues 
 } from "@shared/schema";
-import { z } from "zod";
 import OpenAI from "openai";
 import {
   updateDocumentEmbeddings,
@@ -70,21 +70,120 @@ export async function registerRoutes(
   // Auth user endpoint - returns current user info or null if not authenticated
   app.get("/api/auth/user", async (req: Request, res) => {
     try {
-      if (!req.isAuthenticated() || !req.user) {
-        return res.json(null);
-      }
-      
       const userId = getUserId(req);
       if (!userId) {
         return res.json(null);
       }
       
       const user = await storage.getUser(userId);
-      res.json(user);
+      if (!user) {
+        return res.json(null);
+      }
+      
+      // Return user without password
+      const { password, ...safeUser } = user;
+      res.json(safeUser);
     } catch (error) {
       console.error("Error fetching auth user:", error);
       res.json(null);
     }
+  });
+
+  // Register endpoint
+  const registerSchema = z.object({
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+  });
+
+  app.post("/api/auth/register", async (req: Request, res) => {
+    try {
+      const parsed = registerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0].message });
+      }
+
+      const { email, password, firstName, lastName } = parsed.data;
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      // Hash password and create user
+      const hashedPassword = await hashPassword(password);
+      const user = await storage.createUser({
+        email,
+        password: hashedPassword,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        profileImageUrl: null,
+      });
+
+      // Regenerate session to prevent fixation attacks, then set userId
+      await regenerateSession(req);
+      (req.session as any).userId = user.id;
+
+      // Return user without password
+      const { password: _, ...safeUser } = user;
+      res.status(201).json(safeUser);
+    } catch (error) {
+      console.error("Error registering user:", error);
+      res.status(500).json({ message: "Failed to register user" });
+    }
+  });
+
+  // Login endpoint
+  const loginSchema = z.object({
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(1, "Password is required"),
+  });
+
+  app.post("/api/auth/login", async (req: Request, res) => {
+    try {
+      const parsed = loginSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0].message });
+      }
+
+      const { email, password } = parsed.data;
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Verify password
+      const isValid = await verifyPassword(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Regenerate session to prevent fixation attacks, then set userId
+      await regenerateSession(req);
+      (req.session as any).userId = user.id;
+
+      // Return user without password
+      const { password: _, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      console.error("Error logging in:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
+  // Logout endpoint
+  app.post("/api/auth/logout", (req: Request, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Error destroying session:", err);
+        return res.status(500).json({ message: "Failed to logout" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
   });
 
   app.get("/api/projects", isAuthenticated, async (req: Request, res) => {

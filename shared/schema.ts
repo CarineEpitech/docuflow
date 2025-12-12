@@ -27,11 +27,11 @@ export const sessions = pgTable(
 export const userRoleValues = ["admin", "user"] as const;
 export type UserRole = typeof userRoleValues[number];
 
-// User storage table with Replit Auth
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// User storage table with email/password auth
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
+  email: varchar("email").unique().notNull(),
+  password: varchar("password", { length: 255 }).notNull(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -40,9 +40,16 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export type UpsertUser = typeof users.$inferInsert;
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  role: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
-export type SafeUser = User;
+export type SafeUser = Omit<User, "password">;
 
 // Projects table - folders containing documents
 export const projects = pgTable("projects", {

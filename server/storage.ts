@@ -12,7 +12,7 @@ import {
   teamInvites,
   type User,
   type SafeUser,
-  type UpsertUser,
+  type InsertUser,
   type Project,
   type InsertProject,
   type Document,
@@ -43,7 +43,7 @@ import { eq, and, desc, like, or, isNull, sql, gt, asc, count } from "drizzle-or
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  upsertUser(userData: UpsertUser): Promise<User>;
+  createUser(userData: InsertUser): Promise<User>;
   
   getProjects(userId: string): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
@@ -140,17 +140,10 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async createUser(userData: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
       .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
       .returning();
     return user;
   }
