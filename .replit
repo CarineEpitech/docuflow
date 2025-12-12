@@ -41,3 +41,6 @@ integrations = ["javascript_object_storage:1.0.0", "javascript_log_in_with_repli
 [[ports]]
 localPort = 5000
 externalPort = 5000
+
+[objectStorage]
+defaultBucketID = "replit-objstore-64708bc7-367f-45c8-9004-db72f81cbeba"
