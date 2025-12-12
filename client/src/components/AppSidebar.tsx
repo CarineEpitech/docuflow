@@ -91,13 +91,19 @@ export function AppSidebar() {
 
   const [, setLocation] = useLocation();
 
-  const handleLogout = useCallback(() => {
-    queryClient.cancelQueries();
-    queryClient.setQueryData(["/api/auth/user"], null);
-    queryClient.removeQueries({
-      predicate: ({ queryKey }) => queryKey[0] !== "/api/auth/user",
-    });
-    window.location.href = "/api/logout";
+  const handleLogout = useCallback(async () => {
+    try {
+      await apiRequest("POST", "/api/auth/logout");
+      queryClient.cancelQueries();
+      queryClient.setQueryData(["/api/auth/user"], null);
+      queryClient.removeQueries({
+        predicate: ({ queryKey }) => queryKey[0] !== "/api/auth/user",
+      });
+      window.location.href = "/auth";
+    } catch (error) {
+      console.error("Logout failed:", error);
+      window.location.href = "/auth";
+    }
   }, []);
 
   const handleUpdateProject = () => {

@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, FolderOpen, Plus, Trash2, Link2 } from "lucide-react";
+import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,24 +16,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface CrmClient {
   id: string;
@@ -64,13 +50,14 @@ interface CrmProjectWithDetails {
   };
 }
 
+const PROJECTS_PER_PAGE = 10;
+
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [projectsPage, setProjectsPage] = useState(1);
 
   const { data: client, isLoading: clientLoading } = useQuery<CrmClient>({
     queryKey: ["/api/crm/clients", id],
@@ -92,8 +79,22 @@ export default function ClientDetailPage() {
     },
   });
 
-  const clientProjects = allProjects.filter(p => p.clientId === id);
-  const unlinkedProjects = allProjects.filter(p => !p.clientId);
+  const clientProjects = allProjects.filter(p => String(p.clientId) === String(id));
+  const totalProjects = clientProjects.length;
+  const totalPages = Math.max(1, Math.ceil(totalProjects / PROJECTS_PER_PAGE));
+  
+  // Clamp page to valid range when data changes
+  useEffect(() => {
+    if (projectsPage > totalPages && totalPages > 0) {
+      setProjectsPage(totalPages);
+    }
+  }, [projectsPage, totalPages]);
+  
+  const validPage = Math.min(projectsPage, totalPages);
+  const paginatedProjects = clientProjects.slice(
+    (validPage - 1) * PROJECTS_PER_PAGE,
+    validPage * PROJECTS_PER_PAGE
+  );
 
   const deleteClientMutation = useMutation({
     mutationFn: async () => {
@@ -106,22 +107,6 @@ export default function ClientDetailPage() {
     },
     onError: () => {
       toast({ title: "Failed to delete client", variant: "destructive" });
-    },
-  });
-
-  const linkProjectMutation = useMutation({
-    mutationFn: async (projectId: string) => {
-      await apiRequest("PATCH", `/api/crm/projects/${projectId}`, { clientId: id });
-    },
-    onSuccess: () => {
-      toast({ title: "Project linked successfully" });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
-      setShowLinkProjectDialog(false);
-      setSelectedProjectId("");
-    },
-    onError: () => {
-      toast({ title: "Failed to link project", variant: "destructive" });
     },
   });
 
@@ -277,31 +262,24 @@ export default function ClientDetailPage() {
 
       {/* Projects Card */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <FolderOpen className="h-5 w-5" />
             Linked Projects
+            {totalProjects > 0 && (
+              <Badge variant="secondary" className="ml-2">{totalProjects}</Badge>
+            )}
           </CardTitle>
-          <Button
-            size="sm"
-            onClick={() => setShowLinkProjectDialog(true)}
-            disabled={unlinkedProjects.length === 0}
-            data-testid="button-link-project"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Link Project
-          </Button>
         </CardHeader>
         <CardContent>
           {clientProjects.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No projects linked to this client</p>
-              <p className="text-sm mt-1">Link a project to associate it with this client</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {clientProjects.map((crmProject) => (
+              {paginatedProjects.map((crmProject) => (
                 <div
                   key={crmProject.id}
                   className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
@@ -320,7 +298,7 @@ export default function ClientDetailPage() {
                     <Badge variant="secondary">{crmProject.status}</Badge>
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => unlinkProjectMutation.mutate(crmProject.id)}
                       disabled={unlinkProjectMutation.isPending}
                       data-testid={`button-unlink-project-${crmProject.id}`}
@@ -330,6 +308,38 @@ export default function ClientDetailPage() {
                   </div>
                 </div>
               ))}
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(validPage - 1) * PROJECTS_PER_PAGE + 1} to {Math.min(validPage * PROJECTS_PER_PAGE, totalProjects)} of {totalProjects} projects
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setProjectsPage(p => Math.max(1, p - 1))}
+                      disabled={validPage === 1}
+                      data-testid="button-prev-page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {validPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setProjectsPage(p => Math.min(totalPages, p + 1))}
+                      disabled={validPage === totalPages}
+                      data-testid="button-next-page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -358,40 +368,6 @@ export default function ClientDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Link Project Dialog */}
-      <Dialog open={showLinkProjectDialog} onOpenChange={setShowLinkProjectDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Link Project to {client.name}</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-              <SelectTrigger data-testid="select-project-to-link">
-                <SelectValue placeholder="Select a project" />
-              </SelectTrigger>
-              <SelectContent>
-                {unlinkedProjects.map((crmProject) => (
-                  <SelectItem key={crmProject.id} value={crmProject.id}>
-                    {crmProject.project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowLinkProjectDialog(false)} data-testid="button-cancel-link">
-              Cancel
-            </Button>
-            <Button
-              onClick={() => selectedProjectId && linkProjectMutation.mutate(selectedProjectId)}
-              disabled={!selectedProjectId || linkProjectMutation.isPending}
-              data-testid="button-confirm-link"
-            >
-              Link Project
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
