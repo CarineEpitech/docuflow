@@ -158,37 +158,35 @@ export default function CrmPage() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
           <p className="text-muted-foreground">Manage your projects and client relationships</p>
         </div>
+        <div className="flex gap-2">
+          {activeTab === "clients" ? (
+            <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-client">
+              <Plus className="w-4 h-4 mr-2" />
+              New Client
+            </Button>
+          ) : (
+            <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
+              <Plus className="w-4 h-4 mr-2" />
+              New Project
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList>
-            <TabsTrigger value="clients" className="gap-2" data-testid="tab-clients">
-              <Users className="w-4 h-4" />
-              Contacts
-              {clients.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="projects" className="gap-2" data-testid="tab-projects">
-              <FolderKanban className="w-4 h-4" />
-              Projects
-            </TabsTrigger>
-          </TabsList>
-          <div className="flex gap-2">
-            {activeTab === "clients" ? (
-              <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-client">
-                <Plus className="w-4 h-4 mr-2" />
-                New Client
-              </Button>
-            ) : (
-              <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
-                <Plus className="w-4 h-4 mr-2" />
-                New Project
-              </Button>
+        <TabsList>
+          <TabsTrigger value="clients" className="gap-2" data-testid="tab-clients">
+            <Users className="w-4 h-4" />
+            Contacts
+            {clients.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
             )}
-          </div>
-        </div>
+          </TabsTrigger>
+          <TabsTrigger value="projects" className="gap-2" data-testid="tab-projects">
+            <FolderKanban className="w-4 h-4" />
+            Projects
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="projects" className="space-y-4 mt-0">
           <Card>
