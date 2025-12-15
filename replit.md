@@ -11,6 +11,7 @@ DocuFlow is a Notion-like documentation application designed for organizing tech
 - Automatic video transcript sync to AI knowledge base for Loom and Fathom videos
 - Full-text search across projects and pages
 - AI-powered chatbot assistant (GPT-4.1-nano) with pgvector-based semantic search for unlimited documentation access
+- Company Documents page with folder organization, grid/list views, search, and file upload/text document creation
 - Dark mode support
 - Page templates (Client Project, Technical Solution)
 
