@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -99,7 +100,13 @@ export default function CompanyDocumentsPage() {
   
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteType, setDeleteType] = useState<"document" | "folder">("document");
+  
+  const [editingDocument, setEditingDocument] = useState<CompanyDocumentWithUploader | null>(null);
+  const [newDocumentName, setNewDocumentName] = useState("");
+  
+  const [previewDocument, setPreviewDocument] = useState<CompanyDocumentWithUploader | null>(null);
 
+  const [, navigate] = useLocation();
   const isAdmin = user?.role === "admin";
 
   // Fetch folders
@@ -261,6 +268,21 @@ export default function CompanyDocumentsPage() {
     },
   });
 
+  const renameDocumentMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      return apiRequest("PATCH", `/api/company-documents/${id}`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
+      setEditingDocument(null);
+      setNewDocumentName("");
+      toast({ title: "Document renamed" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to rename document", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -305,6 +327,24 @@ export default function CompanyDocumentsPage() {
   const openRenameFolder = (folder: CompanyDocumentFolderWithCreator) => {
     setEditingFolder(folder);
     setFolderName(folder.name);
+  };
+
+  const openRenameDocument = (doc: CompanyDocumentWithUploader) => {
+    setEditingDocument(doc);
+    setNewDocumentName(doc.name);
+  };
+
+  const handleRenameDocument = () => {
+    if (!editingDocument || !newDocumentName.trim()) return;
+    renameDocumentMutation.mutate({ id: editingDocument.id, name: newDocumentName.trim() });
+  };
+
+  const handleDocumentClick = (doc: CompanyDocumentWithUploader) => {
+    if (doc.content) {
+      navigate(`/company-documents/${doc.id}/edit`);
+    } else if (doc.storagePath) {
+      setPreviewDocument(doc);
+    }
   };
 
   const confirmDelete = (id: string, type: "document" | "folder") => {
@@ -381,7 +421,7 @@ export default function CompanyDocumentsPage() {
               </Button>
               <Button onClick={() => { setDocumentName(""); setDocumentDescription(""); setSelectedFile(null); setShowUploadDialog(true); }} data-testid="button-upload-document">
                 <Upload className="h-4 w-4 mr-2" />
-                Upload Document
+                Upload File
               </Button>
             </>
           )}
@@ -407,7 +447,7 @@ export default function CompanyDocumentsPage() {
         ) : (
           <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
             {documents.map((doc) => (
-              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} isAdmin={isAdmin} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} showFolder />
+              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} isAdmin={isAdmin} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} showFolder />
             ))}
           </div>
         )
@@ -451,7 +491,7 @@ export default function CompanyDocumentsPage() {
                 </Button>
                 <Button onClick={() => { setDocumentName(""); setDocumentDescription(""); setSelectedFile(null); setShowUploadDialog(true); }} data-testid="button-upload-first">
                   <Upload className="h-4 w-4 mr-2" />
-                  Upload Document
+                  Upload File
                 </Button>
               </div>
             </CardContent>
@@ -459,7 +499,7 @@ export default function CompanyDocumentsPage() {
         ) : (
           <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
             {documents.map((doc) => (
-              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} isAdmin={isAdmin} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} />
+              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} isAdmin={isAdmin} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} />
             ))}
           </div>
         )
@@ -469,7 +509,7 @@ export default function CompanyDocumentsPage() {
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Upload Document</DialogTitle>
+            <DialogTitle>Upload File</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -561,6 +601,118 @@ export default function CompanyDocumentsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rename Document Dialog */}
+      <Dialog open={!!editingDocument} onOpenChange={(open) => { if (!open) { setEditingDocument(null); setNewDocumentName(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Document</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rename-doc-name">Document Name</Label>
+              <Input id="rename-doc-name" value={newDocumentName} onChange={(e) => setNewDocumentName(e.target.value)} placeholder="Document name" data-testid="input-rename-document" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditingDocument(null); setNewDocumentName(""); }} data-testid="button-cancel-rename-doc">Cancel</Button>
+            <Button onClick={handleRenameDocument} disabled={!newDocumentName.trim() || renameDocumentMutation.isPending} data-testid="button-confirm-rename-doc">
+              {renameDocumentMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* File Preview Dialog */}
+      <Dialog open={!!previewDocument} onOpenChange={(open) => { if (!open) setPreviewDocument(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {previewDocument?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {previewDocument && (
+              <FilePreview doc={previewDocument} />
+            )}
+          </div>
+          <DialogFooter>
+            {previewDocument?.storagePath && (
+              <Button onClick={() => previewDocument && handleDownload(previewDocument)} data-testid="button-preview-download">
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setPreviewDocument(null)} data-testid="button-close-preview">Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function FilePreview({ doc }: { doc: CompanyDocumentWithUploader }) {
+  const mimeType = doc.mimeType || "";
+  const downloadUrl = `/api/company-documents/${doc.id}/download`;
+
+  if (mimeType.startsWith("image/")) {
+    return (
+      <div className="flex items-center justify-center">
+        <img src={downloadUrl} alt={doc.name} className="max-w-full max-h-[60vh] object-contain rounded-lg" />
+      </div>
+    );
+  }
+
+  if (mimeType.startsWith("video/")) {
+    return (
+      <video controls className="w-full max-h-[60vh] rounded-lg">
+        <source src={downloadUrl} type={mimeType} />
+        Your browser does not support video playback.
+      </video>
+    );
+  }
+
+  if (mimeType.startsWith("audio/")) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-8">
+        <FileAudio className="h-16 w-16 text-primary" />
+        <audio controls className="w-full max-w-md">
+          <source src={downloadUrl} type={mimeType} />
+          Your browser does not support audio playback.
+        </audio>
+      </div>
+    );
+  }
+
+  if (mimeType === "application/pdf") {
+    return (
+      <iframe src={downloadUrl} className="w-full h-[60vh] rounded-lg border" title={doc.name} />
+    );
+  }
+
+  if (mimeType.startsWith("text/") || mimeType === "application/json") {
+    return (
+      <div className="flex flex-col items-center gap-4 py-8">
+        <FileText className="h-16 w-16 text-primary" />
+        <p className="text-muted-foreground text-center">
+          {doc.fileName || doc.name}
+          {doc.fileSize && <span className="block text-sm">{formatFileSize(doc.fileSize)}</span>}
+        </p>
+        <p className="text-sm text-muted-foreground">Download the file to view its contents.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4 py-8">
+      <File className="h-16 w-16 text-muted-foreground" />
+      <p className="text-muted-foreground text-center">
+        {doc.fileName || doc.name}
+        {doc.fileSize && <span className="block text-sm">{formatFileSize(doc.fileSize)}</span>}
+      </p>
+      <p className="text-sm text-muted-foreground">Preview not available. Download the file to view.</p>
     </div>
   );
 }
@@ -642,26 +794,32 @@ function FolderCard({ folder, viewMode, isAdmin, onOpen, onRename, onDelete }: {
   );
 }
 
-function DocumentCard({ doc, viewMode, isAdmin, onDownload, onDelete, showFolder }: {
+function DocumentCard({ doc, viewMode, isAdmin, onDownload, onDelete, onRename, onClick, showFolder }: {
   doc: CompanyDocumentWithUploader;
   viewMode: "grid" | "list";
   isAdmin: boolean;
   onDownload: (doc: CompanyDocumentWithUploader) => void;
   onDelete: (id: string) => void;
+  onRename: (doc: CompanyDocumentWithUploader) => void;
+  onClick: (doc: CompanyDocumentWithUploader) => void;
   showFolder?: boolean;
 }) {
   const FileIcon = getFileIcon(doc.mimeType);
   const isUploadedFile = !!doc.storagePath;
+  const isEditableDoc = !!doc.content;
 
   if (viewMode === "list") {
     return (
-      <Card className="hover-elevate" data-testid={`card-document-${doc.id}`}>
-        <CardContent className="flex items-center gap-4 py-3 px-4">
+      <Card className="hover-elevate cursor-pointer" data-testid={`card-document-${doc.id}`}>
+        <CardContent className="flex items-center gap-4 py-3 px-4" onClick={() => onClick(doc)}>
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
             <FileIcon className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium truncate" data-testid={`text-document-name-${doc.id}`}>{doc.name}</h3>
+            <h3 className="font-medium truncate" data-testid={`text-document-name-${doc.id}`}>
+              {doc.name}
+              {isEditableDoc && <span className="ml-2 text-xs text-muted-foreground">(editable)</span>}
+            </h3>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               {doc.fileName && <span>{doc.fileName}</span>}
               {doc.fileSize && <span>{formatFileSize(doc.fileSize)}</span>}
@@ -673,14 +831,26 @@ function DocumentCard({ doc, viewMode, isAdmin, onDownload, onDelete, showFolder
           </div>
           <div className="flex items-center gap-2">
             {isUploadedFile && (
-              <Button variant="outline" size="sm" onClick={() => onDownload(doc)} data-testid={`button-download-${doc.id}`}>
+              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onDownload(doc); }} data-testid={`button-download-${doc.id}`}>
                 <Download className="h-4 w-4 mr-2" />Download
               </Button>
             )}
             {isAdmin && (
-              <Button variant="ghost" size="icon" onClick={() => onDelete(doc.id)} data-testid={`button-delete-${doc.id}`}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" data-testid={`button-doc-menu-${doc.id}`}>
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(doc); }} data-testid={`button-rename-doc-${doc.id}`}>
+                    <Pencil className="h-4 w-4 mr-2" />Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }} className="text-destructive" data-testid={`button-delete-${doc.id}`}>
+                    <Trash2 className="h-4 w-4 mr-2" />Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </CardContent>
@@ -689,13 +859,25 @@ function DocumentCard({ doc, viewMode, isAdmin, onDownload, onDelete, showFolder
   }
 
   return (
-    <Card className="hover-elevate" data-testid={`card-document-${doc.id}`}>
+    <Card className="hover-elevate cursor-pointer" onClick={() => onClick(doc)} data-testid={`card-document-${doc.id}`}>
       <CardContent className="flex flex-col items-center justify-center py-6 px-4 text-center relative">
         {isAdmin && (
           <div className="absolute top-2 right-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(doc.id)} data-testid={`button-delete-${doc.id}`}>
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-doc-menu-${doc.id}`}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(doc); }} data-testid={`button-rename-doc-${doc.id}`}>
+                  <Pencil className="h-4 w-4 mr-2" />Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }} className="text-destructive" data-testid={`button-delete-${doc.id}`}>
+                  <Trash2 className="h-4 w-4 mr-2" />Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
         <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/10 mb-3">
@@ -708,7 +890,7 @@ function DocumentCard({ doc, viewMode, isAdmin, onDownload, onDelete, showFolder
         )}
         <div className="flex items-center gap-2 mt-3">
           {isUploadedFile && (
-            <Button variant="outline" size="sm" onClick={() => onDownload(doc)} data-testid={`button-download-${doc.id}`}>
+            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onDownload(doc); }} data-testid={`button-download-${doc.id}`}>
               <Download className="h-4 w-4 mr-1" />Download
             </Button>
           )}

@@ -17,6 +17,7 @@ import CrmProjectPage from "@/pages/CrmProjectPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
 import DocumentationPage from "@/pages/DocumentationPage";
 import CompanyDocumentsPage from "@/pages/CompanyDocumentsPage";
+import CompanyDocumentEditorPage from "@/pages/CompanyDocumentEditorPage";
 import TeamManagementPage from "@/pages/TeamManagementPage";
 import JoinTeamPage from "@/pages/JoinTeamPage";
 import NotFound from "@/pages/not-found";
@@ -75,6 +76,7 @@ function Router() {
         <Route path="/crm/client/:id" component={ClientDetailPage} />
         <Route path="/documentation" component={DocumentationPage} />
         <Route path="/company-documents" component={CompanyDocumentsPage} />
+        <Route path="/company-documents/:id/edit" component={CompanyDocumentEditorPage} />
         <Route path="/teams" component={TeamManagementPage} />
         <Route path="/join/:code" component={JoinTeamPage} />
         <Route path="/project/:projectId" component={ProjectPage} />
