@@ -144,7 +144,7 @@ export default function CrmPage() {
             </TabsTrigger>
             <TabsTrigger value="clients" className="gap-2" data-testid="tab-clients">
               <Users className="w-4 h-4" />
-              Clients
+              Contacts
               {clients.length > 0 && (
                 <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
               )}
