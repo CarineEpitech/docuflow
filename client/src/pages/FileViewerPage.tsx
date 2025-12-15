@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -12,9 +13,16 @@ import {
   FileSpreadsheet,
   File,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { CompanyDocumentWithUploader } from "@shared/schema";
+import * as pdfjsLib from "pdfjs-dist";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 function getFileIcon(mimeType: string | null) {
   if (!mimeType) return FileText;
@@ -113,7 +121,7 @@ export default function FileViewerPage() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto">
         <FileContent mimeType={mimeType} streamUrl={streamUrl} document={document} />
       </div>
     </div>
@@ -127,7 +135,7 @@ function FileContent({ mimeType, streamUrl, document }: {
 }) {
   if (mimeType.startsWith("image/")) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full p-6">
         <img 
           src={streamUrl} 
           alt={document.name} 
@@ -140,7 +148,7 @@ function FileContent({ mimeType, streamUrl, document }: {
 
   if (mimeType.startsWith("video/")) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full p-6">
         <video 
           controls 
           autoPlay
@@ -156,7 +164,7 @@ function FileContent({ mimeType, streamUrl, document }: {
 
   if (mimeType.startsWith("audio/")) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-6">
+      <div className="flex flex-col items-center justify-center h-full gap-6 p-6">
         <div className="flex items-center justify-center w-32 h-32 rounded-full bg-primary/10">
           <FileAudio className="h-16 w-16 text-primary" />
         </div>
@@ -175,41 +183,7 @@ function FileContent({ mimeType, streamUrl, document }: {
   }
 
   if (mimeType === "application/pdf") {
-    return (
-      <div className="flex flex-col h-full gap-4">
-        <div className="flex items-center justify-center gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => window.open(streamUrl, '_blank')}
-            data-testid="button-open-pdf-new-tab"
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Open PDF in New Tab
-          </Button>
-        </div>
-        <object
-          data={streamUrl}
-          type="application/pdf"
-          className="w-full flex-1 rounded-lg border shadow-lg"
-          data-testid="pdf-preview"
-        >
-          <Card className="max-w-md mx-auto mt-12">
-            <CardContent className="flex flex-col items-center gap-4 py-8">
-              <FileText className="h-16 w-16 text-muted-foreground" />
-              <div className="text-center">
-                <h3 className="font-medium">{document.name}</h3>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Your browser cannot display this PDF inline.
-                </p>
-              </div>
-              <Button onClick={() => window.open(streamUrl, '_blank')}>
-                Open PDF in New Tab
-              </Button>
-            </CardContent>
-          </Card>
-        </object>
-      </div>
-    );
+    return <PdfViewer streamUrl={streamUrl} />;
   }
 
   if (mimeType.startsWith("text/") || mimeType === "application/json") {
@@ -217,20 +191,197 @@ function FileContent({ mimeType, streamUrl, document }: {
   }
 
   return (
-    <Card className="max-w-md mx-auto mt-12">
-      <CardContent className="flex flex-col items-center gap-4 py-8">
-        <File className="h-16 w-16 text-muted-foreground" />
-        <div className="text-center">
-          <h3 className="font-medium">{document.fileName || document.name}</h3>
-          {document.fileSize && (
-            <p className="text-sm text-muted-foreground">{formatFileSize(document.fileSize)}</p>
-          )}
+    <div className="p-6">
+      <Card className="max-w-md mx-auto mt-12">
+        <CardContent className="flex flex-col items-center gap-4 py-8">
+          <File className="h-16 w-16 text-muted-foreground" />
+          <div className="text-center">
+            <h3 className="font-medium">{document.fileName || document.name}</h3>
+            {document.fileSize && (
+              <p className="text-sm text-muted-foreground">{formatFileSize(document.fileSize)}</p>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground text-center">
+            Preview not available for this file type. Use the download button to view the file.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function PdfViewer({ streamUrl }: { streamUrl: string }) {
+  const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [scale, setScale] = useState(1.5);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const loadPdf = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch(streamUrl);
+        if (!response.ok) {
+          throw new Error("Failed to load PDF");
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        setPdfDoc(pdf);
+        setTotalPages(pdf.numPages);
+        setCurrentPage(1);
+      } catch (err) {
+        console.error("Error loading PDF:", err);
+        setError("Failed to load PDF document");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPdf();
+  }, [streamUrl]);
+
+  useEffect(() => {
+    const renderPage = async () => {
+      if (!pdfDoc || !canvasRef.current) return;
+
+      try {
+        const page = await pdfDoc.getPage(currentPage);
+        const viewport = page.getViewport({ scale });
+        
+        const canvas = canvasRef.current;
+        const context = canvas.getContext("2d");
+        
+        if (!context) return;
+
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({
+          canvasContext: context,
+          viewport: viewport,
+        }).promise;
+      } catch (err) {
+        console.error("Error rendering page:", err);
+      }
+    };
+
+    renderPage();
+  }, [pdfDoc, currentPage, scale]);
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const zoomIn = () => {
+    setScale(prev => Math.min(prev + 0.25, 3));
+  };
+
+  const zoomOut = () => {
+    setScale(prev => Math.max(prev - 0.25, 0.5));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Loading PDF...</p>
         </div>
-        <p className="text-sm text-muted-foreground text-center">
-          Preview not available for this file type. Use the download button to view the file.
-        </p>
-      </CardContent>
-    </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full p-6">
+        <Card className="max-w-md">
+          <CardContent className="flex flex-col items-center gap-4 py-8">
+            <FileText className="h-16 w-16 text-muted-foreground" />
+            <p className="text-muted-foreground text-center">{error}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-center gap-4 py-3 px-6 border-b bg-muted/30">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={goToPrevPage} 
+            disabled={currentPage <= 1}
+            data-testid="button-prev-page"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm min-w-[100px] text-center" data-testid="text-page-info">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={goToNextPage} 
+            disabled={currentPage >= totalPages}
+            data-testid="button-next-page"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="h-6 w-px bg-border" />
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={zoomOut}
+            disabled={scale <= 0.5}
+            data-testid="button-zoom-out"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <span className="text-sm min-w-[60px] text-center" data-testid="text-zoom-level">
+            {Math.round(scale * 100)}%
+          </span>
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={zoomIn}
+            disabled={scale >= 3}
+            data-testid="button-zoom-in"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div 
+        ref={containerRef}
+        className="flex-1 overflow-auto bg-muted/20 flex justify-center p-6"
+      >
+        <canvas 
+          ref={canvasRef} 
+          className="shadow-lg"
+          data-testid="pdf-canvas"
+        />
+      </div>
+    </div>
   );
 }
 
@@ -253,7 +404,7 @@ function TextFileViewer({ streamUrl, document }: { streamUrl: string; document: 
   }
 
   return (
-    <div className="h-full overflow-auto">
+    <div className="h-full overflow-auto p-6">
       <pre 
         className="bg-muted/50 p-6 rounded-lg text-sm font-mono whitespace-pre-wrap break-words"
         data-testid="text-preview"
