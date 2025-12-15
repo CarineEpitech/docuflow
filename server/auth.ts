@@ -145,12 +145,19 @@ export async function setupAuth(app: Express) {
 
   // Replit OIDC callback route
   app.get("/api/callback", async (req, res, next) => {
+    console.log("OIDC callback received");
     try {
       await ensureStrategy(req.hostname);
       passport.authenticate(`replitauth:${req.hostname}`, {
         successReturnToOrRedirect: "/",
-        failureRedirect: "/api/login",
-      })(req, res, next);
+        failureRedirect: "/auth",
+      })(req, res, (err: any) => {
+        if (err) {
+          console.error("Passport auth error:", err);
+          return res.redirect("/auth?error=auth_failed");
+        }
+        next();
+      });
     } catch (error) {
       console.error("OIDC callback error:", error);
       res.redirect("/auth?error=oidc_failed");
