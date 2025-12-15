@@ -252,7 +252,7 @@ export default function CompanyDocumentsPage() {
                       <span>{doc.fileName}</span>
                       <span>{formatFileSize(doc.fileSize)}</span>
                       {doc.createdAt && (
-                        <span>Uploaded {format(new Date(doc.createdAt), "MMM d, yyyy")}</span>
+                        <span>Uploaded {format(new Date(doc.createdAt), "MMM d, yyyy 'at' h:mm a")}</span>
                       )}
                       {doc.uploadedBy && (
                         <span>by {doc.uploadedBy.firstName || doc.uploadedBy.email}</span>
