@@ -219,42 +219,33 @@ export function AppSidebar() {
             <ThemeToggle />
           </div>
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className={`w-full ${isCollapsed ? 'justify-center p-0 h-10' : 'justify-start gap-3 h-11 px-2'} rounded-lg hover:bg-sidebar-accent`}
-                data-testid="button-user-menu"
-              >
-                <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
-                  <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">{userInitials}</AvatarFallback>
-                </Avatar>
-                {!isCollapsed && (
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-medium truncate">{userName}</p>
-                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                  </div>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side={isCollapsed ? "right" : "top"} align="start" className="w-[calc(var(--sidebar-width)-1.5rem)] text-[13px]">
-              {isCollapsed && (
-                <div className="px-2 py-2 border-b border-border mb-1">
-                  <p className="text-sm font-medium">{userName}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+          <div className={`flex ${isCollapsed ? 'flex-col' : 'flex-row'} items-center gap-1`}>
+            <Button
+              variant="ghost"
+              className={`flex-1 ${isCollapsed ? 'justify-center p-0 h-10 w-full' : 'justify-start gap-3 h-11 px-2'} rounded-lg hover:bg-sidebar-accent`}
+              data-testid="button-user-menu"
+            >
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
+                <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">{userInitials}</AvatarFallback>
+              </Avatar>
+              {!isCollapsed && (
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-medium truncate">{userName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
               )}
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="cursor-pointer text-destructive focus:text-destructive"
-                data-testid="button-logout"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-sidebar-accent"
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </SidebarFooter>
       </Sidebar>
 
