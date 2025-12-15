@@ -40,6 +40,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { ChatBot } from "@/components/ChatBot";
 import type { Project } from "@shared/schema";
 
 export function AppSidebar() {
@@ -282,6 +284,10 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter className="border-t border-sidebar-border p-3">
+          <div className={`flex ${isCollapsed ? 'flex-col items-center' : 'items-center justify-end'} gap-1 mb-2`}>
+            <ChatBot />
+            <ThemeToggle />
+          </div>
           {isCollapsed ? (
             <div className="flex flex-col items-center gap-2">
               <DropdownMenu>
