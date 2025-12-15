@@ -216,7 +216,7 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter className="p-3 mt-auto">
-          <div className={`flex ${isCollapsed ? 'flex-col items-center' : 'items-center justify-end'} gap-1 mb-3`}>
+          <div className={`flex ${isCollapsed ? 'flex-col items-center' : 'items-center justify-start'} gap-1 mb-3`}>
             <SidebarTrigger data-testid="button-sidebar-toggle" className="h-8 w-8" />
             <ChatBot />
             <ThemeToggle />
