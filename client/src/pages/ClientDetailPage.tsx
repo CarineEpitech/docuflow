@@ -126,7 +126,7 @@ export default function ClientDetailPage() {
 
   if (clientLoading) {
     return (
-      <div className="container max-w-4xl py-8 space-y-6">
+      <div className="p-6 max-w-5xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <Skeleton className="h-10 w-10" />
           <Skeleton className="h-8 w-48" />
@@ -144,7 +144,7 @@ export default function ClientDetailPage() {
 
   if (!client) {
     return (
-      <div className="container max-w-4xl py-8">
+      <div className="p-6 max-w-5xl mx-auto">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Client not found</p>
           <Button variant="outline" className="mt-4" onClick={() => navigate("/crm")}>
@@ -156,7 +156,7 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="container max-w-4xl py-8 space-y-6">
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
