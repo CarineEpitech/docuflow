@@ -31,7 +31,10 @@ import {
   FolderKanban,
   Users,
   MoreHorizontal,
-  Pencil
+  Pencil,
+  LayoutGrid,
+  List,
+  GripVertical
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
@@ -68,6 +71,7 @@ export default function CrmPage() {
   const [clientSearch, setClientSearch] = useState("");
   const [showAddClientDialog, setShowAddClientDialog] = useState(false);
   const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
+  const [projectViewMode, setProjectViewMode] = useState<"table" | "kanban">("kanban");
   const pageSize = 10;
 
   const { data: crmProjectsData, isLoading } = useQuery<CrmProjectsResponse>({
@@ -86,6 +90,27 @@ export default function CrmPage() {
 
   const { data: clients = [], isLoading: clientsLoading } = useQuery<CrmClient[]>({
     queryKey: ["/api/crm/clients"],
+  });
+
+  // Fetch all projects for Kanban view
+  const { data: allProjectsData } = useQuery<CrmProjectsResponse>({
+    queryKey: ["/api/crm/projects/all-kanban"],
+    queryFn: async () => {
+      const res = await fetch(`/api/crm/projects?pageSize=1000`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: projectViewMode === "kanban",
+  });
+
+  const updateProjectStatusMutation = useMutation({
+    mutationFn: async ({ projectId, status }: { projectId: string; status: string }) => {
+      await apiRequest("PATCH", `/api/crm/projects/${projectId}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
+    },
   });
 
   const filteredClients = clients.filter(client => 
@@ -182,168 +207,272 @@ export default function CrmPage() {
                     data-testid="input-search"
                   />
                 </div>
-                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-                  <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    {statusOptions.map(status => (
-                      <SelectItem key={status} value={status}>
-                        {crmStatusConfig[status].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {projectViewMode === "table" && (
+                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+                    <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      {statusOptions.map(status => (
+                        <SelectItem key={status} value={status}>
+                          {crmStatusConfig[status].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <div className="flex border rounded-md">
+                  <Button
+                    variant={projectViewMode === "kanban" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setProjectViewMode("kanban")}
+                    className="rounded-r-none"
+                    data-testid="button-kanban-view"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={projectViewMode === "table" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setProjectViewMode("table")}
+                    className="rounded-l-none"
+                    data-testid="button-table-view"
+                  >
+                    <List className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="text-left p-4 font-medium">Project</th>
-                      <th className="text-left p-4 font-medium">Client</th>
-                      <th className="text-left p-4 font-medium">Status</th>
-                      <th className="text-left p-4 font-medium">Assigned</th>
-                      <th className="text-left p-4 font-medium">Start Date</th>
-                      <th className="text-left p-4 font-medium">Due Date</th>
-                      <th className="text-left p-4 font-medium">Finished</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {isLoading ? (
-                      <tr>
-                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                          Loading projects...
-                        </td>
-                      </tr>
-                    ) : !crmProjectsData?.data.length ? (
-                      <tr>
-                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                          No projects found. Add your first project to get started.
-                        </td>
-                      </tr>
-                    ) : (
-                      crmProjectsData?.data.map((crmProject) => (
-                        <tr 
-                          key={crmProject.id} 
-                          className="border-b hover-elevate cursor-pointer"
-                          onClick={() => setLocation(`/crm/project/${crmProject.id}`)}
-                          data-testid={`row-crm-project-${crmProject.id}`}
-                        >
-                          <td className="p-4">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{crmProject.project?.name || "Unknown"}</span>
-                              {crmProject.documentationEnabled === 1 && (
-                                <Link 
-                                  href={`/project/${crmProject.projectId}`} 
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-                                </Link>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            {crmProject.client ? (
-                              <div className="flex items-center gap-2">
-                                <User className="w-4 h-4 text-muted-foreground" />
-                                <span>{crmProject.client.name}</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">No client</span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            <Badge variant={crmStatusConfig[crmProject.status as CrmProjectStatus].variant}>
-                              {crmStatusConfig[crmProject.status as CrmProjectStatus].label}
+          {projectViewMode === "kanban" ? (
+            <div className="overflow-x-auto pb-4">
+              <div className="flex gap-4 min-w-max">
+                {statusOptions.map((status) => {
+                  const projectsInColumn = (allProjectsData?.data || []).filter(
+                    p => p.status === status && 
+                    (search === "" || p.project?.name.toLowerCase().includes(search.toLowerCase()))
+                  );
+                  return (
+                    <div
+                      key={status}
+                      className="w-72 flex-shrink-0"
+                      data-testid={`kanban-column-${status}`}
+                    >
+                      <div className="bg-muted/50 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={crmStatusConfig[status].variant}>
+                              {crmStatusConfig[status].label}
                             </Badge>
-                          </td>
-                          <td className="p-4">
-                            {crmProject.assignee ? (
-                              <div className="flex items-center gap-2">
-                                <Avatar className="w-6 h-6">
-                                  <AvatarImage src={crmProject.assignee.profileImageUrl || undefined} />
-                                  <AvatarFallback className="text-xs">
-                                    {crmProject.assignee.firstName?.[0]}{crmProject.assignee.lastName?.[0]}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm">{crmProject.assignee.firstName} {crmProject.assignee.lastName}</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Unassigned</span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            {crmProject.startDate ? (
-                              <div className="flex items-center gap-1.5 text-sm">
-                                <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
-                                <span>{format(new Date(crmProject.startDate), "MMM d, yyyy")}</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            {crmProject.dueDate ? (
-                              <span className={new Date(crmProject.dueDate) < new Date() && crmProject.status !== "finished" ? "text-destructive text-sm" : "text-sm"}>
-                                {format(new Date(crmProject.dueDate), "MMM d, yyyy")}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            {crmProject.actualFinishDate ? (
-                              <div className="flex items-center gap-1.5">
-                                <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                <span className="text-sm text-green-600 dark:text-green-400">
-                                  {format(new Date(crmProject.actualFinishDate), "MMM d, yyyy")}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {projectsInColumn.length}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-2 min-h-[100px]">
+                          {projectsInColumn.map((project) => (
+                            <Card
+                              key={project.id}
+                              className="hover-elevate cursor-pointer"
+                              onClick={() => setLocation(`/crm/project/${project.id}`)}
+                              data-testid={`kanban-card-${project.id}`}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-start gap-2">
+                                  <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0 opacity-50" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">
+                                      {project.project?.name || "Unknown"}
+                                    </p>
+                                    {project.client && (
+                                      <p className="text-xs text-muted-foreground truncate mt-1">
+                                        {project.client.name}
+                                      </p>
+                                    )}
+                                    {project.dueDate && (
+                                      <p className={`text-xs mt-2 ${new Date(project.dueDate) < new Date() && project.status !== "finished" ? "text-destructive" : "text-muted-foreground"}`}>
+                                        Due: {format(new Date(project.dueDate), "MMM d")}
+                                      </p>
+                                    )}
+                                    {project.assignee && (
+                                      <div className="flex items-center gap-1.5 mt-2">
+                                        <Avatar className="w-5 h-5">
+                                          <AvatarImage src={project.assignee.profileImageUrl || undefined} />
+                                          <AvatarFallback className="text-[10px]">
+                                            {project.assignee.firstName?.[0]}{project.assignee.lastName?.[0]}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span className="text-xs text-muted-foreground truncate">
+                                          {project.assignee.firstName}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                          {projectsInColumn.length === 0 && (
+                            <div className="text-center py-4 text-xs text-muted-foreground">
+                              No projects
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-4 font-medium">Project</th>
+                        <th className="text-left p-4 font-medium">Client</th>
+                        <th className="text-left p-4 font-medium">Status</th>
+                        <th className="text-left p-4 font-medium">Assigned</th>
+                        <th className="text-left p-4 font-medium">Start Date</th>
+                        <th className="text-left p-4 font-medium">Due Date</th>
+                        <th className="text-left p-4 font-medium">Finished</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                            Loading projects...
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {totalPages > 1 && (
-                <div className="p-4 border-t">
-                  <div className="flex items-center justify-center gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      data-testid="button-prev-page"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <span className="text-sm">
-                      Page {page} of {totalPages}
-                    </span>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                      data-testid="button-next-page"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
+                      ) : !crmProjectsData?.data.length ? (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                            No projects found. Add your first project to get started.
+                          </td>
+                        </tr>
+                      ) : (
+                        crmProjectsData?.data.map((crmProject) => (
+                          <tr 
+                            key={crmProject.id} 
+                            className="border-b hover-elevate cursor-pointer"
+                            onClick={() => setLocation(`/crm/project/${crmProject.id}`)}
+                            data-testid={`row-crm-project-${crmProject.id}`}
+                          >
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{crmProject.project?.name || "Unknown"}</span>
+                                {crmProject.documentationEnabled === 1 && (
+                                  <Link 
+                                    href={`/project/${crmProject.projectId}`} 
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                                  </Link>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              {crmProject.client ? (
+                                <div className="flex items-center gap-2">
+                                  <User className="w-4 h-4 text-muted-foreground" />
+                                  <span>{crmProject.client.name}</span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">No client</span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <Badge variant={crmStatusConfig[crmProject.status as CrmProjectStatus].variant}>
+                                {crmStatusConfig[crmProject.status as CrmProjectStatus].label}
+                              </Badge>
+                            </td>
+                            <td className="p-4">
+                              {crmProject.assignee ? (
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="w-6 h-6">
+                                    <AvatarImage src={crmProject.assignee.profileImageUrl || undefined} />
+                                    <AvatarFallback className="text-xs">
+                                      {crmProject.assignee.firstName?.[0]}{crmProject.assignee.lastName?.[0]}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-sm">{crmProject.assignee.firstName} {crmProject.assignee.lastName}</span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">Unassigned</span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {crmProject.startDate ? (
+                                <div className="flex items-center gap-1.5 text-sm">
+                                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                                  <span>{format(new Date(crmProject.startDate), "MMM d, yyyy")}</span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {crmProject.dueDate ? (
+                                <span className={new Date(crmProject.dueDate) < new Date() && crmProject.status !== "finished" ? "text-destructive text-sm" : "text-sm"}>
+                                  {format(new Date(crmProject.dueDate), "MMM d, yyyy")}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {crmProject.actualFinishDate ? (
+                                <div className="flex items-center gap-1.5">
+                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                  <span className="text-sm text-green-600 dark:text-green-400">
+                                    {format(new Date(crmProject.actualFinishDate), "MMM d, yyyy")}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                {totalPages > 1 && (
+                  <div className="p-4 border-t">
+                    <div className="flex items-center justify-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        data-testid="button-prev-page"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <span className="text-sm">
+                        Page {page} of {totalPages}
+                      </span>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                        data-testid="button-next-page"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="clients" className="space-y-4 mt-0">
