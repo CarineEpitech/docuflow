@@ -174,19 +174,33 @@ export default function CrmPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="clients" className="gap-2" data-testid="tab-clients">
-            <Users className="w-4 h-4" />
-            Contacts
-            {clients.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="projects" className="gap-2" data-testid="tab-projects">
-            <FolderKanban className="w-4 h-4" />
-            Projects
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList>
+            <TabsTrigger value="clients" className="gap-2" data-testid="tab-clients">
+              <Users className="w-4 h-4" />
+              Contacts
+              {clients.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="projects" className="gap-2" data-testid="tab-projects">
+              <FolderKanban className="w-4 h-4" />
+              Projects
+            </TabsTrigger>
+          </TabsList>
+          {activeTab === "clients" && (
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search clients..."
+                value={clientSearch}
+                onChange={(e) => setClientSearch(e.target.value)}
+                className="pl-9"
+                data-testid="input-client-search"
+              />
+            </div>
+          )}
+        </div>
 
         <TabsContent value="projects" className="space-y-4 mt-0">
           <Card>
@@ -474,21 +488,6 @@ export default function CrmPage() {
         </TabsContent>
 
         <TabsContent value="clients" className="space-y-4 mt-0">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search clients by name, company, or email..."
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  className="pl-9"
-                  data-testid="input-client-search"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
           <div className="space-y-2">
             {clientsLoading ? (
               <Card>
