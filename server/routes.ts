@@ -1607,10 +1607,17 @@ Instructions:
         return res.status(404).json({ message: "Document not found" });
       }
       
+      // Only uploaded files (not text documents) have storage paths
+      if (!document.storagePath || !document.fileName || !document.mimeType) {
+        return res.status(400).json({ message: "This document is not a downloadable file" });
+      }
+      
       const objectStorageService = new ObjectStorageService();
       
       try {
-        const objectFile = await objectStorageService.getObjectEntityFile(document.storagePath);
+        // Normalize the storage path (converts full GCS URL to /objects/ path)
+        const normalizedPath = objectStorageService.normalizeObjectEntityPath(document.storagePath);
+        const objectFile = await objectStorageService.getObjectEntityFile(normalizedPath);
         
         // Set content disposition for download with original filename
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(document.fileName)}"`);
