@@ -362,97 +362,78 @@ export default function CrmPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="text-left py-2 px-4 font-medium text-sm">Name</th>
-                      <th className="text-left py-2 px-4 font-medium text-sm">Company</th>
-                      <th className="text-left py-2 px-4 font-medium text-sm">Email</th>
-                      <th className="text-left py-2 px-4 font-medium text-sm">Created</th>
-                      <th className="text-right py-2 px-4 font-medium text-sm w-20">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clientsLoading ? (
-                      <tr>
-                        <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                          Loading clients...
-                        </td>
-                      </tr>
-                    ) : filteredClients.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                          {clients.length === 0 
-                            ? "No clients yet. Add your first client to get started."
-                            : "No clients match your search."}
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredClients.map((client) => (
-                        <tr 
-                          key={client.id} 
-                          className="border-b hover-elevate cursor-pointer"
-                          onClick={() => setLocation(`/crm/client/${client.id}`)}
-                          data-testid={`row-client-${client.id}`}
-                        >
-                          <td className="py-2 px-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                                <User className="w-3 h-3 text-primary" />
-                              </div>
-                              <span className="font-medium text-sm" data-testid={`text-client-name-${client.id}`}>
-                                {client.name}
+          <div className="space-y-2">
+            {clientsLoading ? (
+              <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                  Loading contacts...
+                </CardContent>
+              </Card>
+            ) : filteredClients.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                  <User className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>{clients.length === 0 
+                    ? "No contacts yet. Add your first contact to get started."
+                    : "No contacts match your search."}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              filteredClients.map((client) => (
+                <Card
+                  key={client.id}
+                  className="hover-elevate cursor-pointer transition-colors"
+                  onClick={() => setLocation(`/crm/client/${client.id}`)}
+                  data-testid={`row-client-${client.id}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <User className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate" data-testid={`text-client-name-${client.id}`}>
+                            {client.name}
+                          </p>
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                            {client.company && (
+                              <span className="flex items-center gap-1 truncate">
+                                <Building2 className="w-3.5 h-3.5 shrink-0" />
+                                {client.company}
                               </span>
-                            </div>
-                          </td>
-                          <td className="py-2 px-4">
-                            {client.company ? (
-                              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                                <Building2 className="w-3.5 h-3.5" />
-                                <span>{client.company}</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
                             )}
-                          </td>
-                          <td className="py-2 px-4">
-                            {client.email ? (
-                              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                                <Mail className="w-3.5 h-3.5" />
-                                <span>{client.email}</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
+                            {client.email && (
+                              <span className="flex items-center gap-1 truncate">
+                                <Mail className="w-3.5 h-3.5 shrink-0" />
+                                {client.email}
+                              </span>
                             )}
-                          </td>
-                          <td className="py-2 px-4 text-muted-foreground text-sm">
-                            {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : "—"}
-                          </td>
-                          <td className="py-2 px-4 text-right">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLocation(`/crm/client/${client.id}`);
-                              }}
-                              data-testid={`button-view-client-${client.id}`}
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-xs text-muted-foreground hidden sm:block">
+                          {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : ""}
+                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/crm/client/${client.id}`);
+                          }}
+                          data-testid={`button-view-client-${client.id}`}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
