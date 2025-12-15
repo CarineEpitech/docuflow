@@ -126,35 +126,42 @@ export function AppSidebar() {
   return (
     <>
       <Sidebar collapsible="icon">
-        <SidebarHeader className="border-b border-sidebar-border p-3">
-          <div className="flex items-center gap-2">
-            <Link href="/">
-              <div className={`rounded-md bg-primary flex items-center justify-center cursor-pointer hover-elevate ${isCollapsed ? 'w-8 h-8' : 'w-7 h-7'}`}>
-                <Folder className="w-4 h-4 text-primary-foreground" />
+        <SidebarHeader className="p-4">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3">
+              <div className={`rounded-lg bg-primary flex items-center justify-center ${isCollapsed ? 'w-8 h-8' : 'w-8 h-8'}`}>
+                <FileText className="w-4 h-4 text-primary-foreground" />
               </div>
+              {!isCollapsed && (
+                <span className="font-semibold text-base tracking-tight" data-testid="text-sidebar-brand">DocuFlow</span>
+              )}
             </Link>
             {!isCollapsed && (
-              <span className="font-semibold text-sm" data-testid="text-sidebar-brand">DocuFlow</span>
+              <SidebarTrigger data-testid="button-sidebar-toggle" className="h-7 w-7" />
             )}
           </div>
         </SidebarHeader>
 
-        <SidebarContent className="custom-scrollbar">
-          <SidebarGroup>
+        <SidebarContent className="custom-scrollbar px-3">
+          {!isCollapsed && (
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-2 mb-2">Workspace</p>
+          )}
+          <SidebarGroup className="p-0">
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="gap-0.5">
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
                     isActive={location === "/company-documents"}
+                    className="h-9 rounded-md"
                   >
                     <Link
                       href="/company-documents"
-                      className="flex items-center gap-2 w-full"
+                      className="flex items-center gap-3 w-full"
                       data-testid="link-company-documents"
                     >
-                      <Building2 className="w-4 h-4" />
-                      {!isCollapsed && <span>Company Documents</span>}
+                      <Building2 className="w-4 h-4 shrink-0" />
+                      {!isCollapsed && <span className="text-sm">Company Documents</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -162,14 +169,15 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={location === "/crm"}
+                    className="h-9 rounded-md"
                   >
                     <Link
                       href="/crm"
-                      className="flex items-center gap-2 w-full"
+                      className="flex items-center gap-3 w-full"
                       data-testid="link-crm"
                     >
-                      <Briefcase className="w-4 h-4" />
-                      {!isCollapsed && <span>Project Management</span>}
+                      <Briefcase className="w-4 h-4 shrink-0" />
+                      {!isCollapsed && <span className="text-sm">Project Management</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -177,14 +185,15 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={location === "/documentation" || location.startsWith("/project/")}
+                    className="h-9 rounded-md"
                   >
                     <Link
                       href="/documentation"
-                      className="flex items-center gap-2 w-full"
+                      className="flex items-center gap-3 w-full"
                       data-testid="link-documentation"
                     >
-                      <FileText className="w-4 h-4" />
-                      {!isCollapsed && <span>Documentation</span>}
+                      <FileText className="w-4 h-4 shrink-0" />
+                      {!isCollapsed && <span className="text-sm">Documentation</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -192,14 +201,15 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={location === "/teams"}
+                    className="h-9 rounded-md"
                   >
                     <Link
                       href="/teams"
-                      className="flex items-center gap-2 w-full"
+                      className="flex items-center gap-3 w-full"
                       data-testid="link-teams"
                     >
-                      <Users className="w-4 h-4" />
-                      {!isCollapsed && <span>Team Management</span>}
+                      <Users className="w-4 h-4 shrink-0" />
+                      {!isCollapsed && <span className="text-sm">Team Management</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -208,75 +218,51 @@ export function AppSidebar() {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter className="border-t border-sidebar-border p-3">
-          <div className={`flex ${isCollapsed ? 'flex-col items-center' : 'items-center justify-end'} gap-1 mb-2`}>
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <ChatBot />
-            <ThemeToggle />
+        <SidebarFooter className="p-3 mt-auto">
+          <div className={`flex ${isCollapsed ? 'flex-col' : 'items-center justify-between'} gap-2 mb-3 px-1`}>
+            {isCollapsed && <SidebarTrigger data-testid="button-sidebar-toggle-collapsed" className="h-8 w-8" />}
+            <div className={`flex ${isCollapsed ? 'flex-col' : 'flex-row'} items-center gap-1`}>
+              <ChatBot />
+              <ThemeToggle />
+            </div>
           </div>
-          {isCollapsed ? (
-            <div className="flex flex-col items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 p-0"
-                    data-testid="button-user-menu-collapsed"
-                  >
-                    <Avatar className="h-7 w-7">
-                      <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
-                      <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="right" align="end" className="w-56">
-                  <div className="px-2 py-1.5 border-b border-border mb-1">
-                    <p className="text-sm font-medium">{userName}</p>
-                    {user?.email && <p className="text-xs text-muted-foreground">{user.email}</p>}
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className={`w-full ${isCollapsed ? 'justify-center p-0 h-10' : 'justify-start gap-3 h-11 px-2'} rounded-lg hover:bg-sidebar-accent`}
+                data-testid="button-user-menu"
+              >
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
+                  <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">{userInitials}</AvatarFallback>
+                </Avatar>
+                {!isCollapsed && (
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium truncate">{userName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                   </div>
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    className="cursor-pointer"
-                    data-testid="button-logout"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex-1 justify-start gap-2 h-auto py-2 px-2"
-                    data-testid="button-user-menu"
-                  >
-                    <Avatar className="h-7 w-7">
-                      <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
-                      <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 text-left min-w-0">
-                      <p className="text-sm font-medium truncate">{userName}</p>
-                    </div>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    className="cursor-pointer"
-                    data-testid="button-logout"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side={isCollapsed ? "right" : "top"} align="start" className="w-56">
+              {isCollapsed && (
+                <div className="px-2 py-2 border-b border-border mb-1">
+                  <p className="text-sm font-medium">{userName}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                </div>
+              )}
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer text-destructive focus:text-destructive"
+                data-testid="button-logout"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </SidebarFooter>
       </Sidebar>
 
