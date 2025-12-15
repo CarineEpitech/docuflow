@@ -158,8 +158,14 @@ export default function ClientDetailPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" data-testid="text-client-name">{client.name}</h1>
+          {client.company && (
+            <p className="text-muted-foreground" data-testid="text-client-company">{client.company}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -168,21 +174,15 @@ export default function ClientDetailPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold" data-testid="text-client-name">{client.name}</h1>
-            {client.company && (
-              <p className="text-muted-foreground" data-testid="text-client-company">{client.company}</p>
-            )}
-          </div>
+          <Button
+            variant="destructive"
+            onClick={() => setShowDeleteConfirm(true)}
+            data-testid="button-delete-client"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Client
+          </Button>
         </div>
-        <Button
-          variant="destructive"
-          onClick={() => setShowDeleteConfirm(true)}
-          data-testid="button-delete-client"
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Delete Client
-        </Button>
       </div>
 
       {/* Client Details Card */}
