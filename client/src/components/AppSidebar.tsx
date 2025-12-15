@@ -212,17 +212,17 @@ export function AppSidebar() {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter className="p-3 mt-auto">
-          <div className={`flex ${isCollapsed ? 'flex-col items-center' : 'items-center justify-start'} gap-1 mb-3`}>
+        <SidebarFooter className={`mt-auto ${isCollapsed ? 'px-0 py-3 flex flex-col items-center' : 'p-3'}`}>
+          <div className={`flex ${isCollapsed ? 'flex-col w-full items-center' : 'items-center justify-start'} gap-1 mb-3`}>
             <SidebarTrigger data-testid="button-sidebar-toggle" className="h-8 w-8" />
             <ChatBot />
             <ThemeToggle />
           </div>
           
-          <div className={`flex ${isCollapsed ? 'flex-col' : 'flex-row'} items-center gap-1`}>
+          <div className={`flex ${isCollapsed ? 'flex-col w-full items-center' : 'flex-row items-center'} gap-1`}>
             <Button
               variant="ghost"
-              className={`flex-1 ${isCollapsed ? 'justify-center p-0 h-10 w-full' : 'justify-start gap-3 h-11 px-2'} rounded-lg hover:bg-sidebar-accent`}
+              className={`${isCollapsed ? 'h-8 w-8 p-0' : 'flex-1 justify-start gap-3 h-11 px-2'} rounded-lg hover:bg-sidebar-accent`}
               data-testid="button-user-menu"
             >
               <Avatar className="h-8 w-8 shrink-0">
