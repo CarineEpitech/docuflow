@@ -1598,6 +1598,42 @@ Instructions:
     }
   });
 
+  // Stream company document (for inline viewing)
+  app.get("/api/company-documents/:id/stream", isAuthenticated, async (req: any, res) => {
+    try {
+      const document = await storage.getCompanyDocument(req.params.id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      if (!document.storagePath || !document.fileName || !document.mimeType) {
+        return res.status(400).json({ message: "This document is not a streamable file" });
+      }
+      
+      const objectStorageService = new ObjectStorageService();
+      
+      try {
+        const normalizedPath = objectStorageService.normalizeObjectEntityPath(document.storagePath);
+        const objectFile = await objectStorageService.getObjectEntityFile(normalizedPath);
+        
+        // Set content disposition for inline viewing (not download)
+        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(document.fileName)}"`);
+        res.setHeader('Content-Type', document.mimeType);
+        
+        objectStorageService.downloadObject(objectFile, res);
+      } catch (error) {
+        if (error instanceof ObjectNotFoundError) {
+          return res.status(404).json({ message: "File not found in storage" });
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error streaming company document:", error);
+      res.status(500).json({ message: "Failed to stream document" });
+    }
+  });
+
   // Download company document
   app.get("/api/company-documents/:id/download", isAuthenticated, async (req: any, res) => {
     try {

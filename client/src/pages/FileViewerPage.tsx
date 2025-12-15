@@ -81,7 +81,7 @@ export default function FileViewerPage() {
   }
 
   const FileIcon = getFileIcon(document.mimeType);
-  const downloadUrl = `/api/company-documents/${document.id}/download`;
+  const streamUrl = `/api/company-documents/${document.id}/stream`;
   const mimeType = document.mimeType || "";
 
   return (
@@ -114,22 +114,22 @@ export default function FileViewerPage() {
       </div>
 
       <div className="flex-1 overflow-auto p-6">
-        <FileContent mimeType={mimeType} downloadUrl={downloadUrl} document={document} />
+        <FileContent mimeType={mimeType} streamUrl={streamUrl} document={document} />
       </div>
     </div>
   );
 }
 
-function FileContent({ mimeType, downloadUrl, document }: { 
+function FileContent({ mimeType, streamUrl, document }: { 
   mimeType: string; 
-  downloadUrl: string; 
+  streamUrl: string; 
   document: CompanyDocumentWithUploader;
 }) {
   if (mimeType.startsWith("image/")) {
     return (
       <div className="flex items-center justify-center h-full">
         <img 
-          src={downloadUrl} 
+          src={streamUrl} 
           alt={document.name} 
           className="max-w-full max-h-full object-contain rounded-lg shadow-lg" 
           data-testid="img-preview"
@@ -147,7 +147,7 @@ function FileContent({ mimeType, downloadUrl, document }: {
           className="max-w-full max-h-full rounded-lg shadow-lg"
           data-testid="video-preview"
         >
-          <source src={downloadUrl} type={mimeType} />
+          <source src={streamUrl} type={mimeType} />
           Your browser does not support video playback.
         </video>
       </div>
@@ -167,7 +167,7 @@ function FileContent({ mimeType, downloadUrl, document }: {
           className="w-full max-w-md"
           data-testid="audio-preview"
         >
-          <source src={downloadUrl} type={mimeType} />
+          <source src={streamUrl} type={mimeType} />
           Your browser does not support audio playback.
         </audio>
       </div>
@@ -177,7 +177,7 @@ function FileContent({ mimeType, downloadUrl, document }: {
   if (mimeType === "application/pdf") {
     return (
       <iframe 
-        src={downloadUrl} 
+        src={streamUrl} 
         className="w-full h-full rounded-lg border shadow-lg" 
         title={document.name}
         data-testid="pdf-preview"
@@ -186,7 +186,7 @@ function FileContent({ mimeType, downloadUrl, document }: {
   }
 
   if (mimeType.startsWith("text/") || mimeType === "application/json") {
-    return <TextFileViewer downloadUrl={downloadUrl} document={document} />;
+    return <TextFileViewer streamUrl={streamUrl} document={document} />;
   }
 
   return (
@@ -207,11 +207,11 @@ function FileContent({ mimeType, downloadUrl, document }: {
   );
 }
 
-function TextFileViewer({ downloadUrl, document }: { downloadUrl: string; document: CompanyDocumentWithUploader }) {
+function TextFileViewer({ streamUrl, document }: { streamUrl: string; document: CompanyDocumentWithUploader }) {
   const { data: content, isLoading } = useQuery<string>({
     queryKey: ["/api/company-documents", document.id, "text-content"],
     queryFn: async () => {
-      const response = await fetch(downloadUrl);
+      const response = await fetch(streamUrl);
       if (!response.ok) throw new Error("Failed to load file");
       return response.text();
     },
