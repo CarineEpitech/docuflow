@@ -667,13 +667,13 @@ function FolderCard({ folder, viewMode, onOpen, onRename, onDelete }: {
   }
 
   return (
-    <Card className="hover-elevate cursor-pointer aspect-square" onClick={onOpen} data-testid={`card-folder-${folder.id}`}>
-      <CardContent className="flex flex-col items-center justify-center h-full p-2 text-center relative">
-        <div className="absolute top-0.5 right-0.5">
+    <Card className="hover-elevate cursor-pointer" onClick={onOpen} data-testid={`card-folder-${folder.id}`}>
+      <CardContent className="flex flex-col items-center justify-center py-4 px-3 text-center relative">
+        <div className="absolute top-1 right-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon" className="h-6 w-6" data-testid={`button-folder-menu-${folder.id}`}>
-                <MoreVertical className="h-3 w-3" />
+              <Button variant="ghost" size="icon" className="h-7 w-7" data-testid={`button-folder-menu-${folder.id}`}>
+                <MoreVertical className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -686,12 +686,12 @@ function FolderCard({ folder, viewMode, onOpen, onRename, onDelete }: {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/10 mb-1">
-          <FolderOpen className="h-3 w-3 text-primary" />
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 mb-2">
+          <FolderOpen className="h-4 w-4 text-primary" />
         </div>
-        <h3 className="font-medium text-xs truncate w-full" data-testid={`text-folder-name-${folder.id}`}>{folder.name}</h3>
+        <h3 className="font-medium text-sm truncate w-full" data-testid={`text-folder-name-${folder.id}`}>{folder.name}</h3>
         {folder.createdAt && (
-          <p className="text-[10px] text-muted-foreground">{format(new Date(folder.createdAt), "MMM d, yyyy")}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Created {format(new Date(folder.createdAt), "MMM d, yyyy")}</p>
         )}
       </CardContent>
     </Card>
@@ -760,8 +760,8 @@ function DocumentCard({ doc, viewMode, onDownload, onDelete, onRename, onClick, 
   }
 
   return (
-    <Card className="hover-elevate cursor-pointer aspect-square" onClick={() => onClick(doc)} data-testid={`card-document-${doc.id}`}>
-      <CardContent className="flex flex-col items-center justify-center h-full py-3 px-2 text-center relative">
+    <Card className="hover-elevate cursor-pointer" onClick={() => onClick(doc)} data-testid={`card-document-${doc.id}`}>
+      <CardContent className="flex flex-col items-center justify-center py-4 px-3 text-center relative">
         <div className="absolute top-1 right-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
