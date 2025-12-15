@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
-import { Folder, ChevronRight, MoreHorizontal, Pencil, LogOut, Search, FileText, Sparkles, Briefcase, Building2, Users } from "lucide-react";
+import { Folder, ChevronRight, MoreHorizontal, Pencil, LogOut, FileText, Sparkles, Briefcase, Building2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,11 +32,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -57,19 +52,6 @@ export function AppSidebar() {
   const [showEditProject, setShowEditProject] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectName, setProjectName] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
-
-  // Keyboard shortcut for search (Cmd+K)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setShowSearch(true);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects/documentable"],
@@ -158,42 +140,6 @@ export function AppSidebar() {
         </SidebarHeader>
 
         <SidebarContent className="custom-scrollbar">
-          {/* Search - Popover instead of Modal */}
-          <div className="p-3">
-            <Popover open={showSearch} onOpenChange={setShowSearch}>
-              <PopoverTrigger asChild>
-                {isCollapsed ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-8 h-8"
-                    data-testid="button-search-collapsed"
-                  >
-                    <Search className="w-4 h-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-2 text-muted-foreground"
-                    data-testid="button-search"
-                  >
-                    <Search className="w-4 h-4" />
-                    <span className="flex-1 text-left">Search...</span>
-                    <span className="kbd text-xs">⌘K</span>
-                  </Button>
-                )}
-              </PopoverTrigger>
-              <PopoverContent 
-                side="right" 
-                align="start" 
-                className="w-80 p-0"
-                data-testid="popover-search"
-              >
-                <SearchPopoverContent onClose={() => setShowSearch(false)} />
-              </PopoverContent>
-            </Popover>
-          </div>
-
           {/* CRM Navigation */}
           <SidebarGroup>
             <SidebarGroupContent>
@@ -395,97 +341,3 @@ export function AppSidebar() {
   );
 }
 
-function SearchPopoverContent({ onClose }: { onClose: () => void }) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [, setLocation] = useLocation();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  const { data: results = [], isLoading } = useQuery<Array<{ type: string; id: string; title: string; projectName?: string }>>({
-    queryKey: ["/api/search", { q: searchQuery }],
-    queryFn: async () => {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Search failed");
-      return res.json();
-    },
-    enabled: searchQuery.length > 0,
-  });
-
-  const handleSelect = (result: { type: string; id: string }) => {
-    if (result.type === "project") {
-      setLocation(`/project/${result.id}`);
-    } else {
-      setLocation(`/document/${result.id}`);
-    }
-    onClose();
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      onClose();
-    }
-  };
-
-  return (
-    <div onKeyDown={handleKeyDown}>
-      <div className="p-3 border-b border-border">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            ref={inputRef}
-            placeholder="Search projects and pages..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 border-0 focus-visible:ring-0 bg-transparent"
-            data-testid="input-search"
-          />
-        </div>
-      </div>
-      <div className="max-h-[280px] overflow-y-auto p-2">
-        {searchQuery.length === 0 ? (
-          <p className="text-center text-muted-foreground py-6 text-sm">
-            Type to search projects and pages
-          </p>
-        ) : isLoading ? (
-          <p className="text-center text-muted-foreground py-6 text-sm">
-            Searching...
-          </p>
-        ) : results.length === 0 ? (
-          <p className="text-center text-muted-foreground py-6 text-sm">
-            No results found
-          </p>
-        ) : (
-          <div className="space-y-1">
-            {results.map((result) => (
-              <button
-                key={`${result.type}-${result.id}`}
-                onClick={() => handleSelect(result)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover-elevate text-left"
-                data-testid={`search-result-${result.id}`}
-              >
-                {result.type === "project" ? (
-                  <Folder className="w-4 h-4 text-muted-foreground shrink-0" />
-                ) : (
-                  <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate text-sm">{result.title}</p>
-                  {result.projectName && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {result.projectName}
-                    </p>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
