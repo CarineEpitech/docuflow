@@ -212,17 +212,17 @@ export function AppSidebar() {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter className={`mt-auto ${isCollapsed ? 'px-0 py-3 flex flex-col items-center' : 'p-3'}`}>
-          <div className={`flex ${isCollapsed ? 'flex-col w-full items-center' : 'items-center justify-start'} gap-1 mb-3`}>
+        <SidebarFooter className="mt-auto p-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
+          <div className="flex items-center justify-start gap-1 mb-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
             <SidebarTrigger data-testid="button-sidebar-toggle" className="h-8 w-8" />
             <ChatBot />
             <ThemeToggle />
           </div>
           
-          <div className={`flex ${isCollapsed ? 'flex-col w-full items-center' : 'flex-row items-center'} gap-1`}>
+          <div className="flex flex-row items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center">
             <Button
               variant="ghost"
-              className={`${isCollapsed ? 'h-8 w-8 p-0' : 'flex-1 justify-start gap-3 h-11 px-2'} rounded-lg hover:bg-sidebar-accent`}
+              className="flex-1 justify-start gap-3 h-11 px-2 rounded-lg hover:bg-sidebar-accent group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:flex-none"
               data-testid="button-user-menu"
             >
               <Avatar className="h-8 w-8 shrink-0">
