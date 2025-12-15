@@ -200,64 +200,61 @@ export default function CrmPage() {
               />
             </div>
           )}
+          {activeTab === "projects" && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search projects..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-9"
+                  data-testid="input-search"
+                />
+              </div>
+              {projectViewMode === "table" && (
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {statusOptions.map(status => (
+                      <SelectItem key={status} value={status}>
+                        {crmStatusConfig[status].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="flex border rounded-md">
+                <Button
+                  variant={projectViewMode === "kanban" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setProjectViewMode("kanban")}
+                  className="rounded-r-none"
+                  data-testid="button-kanban-view"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={projectViewMode === "table" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setProjectViewMode("table")}
+                  className="rounded-l-none"
+                  data-testid="button-table-view"
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <TabsContent value="projects" className="space-y-4 mt-0">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search projects..."
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setPage(1);
-                    }}
-                    className="pl-9"
-                    data-testid="input-search"
-                  />
-                </div>
-                {projectViewMode === "table" && (
-                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      {statusOptions.map(status => (
-                        <SelectItem key={status} value={status}>
-                          {crmStatusConfig[status].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <div className="flex border rounded-md">
-                  <Button
-                    variant={projectViewMode === "kanban" ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => setProjectViewMode("kanban")}
-                    className="rounded-r-none"
-                    data-testid="button-kanban-view"
-                  >
-                    <LayoutGrid className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant={projectViewMode === "table" ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => setProjectViewMode("table")}
-                    className="rounded-l-none"
-                    data-testid="button-table-view"
-                  >
-                    <List className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {projectViewMode === "kanban" ? (
             <div className="overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <div className="flex gap-4 min-w-max">
