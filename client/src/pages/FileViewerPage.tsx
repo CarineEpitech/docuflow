@@ -43,13 +43,10 @@ function formatFileSize(bytes: number | null): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-type SaveStatus = "saved" | "saving" | "unsaved";
-
 export default function FileViewerPage() {
   const [, params] = useRoute("/company-documents/:id/view");
   const [, navigate] = useLocation();
   const documentId = params?.id;
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
 
   const { data: document, isLoading, error } = useQuery<CompanyDocumentWithUploader>({
     queryKey: ["/api/company-documents", documentId],
@@ -122,18 +119,7 @@ export default function FileViewerPage() {
             </div>
           </div>
         </div>
-        {isWordDoc ? (
-          <span className="text-sm text-muted-foreground flex items-center gap-2" data-testid="text-save-status">
-            {saveStatus === "saving" && (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Saving...
-              </>
-            )}
-            {saveStatus === "saved" && "Saved"}
-            {saveStatus === "unsaved" && "Unsaved changes"}
-          </span>
-        ) : (
+        {!isWordDoc && (
           <Button onClick={handleDownload} data-testid="button-download">
             <Download className="h-4 w-4 mr-2" />
             Download
@@ -142,17 +128,16 @@ export default function FileViewerPage() {
       </div>
 
       <div className="flex-1 overflow-auto">
-        <FileContent mimeType={mimeType} streamUrl={streamUrl} document={document} onSaveStatusChange={setSaveStatus} />
+        <FileContent mimeType={mimeType} streamUrl={streamUrl} document={document} />
       </div>
     </div>
   );
 }
 
-function FileContent({ mimeType, streamUrl, document, onSaveStatusChange }: { 
+function FileContent({ mimeType, streamUrl, document }: { 
   mimeType: string; 
   streamUrl: string; 
   document: CompanyDocumentWithUploader;
-  onSaveStatusChange: (status: SaveStatus) => void;
 }) {
   if (mimeType.startsWith("image/")) {
     return (
@@ -210,7 +195,7 @@ function FileContent({ mimeType, streamUrl, document, onSaveStatusChange }: {
   const isWordDoc = mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
                     mimeType === 'application/msword';
   if (isWordDoc) {
-    return <WordDocEditor documentId={document.id} document={document} onSaveStatusChange={onSaveStatusChange} />;
+    return <WordDocEditor documentId={document.id} document={document} />;
   }
 
   if (mimeType.startsWith("text/") || mimeType === "application/json") {
@@ -409,10 +394,9 @@ function PdfViewer({ streamUrl }: { streamUrl: string }) {
   );
 }
 
-function WordDocEditor({ documentId, document, onSaveStatusChange }: { 
+function WordDocEditor({ documentId, document }: { 
   documentId: string; 
   document: CompanyDocumentWithUploader;
-  onSaveStatusChange: (status: SaveStatus) => void;
 }) {
   const { toast } = useToast();
   const [content, setContent] = useState<any>(null);
@@ -439,23 +423,19 @@ function WordDocEditor({ documentId, document, onSaveStatusChange }: {
   }, [document.content, wordHtml]);
 
   const saveDocument = useCallback(async (contentToSave: any) => {
-    onSaveStatusChange("saving");
     try {
       await apiRequest("PATCH", `/api/company-documents/${documentId}`, {
         content: contentToSave,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
-      onSaveStatusChange("saved");
     } catch (error: any) {
       toast({ title: "Failed to save", description: error.message, variant: "destructive" });
-      onSaveStatusChange("unsaved");
     }
-  }, [documentId, toast, onSaveStatusChange]);
+  }, [documentId, toast]);
 
   const handleContentChange = useCallback((newContent: any) => {
     setContent(newContent);
     contentRef.current = newContent;
-    onSaveStatusChange("unsaved");
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -464,7 +444,7 @@ function WordDocEditor({ documentId, document, onSaveStatusChange }: {
     saveTimeoutRef.current = setTimeout(() => {
       saveDocument(contentRef.current);
     }, 1000);
-  }, [saveDocument, onSaveStatusChange]);
+  }, [saveDocument]);
 
   useEffect(() => {
     return () => {
@@ -516,8 +496,8 @@ function WordDocEditor({ documentId, document, onSaveStatusChange }: {
   }
 
   return (
-    <div className="h-full overflow-auto px-6 py-6">
-      <div className="max-w-3xl mx-auto">
+    <div className="h-full overflow-auto">
+      <div className="max-w-3xl mx-auto px-6 pt-6">
         <BlockEditor
           content={content}
           onChange={handleContentChange}
