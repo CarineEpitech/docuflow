@@ -394,8 +394,10 @@ function WordDocEditor({ documentId, document }: { documentId: string; document:
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [content, setContent] = useState<any>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
   const [isConverting, setIsConverting] = useState(true);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const contentRef = useRef<any>(null);
 
   const { data: wordHtml, isLoading: isLoadingHtml } = useQuery<{ html: string; messages: any[] }>({
     queryKey: ["/api/company-documents", documentId, "word-html"],
@@ -405,33 +407,50 @@ function WordDocEditor({ documentId, document }: { documentId: string; document:
   useEffect(() => {
     if (document.content) {
       setContent(document.content);
+      contentRef.current = document.content;
       setIsConverting(false);
     } else if (wordHtml?.html) {
       const tiptapContent = convertHtmlToTiptap(wordHtml.html);
       setContent(tiptapContent);
+      contentRef.current = tiptapContent;
       setIsConverting(false);
     }
   }, [document.content, wordHtml]);
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("PATCH", `/api/company-documents/${documentId}`, {
-        content,
+  const saveDocument = useCallback(async (contentToSave: any) => {
+    setSaveStatus("saving");
+    try {
+      await apiRequest("PATCH", `/api/company-documents/${documentId}`, {
+        content: contentToSave,
       });
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
-      setHasUnsavedChanges(false);
-      toast({ title: "Document saved" });
-    },
-    onError: (error: Error) => {
+      setSaveStatus("saved");
+    } catch (error: any) {
       toast({ title: "Failed to save", description: error.message, variant: "destructive" });
-    },
-  });
+      setSaveStatus("unsaved");
+    }
+  }, [documentId, toast]);
 
   const handleContentChange = useCallback((newContent: any) => {
     setContent(newContent);
-    setHasUnsavedChanges(true);
+    contentRef.current = newContent;
+    setSaveStatus("unsaved");
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveDocument(contentRef.current);
+    }, 1000);
+  }, [saveDocument]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, []);
 
   const handleBack = () => {
@@ -492,18 +511,16 @@ function WordDocEditor({ documentId, document }: { documentId: string; document:
           </Button>
           <span className="font-semibold" data-testid="text-document-name">{document.name}</span>
         </div>
-        <Button
-          onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending || !hasUnsavedChanges}
-          data-testid="button-save-document"
-        >
-          {saveMutation.isPending ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4 mr-2" />
+        <span className="text-sm text-muted-foreground flex items-center gap-2" data-testid="text-save-status">
+          {saveStatus === "saving" && (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Saving...
+            </>
           )}
-          {hasUnsavedChanges ? "Save" : "Saved"}
-        </Button>
+          {saveStatus === "saved" && "Saved"}
+          {saveStatus === "unsaved" && "Unsaved changes"}
+        </span>
       </div>
       <div className="flex-1 overflow-auto px-6 py-6">
         <div className="max-w-3xl mx-auto">
