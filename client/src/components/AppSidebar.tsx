@@ -140,9 +140,6 @@ export function AppSidebar() {
         </SidebarHeader>
 
         <SidebarContent className="custom-scrollbar px-3">
-          {!isCollapsed && (
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-2 mb-2">Workspace</p>
-          )}
           <SidebarGroup className="p-0">
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
