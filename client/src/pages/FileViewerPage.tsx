@@ -176,12 +176,39 @@ function FileContent({ mimeType, streamUrl, document }: {
 
   if (mimeType === "application/pdf") {
     return (
-      <iframe 
-        src={streamUrl} 
-        className="w-full h-full rounded-lg border shadow-lg" 
-        title={document.name}
-        data-testid="pdf-preview"
-      />
+      <div className="flex flex-col h-full gap-4">
+        <div className="flex items-center justify-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => window.open(streamUrl, '_blank')}
+            data-testid="button-open-pdf-new-tab"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Open PDF in New Tab
+          </Button>
+        </div>
+        <object
+          data={streamUrl}
+          type="application/pdf"
+          className="w-full flex-1 rounded-lg border shadow-lg"
+          data-testid="pdf-preview"
+        >
+          <Card className="max-w-md mx-auto mt-12">
+            <CardContent className="flex flex-col items-center gap-4 py-8">
+              <FileText className="h-16 w-16 text-muted-foreground" />
+              <div className="text-center">
+                <h3 className="font-medium">{document.name}</h3>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Your browser cannot display this PDF inline.
+                </p>
+              </div>
+              <Button onClick={() => window.open(streamUrl, '_blank')}>
+                Open PDF in New Tab
+              </Button>
+            </CardContent>
+          </Card>
+        </object>
+      </div>
     );
   }
 
