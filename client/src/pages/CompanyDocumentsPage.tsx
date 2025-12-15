@@ -447,7 +447,7 @@ export default function CompanyDocumentsPage() {
         ) : (
           <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
             {documents.map((doc) => (
-              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} isAdmin={isAdmin} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} showFolder />
+              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} showFolder />
             ))}
           </div>
         )
@@ -470,7 +470,7 @@ export default function CompanyDocumentsPage() {
         ) : (
           <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
             {folders.map((folder) => (
-              <FolderCard key={folder.id} folder={folder} viewMode={viewMode} isAdmin={isAdmin} onOpen={() => setCurrentFolderId(folder.id)} onRename={() => openRenameFolder(folder)} onDelete={() => confirmDelete(folder.id, "folder")} />
+              <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onOpen={() => setCurrentFolderId(folder.id)} onRename={() => openRenameFolder(folder)} onDelete={() => confirmDelete(folder.id, "folder")} />
             ))}
           </div>
         )
@@ -499,7 +499,7 @@ export default function CompanyDocumentsPage() {
         ) : (
           <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
             {documents.map((doc) => (
-              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} isAdmin={isAdmin} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} />
+              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} />
             ))}
           </div>
         )
@@ -717,10 +717,9 @@ function FilePreview({ doc }: { doc: CompanyDocumentWithUploader }) {
   );
 }
 
-function FolderCard({ folder, viewMode, isAdmin, onOpen, onRename, onDelete }: {
+function FolderCard({ folder, viewMode, onOpen, onRename, onDelete }: {
   folder: CompanyDocumentFolderWithCreator;
   viewMode: "grid" | "list";
-  isAdmin: boolean;
   onOpen: () => void;
   onRename: () => void;
   onDelete: () => void;
@@ -738,23 +737,21 @@ function FolderCard({ folder, viewMode, isAdmin, onOpen, onRename, onDelete }: {
               <p className="text-xs text-muted-foreground">Created {format(new Date(folder.createdAt), "MMM d, yyyy")}</p>
             )}
           </div>
-          {isAdmin && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" data-testid={`button-folder-menu-${folder.id}`}>
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(); }} data-testid={`button-rename-folder-${folder.id}`}>
-                  <Pencil className="h-4 w-4 mr-2" />Rename
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-destructive" data-testid={`button-delete-folder-${folder.id}`}>
-                  <Trash2 className="h-4 w-4 mr-2" />Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" data-testid={`button-folder-menu-${folder.id}`}>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(); }} data-testid={`button-rename-folder-${folder.id}`}>
+                <Pencil className="h-4 w-4 mr-2" />Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-destructive" data-testid={`button-delete-folder-${folder.id}`}>
+                <Trash2 className="h-4 w-4 mr-2" />Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </CardContent>
       </Card>
     );
@@ -763,25 +760,23 @@ function FolderCard({ folder, viewMode, isAdmin, onOpen, onRename, onDelete }: {
   return (
     <Card className="hover-elevate cursor-pointer" onClick={onOpen} data-testid={`card-folder-${folder.id}`}>
       <CardContent className="flex flex-col items-center justify-center py-6 px-4 text-center relative">
-        {isAdmin && (
-          <div className="absolute top-2 right-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-folder-menu-${folder.id}`}>
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(); }} data-testid={`button-rename-folder-${folder.id}`}>
-                  <Pencil className="h-4 w-4 mr-2" />Rename
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-destructive" data-testid={`button-delete-folder-${folder.id}`}>
-                  <Trash2 className="h-4 w-4 mr-2" />Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+        <div className="absolute top-2 right-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-folder-menu-${folder.id}`}>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(); }} data-testid={`button-rename-folder-${folder.id}`}>
+                <Pencil className="h-4 w-4 mr-2" />Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-destructive" data-testid={`button-delete-folder-${folder.id}`}>
+                <Trash2 className="h-4 w-4 mr-2" />Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/10 mb-3">
           <FolderOpen className="h-8 w-8 text-primary" />
         </div>
@@ -794,10 +789,9 @@ function FolderCard({ folder, viewMode, isAdmin, onOpen, onRename, onDelete }: {
   );
 }
 
-function DocumentCard({ doc, viewMode, isAdmin, onDownload, onDelete, onRename, onClick, showFolder }: {
+function DocumentCard({ doc, viewMode, onDownload, onDelete, onRename, onClick, showFolder }: {
   doc: CompanyDocumentWithUploader;
   viewMode: "grid" | "list";
-  isAdmin: boolean;
   onDownload: (doc: CompanyDocumentWithUploader) => void;
   onDelete: (id: string) => void;
   onRename: (doc: CompanyDocumentWithUploader) => void;
@@ -835,37 +829,9 @@ function DocumentCard({ doc, viewMode, isAdmin, onDownload, onDelete, onRename, 
                 <Download className="h-4 w-4 mr-2" />Download
               </Button>
             )}
-            {isAdmin && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" data-testid={`button-doc-menu-${doc.id}`}>
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(doc); }} data-testid={`button-rename-doc-${doc.id}`}>
-                    <Pencil className="h-4 w-4 mr-2" />Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }} className="text-destructive" data-testid={`button-delete-${doc.id}`}>
-                    <Trash2 className="h-4 w-4 mr-2" />Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="hover-elevate cursor-pointer" onClick={() => onClick(doc)} data-testid={`card-document-${doc.id}`}>
-      <CardContent className="flex flex-col items-center justify-center py-6 px-4 text-center relative">
-        {isAdmin && (
-          <div className="absolute top-2 right-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-doc-menu-${doc.id}`}>
+                <Button variant="ghost" size="icon" data-testid={`button-doc-menu-${doc.id}`}>
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -879,7 +845,31 @@ function DocumentCard({ doc, viewMode, isAdmin, onDownload, onDelete, onRename, 
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="hover-elevate cursor-pointer" onClick={() => onClick(doc)} data-testid={`card-document-${doc.id}`}>
+      <CardContent className="flex flex-col items-center justify-center py-6 px-4 text-center relative">
+        <div className="absolute top-2 right-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-doc-menu-${doc.id}`}>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(doc); }} data-testid={`button-rename-doc-${doc.id}`}>
+                <Pencil className="h-4 w-4 mr-2" />Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }} className="text-destructive" data-testid={`button-delete-${doc.id}`}>
+                <Trash2 className="h-4 w-4 mr-2" />Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/10 mb-3">
           <FileIcon className="h-8 w-8 text-primary" />
         </div>
