@@ -1,8 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { BlockEditor } from "@/components/editor/BlockEditor";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   Download,
@@ -184,11 +187,11 @@ function FileContent({ mimeType, streamUrl, document }: {
     return <PdfViewer streamUrl={streamUrl} />;
   }
 
-  // Word documents
+  // Word documents - redirect to editor for editing
   const isWordDoc = mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
                     mimeType === 'application/msword';
   if (isWordDoc) {
-    return <WordDocViewer documentId={document.id} />;
+    return <WordDocEditor documentId={document.id} document={document} />;
   }
 
   if (mimeType.startsWith("text/") || mimeType === "application/json") {
@@ -387,12 +390,89 @@ function PdfViewer({ streamUrl }: { streamUrl: string }) {
   );
 }
 
-function WordDocViewer({ documentId }: { documentId: string }) {
-  const { data, isLoading, error } = useQuery<{ html: string; messages: any[] }>({
+function WordDocEditor({ documentId, document }: { documentId: string; document: CompanyDocumentWithUploader }) {
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const [content, setContent] = useState<any>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isConverting, setIsConverting] = useState(true);
+
+  const { data: wordHtml, isLoading: isLoadingHtml } = useQuery<{ html: string; messages: any[] }>({
     queryKey: ["/api/company-documents", documentId, "word-html"],
+    enabled: !document.content,
   });
 
-  if (isLoading) {
+  useEffect(() => {
+    if (document.content) {
+      setContent(document.content);
+      setIsConverting(false);
+    } else if (wordHtml?.html) {
+      const tiptapContent = convertHtmlToTiptap(wordHtml.html);
+      setContent(tiptapContent);
+      setIsConverting(false);
+    }
+  }, [document.content, wordHtml]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("PATCH", `/api/company-documents/${documentId}`, {
+        content,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
+      setHasUnsavedChanges(false);
+      toast({ title: "Document saved" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to save", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleContentChange = useCallback((newContent: any) => {
+    setContent(newContent);
+    setHasUnsavedChanges(true);
+  }, []);
+
+  const handleBack = () => {
+    if (document?.folderId) {
+      navigate(`/company-documents?folder=${document.folderId}`);
+    } else {
+      navigate("/company-documents");
+    }
+  };
+
+  const handleImageUpload = useCallback(async (): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const input = window.document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) {
+          resolve(null);
+          return;
+        }
+        try {
+          const urlResponse = await apiRequest("POST", "/api/company-documents/upload-url");
+          const { uploadURL } = urlResponse;
+          await fetch(uploadURL, {
+            method: "PUT",
+            body: file,
+            headers: { "Content-Type": file.type },
+          });
+          const imageUrl = uploadURL.split("?")[0];
+          resolve(imageUrl);
+        } catch {
+          toast({ title: "Image upload failed", variant: "destructive" });
+          resolve(null);
+        }
+      };
+      input.click();
+    });
+  }, [toast]);
+
+  if (isLoadingHtml || isConverting) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center gap-4">
@@ -403,30 +483,134 @@ function WordDocViewer({ documentId }: { documentId: string }) {
     );
   }
 
-  if (error || !data) {
-    return (
-      <div className="flex items-center justify-center h-full p-6">
-        <Card className="max-w-md">
-          <CardContent className="flex flex-col items-center gap-4 py-8">
-            <FileText className="h-16 w-16 text-muted-foreground" />
-            <p className="text-muted-foreground text-center">Failed to load document</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full overflow-auto p-6">
-      <div className="max-w-4xl mx-auto bg-white dark:bg-card rounded-lg shadow-lg p-8">
-        <div 
-          className="prose prose-sm dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: data.html }}
-          data-testid="word-doc-content"
-        />
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between px-6 py-3 border-b bg-background">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <span className="font-semibold" data-testid="text-document-name">{document.name}</span>
+        </div>
+        <Button
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending || !hasUnsavedChanges}
+          data-testid="button-save-document"
+        >
+          {saveMutation.isPending ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4 mr-2" />
+          )}
+          {hasUnsavedChanges ? "Save" : "Saved"}
+        </Button>
+      </div>
+      <div className="flex-1 overflow-auto px-6 py-6">
+        <div className="max-w-3xl mx-auto">
+          <BlockEditor
+            content={content}
+            onChange={handleContentChange}
+            onImageUpload={handleImageUpload}
+            editable={true}
+          />
+        </div>
       </div>
     </div>
   );
+}
+
+function convertHtmlToTiptap(html: string): any {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const content: any[] = [];
+
+  function processNode(node: Node): any {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent || "";
+      if (text.trim()) {
+        return { type: "text", text };
+      }
+      return null;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+    const el = node as Element;
+    const tagName = el.tagName.toLowerCase();
+    const children: any[] = [];
+
+    for (const child of Array.from(node.childNodes)) {
+      const processed = processNode(child);
+      if (processed) {
+        if (Array.isArray(processed)) {
+          children.push(...processed);
+        } else {
+          children.push(processed);
+        }
+      }
+    }
+
+    switch (tagName) {
+      case "p":
+        return { type: "paragraph", content: children.length > 0 ? children : undefined };
+      case "h1":
+        return { type: "heading", attrs: { level: 1 }, content: children };
+      case "h2":
+        return { type: "heading", attrs: { level: 2 }, content: children };
+      case "h3":
+        return { type: "heading", attrs: { level: 3 }, content: children };
+      case "h4":
+      case "h5":
+      case "h6":
+        return { type: "heading", attrs: { level: 3 }, content: children };
+      case "ul":
+        return { type: "bulletList", content: children };
+      case "ol":
+        return { type: "orderedList", content: children };
+      case "li":
+        return { type: "listItem", content: [{ type: "paragraph", content: children }] };
+      case "blockquote":
+        return { type: "blockquote", content: children };
+      case "strong":
+      case "b":
+        return children.map(c => c.type === "text" ? { ...c, marks: [...(c.marks || []), { type: "bold" }] } : c);
+      case "em":
+      case "i":
+        return children.map(c => c.type === "text" ? { ...c, marks: [...(c.marks || []), { type: "italic" }] } : c);
+      case "u":
+        return children.map(c => c.type === "text" ? { ...c, marks: [...(c.marks || []), { type: "underline" }] } : c);
+      case "a":
+        const href = el.getAttribute("href") || "";
+        return children.map(c => c.type === "text" ? { ...c, marks: [...(c.marks || []), { type: "link", attrs: { href } }] } : c);
+      case "br":
+        return { type: "hardBreak" };
+      case "table":
+      case "thead":
+      case "tbody":
+      case "tr":
+      case "td":
+      case "th":
+        return children;
+      default:
+        return children.length > 0 ? children : null;
+    }
+  }
+
+  for (const child of Array.from(doc.body.childNodes)) {
+    const processed = processNode(child);
+    if (processed) {
+      if (Array.isArray(processed)) {
+        content.push(...processed);
+      } else {
+        content.push(processed);
+      }
+    }
+  }
+
+  if (content.length === 0) {
+    content.push({ type: "paragraph" });
+  }
+
+  return { type: "doc", content };
 }
 
 function TextFileViewer({ streamUrl, document }: { streamUrl: string; document: CompanyDocumentWithUploader }) {
