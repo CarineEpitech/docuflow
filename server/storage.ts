@@ -44,6 +44,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(userData: InsertUser): Promise<User>;
+  upsertUser(userData: { id: string; email?: string | null; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<User>;
   
   getProjects(userId: string): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
@@ -144,6 +145,33 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .insert(users)
       .values(userData)
+      .returning();
+    return user;
+  }
+
+  async upsertUser(userData: { id: string; email?: string | null; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<User> {
+    // For Replit OIDC users, we need to provide a placeholder password since the column is required
+    // These users authenticate via OIDC and never use the password field
+    const [user] = await db
+      .insert(users)
+      .values({
+        id: userData.id,
+        email: userData.email ?? undefined,
+        password: "REPLIT_OIDC_USER", // Placeholder for OIDC users - never used for auth
+        firstName: userData.firstName ?? undefined,
+        lastName: userData.lastName ?? undefined,
+        profileImageUrl: userData.profileImageUrl ?? undefined,
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          email: userData.email ?? undefined,
+          firstName: userData.firstName ?? undefined,
+          lastName: userData.lastName ?? undefined,
+          profileImageUrl: userData.profileImageUrl ?? undefined,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
     return user;
   }
