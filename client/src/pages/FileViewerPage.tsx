@@ -22,7 +22,7 @@ import { format } from "date-fns";
 import type { CompanyDocumentWithUploader } from "@shared/schema";
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from "pdfjs-dist";
 
-GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
+GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.449/build/pdf.worker.min.mjs';
 
 function getFileIcon(mimeType: string | null) {
   if (!mimeType) return FileText;
