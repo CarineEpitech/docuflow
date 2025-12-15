@@ -497,16 +497,12 @@ function WordDocEditor({ documentId, document }: {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-1 overflow-auto">
-        <div className="max-w-3xl mx-auto">
-          <BlockEditor
-            content={content}
-            onChange={handleContentChange}
-            onImageUpload={handleImageUpload}
-            editable={true}
-          />
-        </div>
-      </div>
+      <BlockEditor
+        content={content}
+        onChange={handleContentChange}
+        onImageUpload={handleImageUpload}
+        editable={true}
+      />
     </div>
   );
 }
