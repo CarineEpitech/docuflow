@@ -43,10 +43,13 @@ function formatFileSize(bytes: number | null): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
+type SaveStatus = "saved" | "saving" | "unsaved";
+
 export default function FileViewerPage() {
   const [, params] = useRoute("/company-documents/:id/view");
   const [, navigate] = useLocation();
   const documentId = params?.id;
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
 
   const { data: document, isLoading, error } = useQuery<CompanyDocumentWithUploader>({
     queryKey: ["/api/company-documents", documentId],
@@ -66,6 +69,9 @@ export default function FileViewerPage() {
   const handleBack = () => {
     navigate("/company-documents");
   };
+
+  const isWordDoc = document?.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                    document?.mimeType === 'application/msword';
 
   if (isLoading) {
     return (
@@ -116,23 +122,37 @@ export default function FileViewerPage() {
             </div>
           </div>
         </div>
-        <Button onClick={handleDownload} data-testid="button-download">
-          <Download className="h-4 w-4 mr-2" />
-          Download
-        </Button>
+        {isWordDoc ? (
+          <span className="text-sm text-muted-foreground flex items-center gap-2" data-testid="text-save-status">
+            {saveStatus === "saving" && (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Saving...
+              </>
+            )}
+            {saveStatus === "saved" && "Saved"}
+            {saveStatus === "unsaved" && "Unsaved changes"}
+          </span>
+        ) : (
+          <Button onClick={handleDownload} data-testid="button-download">
+            <Download className="h-4 w-4 mr-2" />
+            Download
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 overflow-auto">
-        <FileContent mimeType={mimeType} streamUrl={streamUrl} document={document} />
+        <FileContent mimeType={mimeType} streamUrl={streamUrl} document={document} onSaveStatusChange={setSaveStatus} />
       </div>
     </div>
   );
 }
 
-function FileContent({ mimeType, streamUrl, document }: { 
+function FileContent({ mimeType, streamUrl, document, onSaveStatusChange }: { 
   mimeType: string; 
   streamUrl: string; 
   document: CompanyDocumentWithUploader;
+  onSaveStatusChange: (status: SaveStatus) => void;
 }) {
   if (mimeType.startsWith("image/")) {
     return (
@@ -187,11 +207,10 @@ function FileContent({ mimeType, streamUrl, document }: {
     return <PdfViewer streamUrl={streamUrl} />;
   }
 
-  // Word documents - redirect to editor for editing
   const isWordDoc = mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
                     mimeType === 'application/msword';
   if (isWordDoc) {
-    return <WordDocEditor documentId={document.id} document={document} />;
+    return <WordDocEditor documentId={document.id} document={document} onSaveStatusChange={onSaveStatusChange} />;
   }
 
   if (mimeType.startsWith("text/") || mimeType === "application/json") {
@@ -390,11 +409,13 @@ function PdfViewer({ streamUrl }: { streamUrl: string }) {
   );
 }
 
-function WordDocEditor({ documentId, document }: { documentId: string; document: CompanyDocumentWithUploader }) {
-  const [, navigate] = useLocation();
+function WordDocEditor({ documentId, document, onSaveStatusChange }: { 
+  documentId: string; 
+  document: CompanyDocumentWithUploader;
+  onSaveStatusChange: (status: SaveStatus) => void;
+}) {
   const { toast } = useToast();
   const [content, setContent] = useState<any>(null);
-  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
   const [isConverting, setIsConverting] = useState(true);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const contentRef = useRef<any>(null);
@@ -418,23 +439,23 @@ function WordDocEditor({ documentId, document }: { documentId: string; document:
   }, [document.content, wordHtml]);
 
   const saveDocument = useCallback(async (contentToSave: any) => {
-    setSaveStatus("saving");
+    onSaveStatusChange("saving");
     try {
       await apiRequest("PATCH", `/api/company-documents/${documentId}`, {
         content: contentToSave,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
-      setSaveStatus("saved");
+      onSaveStatusChange("saved");
     } catch (error: any) {
       toast({ title: "Failed to save", description: error.message, variant: "destructive" });
-      setSaveStatus("unsaved");
+      onSaveStatusChange("unsaved");
     }
-  }, [documentId, toast]);
+  }, [documentId, toast, onSaveStatusChange]);
 
   const handleContentChange = useCallback((newContent: any) => {
     setContent(newContent);
     contentRef.current = newContent;
-    setSaveStatus("unsaved");
+    onSaveStatusChange("unsaved");
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -443,7 +464,7 @@ function WordDocEditor({ documentId, document }: { documentId: string; document:
     saveTimeoutRef.current = setTimeout(() => {
       saveDocument(contentRef.current);
     }, 1000);
-  }, [saveDocument]);
+  }, [saveDocument, onSaveStatusChange]);
 
   useEffect(() => {
     return () => {
@@ -452,14 +473,6 @@ function WordDocEditor({ documentId, document }: { documentId: string; document:
       }
     };
   }, []);
-
-  const handleBack = () => {
-    if (document?.folderId) {
-      navigate(`/company-documents?folder=${document.folderId}`);
-    } else {
-      navigate("/company-documents");
-    }
-  };
 
   const handleImageUpload = useCallback(async (): Promise<string | null> => {
     return new Promise((resolve) => {
@@ -503,34 +516,14 @@ function WordDocEditor({ documentId, document }: { documentId: string; document:
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between px-6 py-3 border-b bg-background">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <span className="font-semibold" data-testid="text-document-name">{document.name}</span>
-        </div>
-        <span className="text-sm text-muted-foreground flex items-center gap-2" data-testid="text-save-status">
-          {saveStatus === "saving" && (
-            <>
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Saving...
-            </>
-          )}
-          {saveStatus === "saved" && "Saved"}
-          {saveStatus === "unsaved" && "Unsaved changes"}
-        </span>
-      </div>
-      <div className="flex-1 overflow-auto px-6 py-6">
-        <div className="max-w-3xl mx-auto">
-          <BlockEditor
-            content={content}
-            onChange={handleContentChange}
-            onImageUpload={handleImageUpload}
-            editable={true}
-          />
-        </div>
+    <div className="h-full overflow-auto px-6 py-6">
+      <div className="max-w-3xl mx-auto">
+        <BlockEditor
+          content={content}
+          onChange={handleContentChange}
+          onImageUpload={handleImageUpload}
+          editable={true}
+        />
       </div>
     </div>
   );
