@@ -176,11 +176,11 @@ export default function ClientDetailPage() {
           </Button>
           <Button
             variant="destructive"
+            size="icon"
             onClick={() => setShowDeleteConfirm(true)}
             data-testid="button-delete-client"
           >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete Client
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </div>
