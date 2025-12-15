@@ -7,6 +7,7 @@ import {
   crmClients,
   crmContacts,
   companyDocuments,
+  companyDocumentFolders,
   teams,
   teamMembers,
   teamInvites,
@@ -27,6 +28,9 @@ import {
   type CompanyDocument,
   type InsertCompanyDocument,
   type CompanyDocumentWithUploader,
+  type CompanyDocumentFolder,
+  type InsertCompanyDocumentFolder,
+  type CompanyDocumentFolderWithCreator,
   type Team,
   type InsertTeam,
   type TeamMember,
@@ -102,11 +106,20 @@ export interface IStorage {
   // Get all users for assignee dropdown
   getAllUsers(): Promise<SafeUser[]>;
   
+  // Company Document Folders
+  getCompanyDocumentFolders(): Promise<CompanyDocumentFolderWithCreator[]>;
+  getCompanyDocumentFolder(id: string): Promise<CompanyDocumentFolderWithCreator | undefined>;
+  createCompanyDocumentFolder(folder: InsertCompanyDocumentFolder): Promise<CompanyDocumentFolder>;
+  updateCompanyDocumentFolder(id: string, data: Partial<InsertCompanyDocumentFolder>): Promise<CompanyDocumentFolder | undefined>;
+  deleteCompanyDocumentFolder(id: string): Promise<CompanyDocumentFolder | undefined>;
+  
   // Company Documents
-  getCompanyDocuments(): Promise<CompanyDocumentWithUploader[]>;
-  getCompanyDocument(id: string): Promise<CompanyDocument | undefined>;
+  getCompanyDocuments(folderId?: string): Promise<CompanyDocumentWithUploader[]>;
+  getCompanyDocument(id: string): Promise<CompanyDocumentWithUploader | undefined>;
   createCompanyDocument(doc: InsertCompanyDocument): Promise<CompanyDocument>;
+  updateCompanyDocument(id: string, data: Partial<InsertCompanyDocument>): Promise<CompanyDocument | undefined>;
   deleteCompanyDocument(id: string): Promise<CompanyDocument | undefined>;
+  searchCompanyDocuments(query: string): Promise<CompanyDocumentWithUploader[]>;
   
   // Teams
   getTeams(userId: string): Promise<TeamWithDetails[]>;
@@ -801,14 +814,60 @@ export class DatabaseStorage implements IStorage {
     return allUsers;
   }
 
+  // Company Document Folders
+  async getCompanyDocumentFolders(): Promise<CompanyDocumentFolderWithCreator[]> {
+    const folders = await db
+      .select()
+      .from(companyDocumentFolders)
+      .orderBy(asc(companyDocumentFolders.name));
+    
+    const creatorIds = [...new Set(folders.map(f => f.createdById))];
+    const creatorsData = creatorIds.length > 0
+      ? await db.select().from(users).where(or(...creatorIds.map(id => eq(users.id, id))))
+      : [];
+    const creatorMap = new Map(creatorsData.map(u => [u.id, u]));
+    
+    return folders.map(folder => ({
+      ...folder,
+      createdBy: creatorMap.get(folder.createdById),
+    }));
+  }
+
+  async getCompanyDocumentFolder(id: string): Promise<CompanyDocumentFolderWithCreator | undefined> {
+    const [folder] = await db.select().from(companyDocumentFolders).where(eq(companyDocumentFolders.id, id));
+    if (!folder) return undefined;
+    
+    const [creator] = await db.select().from(users).where(eq(users.id, folder.createdById));
+    return { ...folder, createdBy: creator };
+  }
+
+  async createCompanyDocumentFolder(folder: InsertCompanyDocumentFolder): Promise<CompanyDocumentFolder> {
+    const [newFolder] = await db.insert(companyDocumentFolders).values(folder).returning();
+    return newFolder;
+  }
+
+  async updateCompanyDocumentFolder(id: string, data: Partial<InsertCompanyDocumentFolder>): Promise<CompanyDocumentFolder | undefined> {
+    const [updated] = await db
+      .update(companyDocumentFolders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(companyDocumentFolders.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCompanyDocumentFolder(id: string): Promise<CompanyDocumentFolder | undefined> {
+    const [deleted] = await db.delete(companyDocumentFolders).where(eq(companyDocumentFolders.id, id)).returning();
+    return deleted;
+  }
+
   // Company Documents
-  async getCompanyDocuments(): Promise<CompanyDocumentWithUploader[]> {
+  async getCompanyDocuments(folderId?: string): Promise<CompanyDocumentWithUploader[]> {
     const docs = await db
       .select()
       .from(companyDocuments)
+      .where(folderId ? eq(companyDocuments.folderId, folderId) : isNull(companyDocuments.folderId))
       .orderBy(desc(companyDocuments.createdAt));
     
-    // Get all uploaders
     const uploaderIds = [...new Set(docs.map(d => d.uploadedById))];
     const uploadersData = uploaderIds.length > 0
       ? await db.select().from(users).where(or(...uploaderIds.map(id => eq(users.id, id))))
@@ -821,9 +880,17 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getCompanyDocument(id: string): Promise<CompanyDocument | undefined> {
+  async getCompanyDocument(id: string): Promise<CompanyDocumentWithUploader | undefined> {
     const [doc] = await db.select().from(companyDocuments).where(eq(companyDocuments.id, id));
-    return doc;
+    if (!doc) return undefined;
+    
+    const [uploader] = await db.select().from(users).where(eq(users.id, doc.uploadedById));
+    let folder;
+    if (doc.folderId) {
+      const [f] = await db.select().from(companyDocumentFolders).where(eq(companyDocumentFolders.id, doc.folderId));
+      folder = f;
+    }
+    return { ...doc, uploadedBy: uploader, folder };
   }
 
   async createCompanyDocument(doc: InsertCompanyDocument): Promise<CompanyDocument> {
@@ -831,9 +898,49 @@ export class DatabaseStorage implements IStorage {
     return newDoc;
   }
 
+  async updateCompanyDocument(id: string, data: Partial<InsertCompanyDocument>): Promise<CompanyDocument | undefined> {
+    const [updated] = await db
+      .update(companyDocuments)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(companyDocuments.id, id))
+      .returning();
+    return updated;
+  }
+
   async deleteCompanyDocument(id: string): Promise<CompanyDocument | undefined> {
     const [deleted] = await db.delete(companyDocuments).where(eq(companyDocuments.id, id)).returning();
     return deleted;
+  }
+
+  async searchCompanyDocuments(query: string): Promise<CompanyDocumentWithUploader[]> {
+    const searchPattern = `%${query}%`;
+    const docs = await db
+      .select()
+      .from(companyDocuments)
+      .where(or(
+        like(companyDocuments.name, searchPattern),
+        like(companyDocuments.description, searchPattern),
+        like(companyDocuments.fileName, searchPattern)
+      ))
+      .orderBy(desc(companyDocuments.createdAt));
+    
+    const uploaderIds = [...new Set(docs.map(d => d.uploadedById))];
+    const uploadersData = uploaderIds.length > 0
+      ? await db.select().from(users).where(or(...uploaderIds.map(id => eq(users.id, id))))
+      : [];
+    const uploaderMap = new Map(uploadersData.map(u => [u.id, u]));
+    
+    const folderIds = [...new Set(docs.filter(d => d.folderId).map(d => d.folderId!))];
+    const foldersData = folderIds.length > 0
+      ? await db.select().from(companyDocumentFolders).where(or(...folderIds.map(id => eq(companyDocumentFolders.id, id))))
+      : [];
+    const folderMap = new Map(foldersData.map(f => [f.id, f]));
+    
+    return docs.map(doc => ({
+      ...doc,
+      uploadedBy: uploaderMap.get(doc.uploadedById),
+      folder: doc.folderId ? folderMap.get(doc.folderId) : undefined,
+    }));
   }
 
   // Teams
