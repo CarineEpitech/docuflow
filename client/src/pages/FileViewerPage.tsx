@@ -184,6 +184,13 @@ function FileContent({ mimeType, streamUrl, document }: {
     return <PdfViewer streamUrl={streamUrl} />;
   }
 
+  // Word documents
+  const isWordDoc = mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                    mimeType === 'application/msword';
+  if (isWordDoc) {
+    return <WordDocViewer documentId={document.id} />;
+  }
+
   if (mimeType.startsWith("text/") || mimeType === "application/json") {
     return <TextFileViewer streamUrl={streamUrl} document={document} />;
   }
@@ -235,7 +242,7 @@ function PdfPage({ pdfDoc, pageNum, scale }: { pdfDoc: PDFDocumentProxy; pageNum
         renderTaskRef.current = page.render({
           canvasContext: context,
           viewport: viewport,
-        });
+        } as any);
 
         await renderTaskRef.current.promise;
       } catch (err: any) {
@@ -375,6 +382,48 @@ function PdfViewer({ streamUrl }: { streamUrl: string }) {
             />
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function WordDocViewer({ documentId }: { documentId: string }) {
+  const { data, isLoading, error } = useQuery<{ html: string; messages: any[] }>({
+    queryKey: ["/api/company-documents", documentId, "word-html"],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Loading document...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex items-center justify-center h-full p-6">
+        <Card className="max-w-md">
+          <CardContent className="flex flex-col items-center gap-4 py-8">
+            <FileText className="h-16 w-16 text-muted-foreground" />
+            <p className="text-muted-foreground text-center">Failed to load document</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-auto p-6">
+      <div className="max-w-4xl mx-auto bg-white dark:bg-card rounded-lg shadow-lg p-8">
+        <div 
+          className="prose prose-sm dark:prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: data.html }}
+          data-testid="word-doc-content"
+        />
       </div>
     </div>
   );

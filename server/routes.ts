@@ -6,6 +6,7 @@ import { setupAuth, isAuthenticated, getUserId, hashPassword, verifyPassword, re
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
+import mammoth from "mammoth";
 import { 
   insertProjectSchema, 
   insertDocumentSchema, 
@@ -1631,6 +1632,64 @@ Instructions:
     } catch (error) {
       console.error("Error streaming company document:", error);
       res.status(500).json({ message: "Failed to stream document" });
+    }
+  });
+
+  // Convert Word document to HTML for preview
+  app.get("/api/company-documents/:id/word-html", isAuthenticated, async (req: any, res) => {
+    try {
+      const document = await storage.getCompanyDocument(req.params.id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      if (!document.storagePath || !document.fileName || !document.mimeType) {
+        return res.status(400).json({ message: "This document is not a file" });
+      }
+      
+      // Check if it's a Word document
+      const isWordDoc = document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                        document.mimeType === 'application/msword' ||
+                        document.fileName?.endsWith('.docx') ||
+                        document.fileName?.endsWith('.doc');
+      
+      if (!isWordDoc) {
+        return res.status(400).json({ message: "Not a Word document" });
+      }
+      
+      const objectStorageService = new ObjectStorageService();
+      
+      try {
+        const normalizedPath = objectStorageService.normalizeObjectEntityPath(document.storagePath);
+        const objectFile = await objectStorageService.getObjectEntityFile(normalizedPath);
+        
+        // Download file to buffer
+        const chunks: Buffer[] = [];
+        const stream = objectFile.createReadStream();
+        
+        for await (const chunk of stream) {
+          chunks.push(Buffer.from(chunk));
+        }
+        
+        const buffer = Buffer.concat(chunks);
+        
+        // Convert to HTML using mammoth
+        const result = await mammoth.convertToHtml({ buffer });
+        
+        res.json({ 
+          html: result.value,
+          messages: result.messages 
+        });
+      } catch (error) {
+        if (error instanceof ObjectNotFoundError) {
+          return res.status(404).json({ message: "File not found in storage" });
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error converting Word document:", error);
+      res.status(500).json({ message: "Failed to convert document" });
     }
   });
 
