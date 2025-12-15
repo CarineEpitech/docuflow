@@ -497,7 +497,7 @@ function WordDocEditor({ documentId, document }: {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-3xl mx-auto px-6 pt-6">
+      <div className="max-w-3xl mx-auto px-6">
         <BlockEditor
           content={content}
           onChange={handleContentChange}
