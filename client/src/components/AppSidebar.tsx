@@ -136,9 +136,6 @@ export function AppSidebar() {
                 <span className="font-semibold text-base tracking-tight" data-testid="text-sidebar-brand">DocuFlow</span>
               )}
             </Link>
-            {!isCollapsed && (
-              <SidebarTrigger data-testid="button-sidebar-toggle" className="h-7 w-7" />
-            )}
           </div>
         </SidebarHeader>
 
@@ -219,12 +216,10 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter className="p-3 mt-auto">
-          <div className={`flex ${isCollapsed ? 'flex-col' : 'items-center justify-between'} gap-2 mb-3 px-1`}>
-            {isCollapsed && <SidebarTrigger data-testid="button-sidebar-toggle-collapsed" className="h-8 w-8" />}
-            <div className={`flex ${isCollapsed ? 'flex-col' : 'flex-row'} items-center gap-1`}>
-              <ChatBot />
-              <ThemeToggle />
-            </div>
+          <div className={`flex ${isCollapsed ? 'flex-col items-center' : 'items-center justify-end'} gap-1 mb-3`}>
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="h-8 w-8" />
+            <ChatBot />
+            <ThemeToggle />
           </div>
           
           <DropdownMenu>
