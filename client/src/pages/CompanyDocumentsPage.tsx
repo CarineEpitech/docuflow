@@ -686,8 +686,8 @@ function FolderCard({ folder, viewMode, onOpen, onRename, onDelete }: {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 mb-2">
-          <FolderOpen className="h-6 w-6 text-primary" />
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 mb-2">
+          <FolderOpen className="h-4 w-4 text-primary" />
         </div>
         <h3 className="font-medium text-sm truncate w-full" data-testid={`text-folder-name-${folder.id}`}>{folder.name}</h3>
         {folder.createdAt && (
@@ -779,8 +779,8 @@ function DocumentCard({ doc, viewMode, onDownload, onDelete, onRename, onClick, 
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 mb-2">
-          <FileIcon className="h-6 w-6 text-primary" />
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 mb-2">
+          <FileIcon className="h-4 w-4 text-primary" />
         </div>
         <h3 className="font-medium text-sm truncate w-full" data-testid={`text-document-name-${doc.id}`}>{doc.name}</h3>
         {doc.description && <p className="text-xs text-muted-foreground truncate w-full mt-0.5">{doc.description}</p>}
