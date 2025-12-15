@@ -15,6 +15,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
@@ -285,6 +286,7 @@ export function AppSidebar() {
 
         <SidebarFooter className="border-t border-sidebar-border p-3">
           <div className={`flex ${isCollapsed ? 'flex-col items-center' : 'items-center justify-end'} gap-1 mb-2`}>
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
             <ChatBot />
             <ThemeToggle />
           </div>
