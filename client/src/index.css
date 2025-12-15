@@ -408,3 +408,8 @@
 .kbd {
   @apply inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-mono bg-muted rounded border border-border;
 }
+
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

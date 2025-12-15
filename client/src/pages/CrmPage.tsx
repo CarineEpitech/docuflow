@@ -247,7 +247,7 @@ export default function CrmPage() {
           </Card>
 
           {projectViewMode === "kanban" ? (
-            <div className="overflow-x-auto pb-4">
+            <div className="overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <div className="flex gap-4 min-w-max">
                 {statusOptions.map((status) => {
                   const projectsInColumn = (allProjectsData?.data || []).filter(
