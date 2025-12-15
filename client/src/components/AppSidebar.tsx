@@ -140,7 +140,6 @@ export function AppSidebar() {
         </SidebarHeader>
 
         <SidebarContent className="custom-scrollbar">
-          {/* Company Documents - First */}
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -159,14 +158,6 @@ export function AppSidebar() {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          {/* CRM Navigation */}
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -182,13 +173,6 @@ export function AppSidebar() {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -204,13 +188,6 @@ export function AppSidebar() {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
