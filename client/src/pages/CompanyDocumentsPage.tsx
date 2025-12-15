@@ -4,11 +4,10 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +26,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   FileText,
   Upload,
   Download,
@@ -39,11 +44,22 @@ import {
   Loader2,
   Plus,
   Building2,
+  Folder,
+  FolderOpen,
+  Grid3X3,
+  List,
+  Search,
+  ChevronRight,
+  MoreVertical,
+  Pencil,
+  ArrowLeft,
+  FilePlus,
 } from "lucide-react";
 import { format } from "date-fns";
-import type { CompanyDocumentWithUploader } from "@shared/schema";
+import type { CompanyDocumentWithUploader, CompanyDocumentFolderWithCreator } from "@shared/schema";
 
-function getFileIcon(mimeType: string) {
+function getFileIcon(mimeType: string | null) {
+  if (!mimeType) return FileText;
   if (mimeType.startsWith("image/")) return FileImage;
   if (mimeType.startsWith("video/")) return FileVideo;
   if (mimeType.startsWith("audio/")) return FileAudio;
@@ -52,8 +68,8 @@ function getFileIcon(mimeType: string) {
   return File;
 }
 
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
+function formatFileSize(bytes: number | null): string {
+  if (!bytes || bytes === 0) return "";
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -65,54 +81,135 @@ export default function CompanyDocumentsPage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showCreateDocDialog, setShowCreateDocDialog] = useState(false);
+  const [showFolderDialog, setShowFolderDialog] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<CompanyDocumentFolderWithCreator | null>(null);
+  
   const [documentName, setDocumentName] = useState("");
   const [documentDescription, setDocumentDescription] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  
+  const [folderName, setFolderName] = useState("");
+  
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteType, setDeleteType] = useState<"document" | "folder">("document");
 
   const isAdmin = user?.role === "admin";
 
-  const { data: documents = [], isLoading } = useQuery<CompanyDocumentWithUploader[]>({
-    queryKey: ["/api/company-documents"],
+  // Fetch folders
+  const { data: folders = [], isLoading: foldersLoading } = useQuery<CompanyDocumentFolderWithCreator[]>({
+    queryKey: ["/api/company-document-folders"],
   });
 
+  // Fetch current folder details
+  const { data: currentFolder } = useQuery<CompanyDocumentFolderWithCreator>({
+    queryKey: ["/api/company-document-folders", currentFolderId],
+    enabled: !!currentFolderId,
+  });
+
+  // Fetch documents based on current folder or search
+  const { data: documents = [], isLoading: documentsLoading } = useQuery<CompanyDocumentWithUploader[]>({
+    queryKey: searchQuery 
+      ? ["/api/company-documents/search", { q: searchQuery }]
+      : ["/api/company-documents", { folderId: currentFolderId }],
+    queryFn: async () => {
+      if (searchQuery) {
+        const res = await fetch(`/api/company-documents/search?q=${encodeURIComponent(searchQuery)}`);
+        if (!res.ok) throw new Error("Failed to search");
+        return res.json();
+      }
+      const url = currentFolderId 
+        ? `/api/company-documents?folderId=${currentFolderId}`
+        : "/api/company-documents";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
+
+  const isLoading = foldersLoading || documentsLoading;
+
+  // Folder mutations
+  const createFolderMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest("POST", "/api/company-document-folders", { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company-document-folders"] });
+      setShowFolderDialog(false);
+      setFolderName("");
+      toast({ title: "Folder created" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to create folder", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const renameFolderMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      return apiRequest("PATCH", `/api/company-document-folders/${id}`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company-document-folders"] });
+      setEditingFolder(null);
+      setFolderName("");
+      toast({ title: "Folder renamed" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to rename folder", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteFolderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/company-document-folders/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company-document-folders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
+      setDeleteConfirmId(null);
+      if (currentFolderId === deleteConfirmId) {
+        setCurrentFolderId(null);
+      }
+      toast({ title: "Folder deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete folder", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Document mutations
   const uploadMutation = useMutation({
     mutationFn: async (data: { file: File; name: string; description: string }) => {
       setUploading(true);
-      
-      // Get upload URL
       const urlResponse = await apiRequest("POST", "/api/company-documents/upload-url");
       const { uploadURL } = urlResponse;
       
-      // Upload file to object storage
       const uploadResponse = await fetch(uploadURL, {
         method: "PUT",
         body: data.file,
-        headers: {
-          "Content-Type": data.file.type,
-        },
+        headers: { "Content-Type": data.file.type },
       });
       
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload file");
-      }
+      if (!uploadResponse.ok) throw new Error("Failed to upload file");
       
-      // Get the base URL without query parameters for storage path
       const storagePath = uploadURL.split("?")[0];
       
-      // Create document record
-      const document = await apiRequest("POST", "/api/company-documents", {
+      return apiRequest("POST", "/api/company-documents", {
         name: data.name,
         description: data.description || undefined,
         fileName: data.file.name,
         fileSize: data.file.size,
         mimeType: data.file.type || "application/octet-stream",
-        storagePath: storagePath,
+        storagePath,
+        folderId: currentFolderId,
       });
-      
-      return document;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
@@ -121,18 +218,32 @@ export default function CompanyDocumentsPage() {
       setDocumentDescription("");
       setSelectedFile(null);
       setUploading(false);
-      toast({
-        title: "Document uploaded",
-        description: "The document has been uploaded successfully.",
-      });
+      toast({ title: "Document uploaded" });
     },
     onError: (error: Error) => {
       setUploading(false);
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive",
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const createDocMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string }) => {
+      return apiRequest("POST", "/api/company-documents", {
+        name: data.name,
+        description: data.description || undefined,
+        content: { type: "doc", content: [{ type: "paragraph" }] },
+        folderId: currentFolderId,
       });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
+      setShowCreateDocDialog(false);
+      setDocumentName("");
+      setDocumentDescription("");
+      toast({ title: "Document created" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to create document", description: error.message, variant: "destructive" });
     },
   });
 
@@ -143,17 +254,10 @@ export default function CompanyDocumentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
       setDeleteConfirmId(null);
-      toast({
-        title: "Document deleted",
-        description: "The document has been deleted successfully.",
-      });
+      toast({ title: "Document deleted" });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Delete failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -169,196 +273,270 @@ export default function CompanyDocumentsPage() {
 
   const handleUpload = () => {
     if (!selectedFile || !documentName.trim()) {
-      toast({
-        title: "Missing information",
-        description: "Please select a file and enter a document name.",
-        variant: "destructive",
-      });
+      toast({ title: "Missing information", description: "Please select a file and enter a document name.", variant: "destructive" });
       return;
     }
-    
-    uploadMutation.mutate({
-      file: selectedFile,
-      name: documentName.trim(),
-      description: documentDescription.trim(),
-    });
+    uploadMutation.mutate({ file: selectedFile, name: documentName.trim(), description: documentDescription.trim() });
+  };
+
+  const handleCreateDoc = () => {
+    if (!documentName.trim()) {
+      toast({ title: "Missing information", description: "Please enter a document name.", variant: "destructive" });
+      return;
+    }
+    createDocMutation.mutate({ name: documentName.trim(), description: documentDescription.trim() });
   };
 
   const handleDownload = (doc: CompanyDocumentWithUploader) => {
-    window.open(`/api/company-documents/${doc.id}/download`, "_blank");
+    if (doc.storagePath) {
+      window.open(`/api/company-documents/${doc.id}/download`, "_blank");
+    }
+  };
+
+  const handleFolderSubmit = () => {
+    if (!folderName.trim()) return;
+    if (editingFolder) {
+      renameFolderMutation.mutate({ id: editingFolder.id, name: folderName.trim() });
+    } else {
+      createFolderMutation.mutate(folderName.trim());
+    }
+  };
+
+  const openRenameFolder = (folder: CompanyDocumentFolderWithCreator) => {
+    setEditingFolder(folder);
+    setFolderName(folder.name);
+  };
+
+  const confirmDelete = (id: string, type: "document" | "folder") => {
+    setDeleteConfirmId(id);
+    setDeleteType(type);
+  };
+
+  const handleDelete = () => {
+    if (!deleteConfirmId) return;
+    if (deleteType === "folder") {
+      deleteFolderMutation.mutate(deleteConfirmId);
+    } else {
+      deleteMutation.mutate(deleteConfirmId);
+    }
   };
 
   const documentToDelete = documents.find(d => d.id === deleteConfirmId);
+  const folderToDelete = folders.find(f => f.id === deleteConfirmId);
 
   return (
     <div className="h-full py-6 px-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-3" data-testid="text-page-title">
-            <Building2 className="h-7 w-7 text-primary" />
-            Company Documents
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Company terms, policies, and important documents
-          </p>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          {currentFolderId && (
+            <Button variant="ghost" size="icon" onClick={() => setCurrentFolderId(null)} data-testid="button-back">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <div>
+            <h1 className="text-2xl font-semibold flex items-center gap-3" data-testid="text-page-title">
+              <Building2 className="h-7 w-7 text-primary" />
+              {currentFolder ? currentFolder.name : "Company Documents"}
+            </h1>
+            {!currentFolderId && (
+              <p className="text-muted-foreground mt-1">Company terms, policies, and important documents</p>
+            )}
+            {currentFolderId && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                <button onClick={() => setCurrentFolderId(null)} className="hover:underline" data-testid="link-root">
+                  Company Documents
+                </button>
+                <ChevronRight className="h-4 w-4" />
+                <span>{currentFolder?.name}</span>
+              </div>
+            )}
+          </div>
         </div>
-        <Button 
-          onClick={() => setShowUploadDialog(true)}
-          data-testid="button-upload-document"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Upload Document
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 w-64"
+              data-testid="input-search"
+            />
+          </div>
+          <Button variant="outline" size="icon" onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")} data-testid="button-view-toggle">
+            {viewMode === "grid" ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
+          </Button>
+          {!currentFolderId && !searchQuery && (
+            <Button variant="outline" onClick={() => { setFolderName(""); setEditingFolder(null); setShowFolderDialog(true); }} data-testid="button-new-folder">
+              <Folder className="h-4 w-4 mr-2" />
+              New Folder
+            </Button>
+          )}
+          {currentFolderId && (
+            <>
+              <Button variant="outline" onClick={() => { setDocumentName(""); setDocumentDescription(""); setShowCreateDocDialog(true); }} data-testid="button-create-document">
+                <FilePlus className="h-4 w-4 mr-2" />
+                Create Document
+              </Button>
+              <Button onClick={() => { setDocumentName(""); setDocumentDescription(""); setSelectedFile(null); setShowUploadDialog(true); }} data-testid="button-upload-document">
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Document
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : documents.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FileText className="h-16 w-16 text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-medium mb-2">No documents yet</h3>
-            <p className="text-muted-foreground text-center max-w-md mb-4">
-              Upload company documents like terms and conditions, policies, or other important files.
-            </p>
-            <Button onClick={() => setShowUploadDialog(true)} data-testid="button-upload-first">
-              <Upload className="h-4 w-4 mr-2" />
-              Upload First Document
-            </Button>
-          </CardContent>
-        </Card>
+      ) : searchQuery ? (
+        // Search results
+        documents.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Search className="h-16 w-16 text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No results found</h3>
+              <p className="text-muted-foreground text-center max-w-md">
+                No documents match "{searchQuery}"
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
+            {documents.map((doc) => (
+              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} isAdmin={isAdmin} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} showFolder />
+            ))}
+          </div>
+        )
+      ) : !currentFolderId ? (
+        // Root view - show folders
+        folders.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Folder className="h-16 w-16 text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No folders yet</h3>
+              <p className="text-muted-foreground text-center max-w-md mb-4">
+                Create folders to organize your company documents.
+              </p>
+              <Button onClick={() => { setFolderName(""); setEditingFolder(null); setShowFolderDialog(true); }} data-testid="button-create-first-folder">
+                <Plus className="h-4 w-4 mr-2" />
+                Create First Folder
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
+            {folders.map((folder) => (
+              <FolderCard key={folder.id} folder={folder} viewMode={viewMode} isAdmin={isAdmin} onOpen={() => setCurrentFolderId(folder.id)} onRename={() => openRenameFolder(folder)} onDelete={() => confirmDelete(folder.id, "folder")} />
+            ))}
+          </div>
+        )
       ) : (
-        <div className="space-y-3">
-          {documents.map((doc) => {
-            const FileIcon = getFileIcon(doc.mimeType);
-            return (
-              <Card key={doc.id} data-testid={`card-document-${doc.id}`}>
-                <CardContent className="flex items-center gap-4 py-4">
-                  <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10">
-                    <FileIcon className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium truncate" data-testid={`text-document-name-${doc.id}`}>
-                      {doc.name}
-                    </h3>
-                    {doc.description && (
-                      <p className="text-sm text-muted-foreground truncate">
-                        {doc.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span>{doc.fileName}</span>
-                      <span>{formatFileSize(doc.fileSize)}</span>
-                      {doc.createdAt && (
-                        <span>Uploaded {format(new Date(doc.createdAt), "MMM d, yyyy 'at' h:mm a")}</span>
-                      )}
-                      {doc.uploadedBy && (
-                        <span>by {doc.uploadedBy.firstName || doc.uploadedBy.email}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownload(doc)}
-                      data-testid={`button-download-${doc.id}`}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                    {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteConfirmId(doc.id)}
-                        data-testid={`button-delete-${doc.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        // Inside folder - show documents
+        documents.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <FileText className="h-16 w-16 text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No documents yet</h3>
+              <p className="text-muted-foreground text-center max-w-md mb-4">
+                Upload or create documents in this folder.
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => { setDocumentName(""); setDocumentDescription(""); setShowCreateDocDialog(true); }} data-testid="button-create-first-doc">
+                  <FilePlus className="h-4 w-4 mr-2" />
+                  Create Document
+                </Button>
+                <Button onClick={() => { setDocumentName(""); setDocumentDescription(""); setSelectedFile(null); setShowUploadDialog(true); }} data-testid="button-upload-first">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Document
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
+            {documents.map((doc) => (
+              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} isAdmin={isAdmin} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} />
+            ))}
+          </div>
+        )
       )}
 
       {/* Upload Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Upload Company Document</DialogTitle>
+            <DialogTitle>Upload Document</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="file">File</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  ref={fileInputRef}
-                  id="file"
-                  type="file"
-                  onChange={handleFileSelect}
-                  className="flex-1"
-                  data-testid="input-file"
-                />
-              </div>
-              {selectedFile && (
-                <p className="text-xs text-muted-foreground">
-                  Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-                </p>
-              )}
+              <Input ref={fileInputRef} id="file" type="file" onChange={handleFileSelect} data-testid="input-file" />
+              {selectedFile && <p className="text-xs text-muted-foreground">Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="name">Document Name</Label>
-              <Input
-                id="name"
-                value={documentName}
-                onChange={(e) => setDocumentName(e.target.value)}
-                placeholder="e.g., Terms and Conditions"
-                data-testid="input-document-name"
-              />
+              <Input id="name" value={documentName} onChange={(e) => setDocumentName(e.target.value)} placeholder="e.g., Terms and Conditions" data-testid="input-document-name" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description (optional)</Label>
-              <Textarea
-                id="description"
-                value={documentDescription}
-                onChange={(e) => setDocumentDescription(e.target.value)}
-                placeholder="Brief description of this document..."
-                rows={3}
-                data-testid="input-document-description"
-              />
+              <Textarea id="description" value={documentDescription} onChange={(e) => setDocumentDescription(e.target.value)} placeholder="Brief description..." rows={3} data-testid="input-document-description" />
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowUploadDialog(false)}
-              disabled={uploading}
-              data-testid="button-cancel-upload"
-            >
-              Cancel
+            <Button variant="outline" onClick={() => setShowUploadDialog(false)} disabled={uploading} data-testid="button-cancel-upload">Cancel</Button>
+            <Button onClick={handleUpload} disabled={uploading || !selectedFile || !documentName.trim()} data-testid="button-confirm-upload">
+              {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="h-4 w-4 mr-2" />Upload</>}
             </Button>
-            <Button 
-              onClick={handleUpload}
-              disabled={uploading || !selectedFile || !documentName.trim()}
-              data-testid="button-confirm-upload"
-            >
-              {uploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload
-                </>
-              )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Document Dialog */}
+      <Dialog open={showCreateDocDialog} onOpenChange={setShowCreateDocDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Document</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="doc-name">Document Name</Label>
+              <Input id="doc-name" value={documentName} onChange={(e) => setDocumentName(e.target.value)} placeholder="e.g., Meeting Notes" data-testid="input-create-doc-name" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="doc-description">Description (optional)</Label>
+              <Textarea id="doc-description" value={documentDescription} onChange={(e) => setDocumentDescription(e.target.value)} placeholder="Brief description..." rows={3} data-testid="input-create-doc-description" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDocDialog(false)} data-testid="button-cancel-create-doc">Cancel</Button>
+            <Button onClick={handleCreateDoc} disabled={!documentName.trim() || createDocMutation.isPending} data-testid="button-confirm-create-doc">
+              {createDocMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating...</> : <><FilePlus className="h-4 w-4 mr-2" />Create</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Folder Dialog */}
+      <Dialog open={showFolderDialog || !!editingFolder} onOpenChange={(open) => { if (!open) { setShowFolderDialog(false); setEditingFolder(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingFolder ? "Rename Folder" : "Create Folder"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="folder-name">Folder Name</Label>
+              <Input id="folder-name" value={folderName} onChange={(e) => setFolderName(e.target.value)} placeholder="e.g., Policies" data-testid="input-folder-name" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowFolderDialog(false); setEditingFolder(null); }} data-testid="button-cancel-folder">Cancel</Button>
+            <Button onClick={handleFolderSubmit} disabled={!folderName.trim() || createFolderMutation.isPending || renameFolderMutation.isPending} data-testid="button-confirm-folder">
+              {(createFolderMutation.isPending || renameFolderMutation.isPending) ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {editingFolder ? "Rename" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -368,23 +546,174 @@ export default function CompanyDocumentsPage() {
       <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogTitle>Delete {deleteType === "folder" ? "Folder" : "Document"}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{documentToDelete?.name}"? This action cannot be undone.
+              Are you sure you want to delete "{deleteType === "folder" ? folderToDelete?.name : documentToDelete?.name}"?
+              {deleteType === "folder" && " All documents in this folder will also be deleted."}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteConfirmId && deleteMutation.mutate(deleteConfirmId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete"
-            >
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-delete">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function FolderCard({ folder, viewMode, isAdmin, onOpen, onRename, onDelete }: {
+  folder: CompanyDocumentFolderWithCreator;
+  viewMode: "grid" | "list";
+  isAdmin: boolean;
+  onOpen: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}) {
+  if (viewMode === "list") {
+    return (
+      <Card className="hover-elevate cursor-pointer" data-testid={`card-folder-${folder.id}`}>
+        <CardContent className="flex items-center gap-4 py-3 px-4" onClick={onOpen}>
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+            <FolderOpen className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium truncate" data-testid={`text-folder-name-${folder.id}`}>{folder.name}</h3>
+            {folder.createdAt && (
+              <p className="text-xs text-muted-foreground">Created {format(new Date(folder.createdAt), "MMM d, yyyy")}</p>
+            )}
+          </div>
+          {isAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" data-testid={`button-folder-menu-${folder.id}`}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(); }} data-testid={`button-rename-folder-${folder.id}`}>
+                  <Pencil className="h-4 w-4 mr-2" />Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-destructive" data-testid={`button-delete-folder-${folder.id}`}>
+                  <Trash2 className="h-4 w-4 mr-2" />Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="hover-elevate cursor-pointer" onClick={onOpen} data-testid={`card-folder-${folder.id}`}>
+      <CardContent className="flex flex-col items-center justify-center py-6 px-4 text-center relative">
+        {isAdmin && (
+          <div className="absolute top-2 right-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-folder-menu-${folder.id}`}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(); }} data-testid={`button-rename-folder-${folder.id}`}>
+                  <Pencil className="h-4 w-4 mr-2" />Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-destructive" data-testid={`button-delete-folder-${folder.id}`}>
+                  <Trash2 className="h-4 w-4 mr-2" />Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+        <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/10 mb-3">
+          <FolderOpen className="h-8 w-8 text-primary" />
+        </div>
+        <h3 className="font-medium truncate w-full" data-testid={`text-folder-name-${folder.id}`}>{folder.name}</h3>
+        {folder.createdAt && (
+          <p className="text-xs text-muted-foreground mt-1">Created {format(new Date(folder.createdAt), "MMM d, yyyy")}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DocumentCard({ doc, viewMode, isAdmin, onDownload, onDelete, showFolder }: {
+  doc: CompanyDocumentWithUploader;
+  viewMode: "grid" | "list";
+  isAdmin: boolean;
+  onDownload: (doc: CompanyDocumentWithUploader) => void;
+  onDelete: (id: string) => void;
+  showFolder?: boolean;
+}) {
+  const FileIcon = getFileIcon(doc.mimeType);
+  const isUploadedFile = !!doc.storagePath;
+
+  if (viewMode === "list") {
+    return (
+      <Card className="hover-elevate" data-testid={`card-document-${doc.id}`}>
+        <CardContent className="flex items-center gap-4 py-3 px-4">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+            <FileIcon className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium truncate" data-testid={`text-document-name-${doc.id}`}>{doc.name}</h3>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              {doc.fileName && <span>{doc.fileName}</span>}
+              {doc.fileSize && <span>{formatFileSize(doc.fileSize)}</span>}
+              {showFolder && doc.folder && (
+                <span className="flex items-center gap-1"><Folder className="h-3 w-3" />{doc.folder.name}</span>
+              )}
+              {doc.createdAt && <span>{format(new Date(doc.createdAt), "MMM d, yyyy")}</span>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isUploadedFile && (
+              <Button variant="outline" size="sm" onClick={() => onDownload(doc)} data-testid={`button-download-${doc.id}`}>
+                <Download className="h-4 w-4 mr-2" />Download
+              </Button>
+            )}
+            {isAdmin && (
+              <Button variant="ghost" size="icon" onClick={() => onDelete(doc.id)} data-testid={`button-delete-${doc.id}`}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="hover-elevate" data-testid={`card-document-${doc.id}`}>
+      <CardContent className="flex flex-col items-center justify-center py-6 px-4 text-center relative">
+        {isAdmin && (
+          <div className="absolute top-2 right-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(doc.id)} data-testid={`button-delete-${doc.id}`}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        )}
+        <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/10 mb-3">
+          <FileIcon className="h-8 w-8 text-primary" />
+        </div>
+        <h3 className="font-medium truncate w-full" data-testid={`text-document-name-${doc.id}`}>{doc.name}</h3>
+        {doc.description && <p className="text-xs text-muted-foreground truncate w-full mt-1">{doc.description}</p>}
+        {showFolder && doc.folder && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Folder className="h-3 w-3" />{doc.folder.name}</p>
+        )}
+        <div className="flex items-center gap-2 mt-3">
+          {isUploadedFile && (
+            <Button variant="outline" size="sm" onClick={() => onDownload(doc)} data-testid={`button-download-${doc.id}`}>
+              <Download className="h-4 w-4 mr-1" />Download
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
