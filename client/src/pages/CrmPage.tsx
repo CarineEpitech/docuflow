@@ -61,7 +61,7 @@ interface CrmProjectsResponse {
 export default function CrmPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState<string>("projects");
+  const [activeTab, setActiveTab] = useState<string>("clients");
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -138,16 +138,16 @@ export default function CrmPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <TabsList>
-            <TabsTrigger value="projects" className="gap-2" data-testid="tab-projects">
-              <FolderKanban className="w-4 h-4" />
-              Projects
-            </TabsTrigger>
             <TabsTrigger value="clients" className="gap-2" data-testid="tab-clients">
               <Users className="w-4 h-4" />
               Contacts
               {clients.length > 0 && (
                 <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="projects" className="gap-2" data-testid="tab-projects">
+              <FolderKanban className="w-4 h-4" />
+              Projects
             </TabsTrigger>
           </TabsList>
           <div className="flex gap-2">
