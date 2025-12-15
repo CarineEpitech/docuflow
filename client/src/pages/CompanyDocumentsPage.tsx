@@ -103,8 +103,6 @@ export default function CompanyDocumentsPage() {
   
   const [editingDocument, setEditingDocument] = useState<CompanyDocumentWithUploader | null>(null);
   const [newDocumentName, setNewDocumentName] = useState("");
-  
-  const [previewDocument, setPreviewDocument] = useState<CompanyDocumentWithUploader | null>(null);
 
   const [, navigate] = useLocation();
   const isAdmin = user?.role === "admin";
@@ -343,7 +341,7 @@ export default function CompanyDocumentsPage() {
     if (doc.content) {
       navigate(`/company-documents/${doc.id}/edit`);
     } else if (doc.storagePath) {
-      setPreviewDocument(doc);
+      navigate(`/company-documents/${doc.id}/view`);
     }
   };
 
@@ -624,95 +622,6 @@ export default function CompanyDocumentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* File Preview Dialog */}
-      <Dialog open={!!previewDocument} onOpenChange={(open) => { if (!open) setPreviewDocument(null); }}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              {previewDocument?.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            {previewDocument && (
-              <FilePreview doc={previewDocument} />
-            )}
-          </div>
-          <DialogFooter>
-            {previewDocument?.storagePath && (
-              <Button onClick={() => previewDocument && handleDownload(previewDocument)} data-testid="button-preview-download">
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
-            )}
-            <Button variant="outline" onClick={() => setPreviewDocument(null)} data-testid="button-close-preview">Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-function FilePreview({ doc }: { doc: CompanyDocumentWithUploader }) {
-  const mimeType = doc.mimeType || "";
-  const downloadUrl = `/api/company-documents/${doc.id}/download`;
-
-  if (mimeType.startsWith("image/")) {
-    return (
-      <div className="flex items-center justify-center">
-        <img src={downloadUrl} alt={doc.name} className="max-w-full max-h-[60vh] object-contain rounded-lg" />
-      </div>
-    );
-  }
-
-  if (mimeType.startsWith("video/")) {
-    return (
-      <video controls className="w-full max-h-[60vh] rounded-lg">
-        <source src={downloadUrl} type={mimeType} />
-        Your browser does not support video playback.
-      </video>
-    );
-  }
-
-  if (mimeType.startsWith("audio/")) {
-    return (
-      <div className="flex flex-col items-center gap-4 py-8">
-        <FileAudio className="h-16 w-16 text-primary" />
-        <audio controls className="w-full max-w-md">
-          <source src={downloadUrl} type={mimeType} />
-          Your browser does not support audio playback.
-        </audio>
-      </div>
-    );
-  }
-
-  if (mimeType === "application/pdf") {
-    return (
-      <iframe src={downloadUrl} className="w-full h-[60vh] rounded-lg border" title={doc.name} />
-    );
-  }
-
-  if (mimeType.startsWith("text/") || mimeType === "application/json") {
-    return (
-      <div className="flex flex-col items-center gap-4 py-8">
-        <FileText className="h-16 w-16 text-primary" />
-        <p className="text-muted-foreground text-center">
-          {doc.fileName || doc.name}
-          {doc.fileSize && <span className="block text-sm">{formatFileSize(doc.fileSize)}</span>}
-        </p>
-        <p className="text-sm text-muted-foreground">Download the file to view its contents.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-4 py-8">
-      <File className="h-16 w-16 text-muted-foreground" />
-      <p className="text-muted-foreground text-center">
-        {doc.fileName || doc.name}
-        {doc.fileSize && <span className="block text-sm">{formatFileSize(doc.fileSize)}</span>}
-      </p>
-      <p className="text-sm text-muted-foreground">Preview not available. Download the file to view.</p>
     </div>
   );
 }
