@@ -238,7 +238,7 @@ export function AppSidebar() {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side={isCollapsed ? "right" : "top"} align="start" className="w-56">
+            <DropdownMenuContent side={isCollapsed ? "right" : "top"} align="start" className="w-56 text-[13px]">
               {isCollapsed && (
                 <div className="px-2 py-2 border-b border-border mb-1">
                   <p className="text-sm font-medium">{userName}</p>
