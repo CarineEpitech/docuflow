@@ -668,12 +668,12 @@ function FolderCard({ folder, viewMode, onOpen, onRename, onDelete }: {
 
   return (
     <Card className="hover-elevate cursor-pointer" onClick={onOpen} data-testid={`card-folder-${folder.id}`}>
-      <CardContent className="flex flex-col items-center justify-center py-6 px-4 text-center relative">
-        <div className="absolute top-2 right-2">
+      <CardContent className="flex flex-col items-center justify-center py-4 px-3 text-center relative">
+        <div className="absolute top-1 right-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-folder-menu-${folder.id}`}>
-                <MoreVertical className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-7 w-7" data-testid={`button-folder-menu-${folder.id}`}>
+                <MoreVertical className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -686,12 +686,12 @@ function FolderCard({ folder, viewMode, onOpen, onRename, onDelete }: {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/10 mb-3">
-          <FolderOpen className="h-8 w-8 text-primary" />
+        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 mb-2">
+          <FolderOpen className="h-6 w-6 text-primary" />
         </div>
-        <h3 className="font-medium truncate w-full" data-testid={`text-folder-name-${folder.id}`}>{folder.name}</h3>
+        <h3 className="font-medium text-sm truncate w-full" data-testid={`text-folder-name-${folder.id}`}>{folder.name}</h3>
         {folder.createdAt && (
-          <p className="text-xs text-muted-foreground mt-1">Created {format(new Date(folder.createdAt), "MMM d, yyyy")}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Created {format(new Date(folder.createdAt), "MMM d, yyyy")}</p>
         )}
       </CardContent>
     </Card>
@@ -761,12 +761,12 @@ function DocumentCard({ doc, viewMode, onDownload, onDelete, onRename, onClick, 
 
   return (
     <Card className="hover-elevate cursor-pointer" onClick={() => onClick(doc)} data-testid={`card-document-${doc.id}`}>
-      <CardContent className="flex flex-col items-center justify-center py-6 px-4 text-center relative">
-        <div className="absolute top-2 right-2">
+      <CardContent className="flex flex-col items-center justify-center py-4 px-3 text-center relative">
+        <div className="absolute top-1 right-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-doc-menu-${doc.id}`}>
-                <MoreVertical className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-7 w-7" data-testid={`button-doc-menu-${doc.id}`}>
+                <MoreVertical className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -779,21 +779,21 @@ function DocumentCard({ doc, viewMode, onDownload, onDelete, onRename, onClick, 
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/10 mb-3">
-          <FileIcon className="h-8 w-8 text-primary" />
+        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 mb-2">
+          <FileIcon className="h-6 w-6 text-primary" />
         </div>
-        <h3 className="font-medium truncate w-full" data-testid={`text-document-name-${doc.id}`}>{doc.name}</h3>
-        {doc.description && <p className="text-xs text-muted-foreground truncate w-full mt-1">{doc.description}</p>}
+        <h3 className="font-medium text-sm truncate w-full" data-testid={`text-document-name-${doc.id}`}>{doc.name}</h3>
+        {doc.description && <p className="text-xs text-muted-foreground truncate w-full mt-0.5">{doc.description}</p>}
         {showFolder && doc.folder && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Folder className="h-3 w-3" />{doc.folder.name}</p>
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Folder className="h-3 w-3" />{doc.folder.name}</p>
         )}
-        <div className="flex items-center gap-2 mt-3">
-          {isUploadedFile && (
+        {isUploadedFile && (
+          <div className="flex items-center gap-2 mt-2">
             <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onDownload(doc); }} data-testid={`button-download-${doc.id}`}>
-              <Download className="h-4 w-4 mr-1" />Download
+              <Download className="h-3.5 w-3.5 mr-1" />Download
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
