@@ -368,11 +368,11 @@ export default function CrmPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="text-left p-4 font-medium">Name</th>
-                      <th className="text-left p-4 font-medium">Company</th>
-                      <th className="text-left p-4 font-medium">Email</th>
-                      <th className="text-left p-4 font-medium">Created</th>
-                      <th className="text-right p-4 font-medium w-20">Actions</th>
+                      <th className="text-left py-2 px-4 font-medium text-sm">Name</th>
+                      <th className="text-left py-2 px-4 font-medium text-sm">Company</th>
+                      <th className="text-left py-2 px-4 font-medium text-sm">Email</th>
+                      <th className="text-left py-2 px-4 font-medium text-sm">Created</th>
+                      <th className="text-right py-2 px-4 font-medium text-sm w-20">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -398,43 +398,44 @@ export default function CrmPage() {
                           onClick={() => setLocation(`/crm/client/${client.id}`)}
                           data-testid={`row-client-${client.id}`}
                         >
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                <User className="w-4 h-4 text-primary" />
+                          <td className="py-2 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="w-3 h-3 text-primary" />
                               </div>
-                              <span className="font-medium" data-testid={`text-client-name-${client.id}`}>
+                              <span className="font-medium text-sm" data-testid={`text-client-name-${client.id}`}>
                                 {client.name}
                               </span>
                             </div>
                           </td>
-                          <td className="p-4">
+                          <td className="py-2 px-4">
                             {client.company ? (
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Building2 className="w-4 h-4" />
+                              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                                <Building2 className="w-3.5 h-3.5" />
                                 <span>{client.company}</span>
                               </div>
                             ) : (
-                              <span className="text-muted-foreground">—</span>
+                              <span className="text-muted-foreground text-sm">—</span>
                             )}
                           </td>
-                          <td className="p-4">
+                          <td className="py-2 px-4">
                             {client.email ? (
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Mail className="w-4 h-4" />
+                              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                                <Mail className="w-3.5 h-3.5" />
                                 <span>{client.email}</span>
                               </div>
                             ) : (
-                              <span className="text-muted-foreground">—</span>
+                              <span className="text-muted-foreground text-sm">—</span>
                             )}
                           </td>
-                          <td className="p-4 text-muted-foreground text-sm">
+                          <td className="py-2 px-4 text-muted-foreground text-sm">
                             {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : "—"}
                           </td>
-                          <td className="p-4 text-right">
+                          <td className="py-2 px-4 text-right">
                             <Button
                               size="icon"
                               variant="ghost"
+                              className="h-7 w-7"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setLocation(`/crm/client/${client.id}`);
