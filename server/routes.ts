@@ -1366,16 +1366,131 @@ Instructions:
     }
   });
 
+  // ==================== Company Document Folders ====================
+  
+  // List all folders
+  app.get("/api/company-document-folders", isAuthenticated, async (req: any, res) => {
+    try {
+      const folders = await storage.getCompanyDocumentFolders();
+      res.json(folders);
+    } catch (error) {
+      console.error("Error fetching company document folders:", error);
+      res.status(500).json({ message: "Failed to fetch folders" });
+    }
+  });
+
+  // Get single folder
+  app.get("/api/company-document-folders/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const folder = await storage.getCompanyDocumentFolder(req.params.id);
+      if (!folder) {
+        return res.status(404).json({ message: "Folder not found" });
+      }
+      res.json(folder);
+    } catch (error) {
+      console.error("Error fetching folder:", error);
+      res.status(500).json({ message: "Failed to fetch folder" });
+    }
+  });
+
+  // Create folder
+  app.post("/api/company-document-folders", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const createSchema = z.object({
+        name: z.string().min(1, "Folder name is required"),
+      });
+      
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const folder = await storage.createCompanyDocumentFolder({
+        name: parsed.data.name,
+        createdById: userId,
+      });
+      
+      res.status(201).json(folder);
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      res.status(500).json({ message: "Failed to create folder" });
+    }
+  });
+
+  // Update folder (rename)
+  app.patch("/api/company-document-folders/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const updateSchema = z.object({
+        name: z.string().min(1, "Folder name is required"),
+      });
+      
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const folder = await storage.updateCompanyDocumentFolder(req.params.id, parsed.data);
+      if (!folder) {
+        return res.status(404).json({ message: "Folder not found" });
+      }
+      
+      res.json(folder);
+    } catch (error) {
+      console.error("Error updating folder:", error);
+      res.status(500).json({ message: "Failed to update folder" });
+    }
+  });
+
+  // Delete folder
+  app.delete("/api/company-document-folders/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const user = await storage.getUser(userId);
+      
+      // Only admins can delete folders
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can delete folders" });
+      }
+      
+      const folder = await storage.deleteCompanyDocumentFolder(req.params.id);
+      if (!folder) {
+        return res.status(404).json({ message: "Folder not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+      res.status(500).json({ message: "Failed to delete folder" });
+    }
+  });
+
   // ==================== Company Documents ====================
   
-  // List all company documents
+  // List company documents (optionally by folder)
   app.get("/api/company-documents", isAuthenticated, async (req: any, res) => {
     try {
-      const documents = await storage.getCompanyDocuments();
+      const folderId = req.query.folderId as string | undefined;
+      const documents = await storage.getCompanyDocuments(folderId);
       res.json(documents);
     } catch (error) {
       console.error("Error fetching company documents:", error);
       res.status(500).json({ message: "Failed to fetch company documents" });
+    }
+  });
+  
+  // Search company documents
+  app.get("/api/company-documents/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.trim().length === 0) {
+        return res.json([]);
+      }
+      const documents = await storage.searchCompanyDocuments(query);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error searching company documents:", error);
+      res.status(500).json({ message: "Failed to search documents" });
     }
   });
 
@@ -1391,7 +1506,21 @@ Instructions:
     }
   });
 
-  // Create company document record after upload
+  // Get single company document
+  app.get("/api/company-documents/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const document = await storage.getCompanyDocument(req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      res.json(document);
+    } catch (error) {
+      console.error("Error fetching company document:", error);
+      res.status(500).json({ message: "Failed to fetch document" });
+    }
+  });
+
+  // Create company document record after upload (or create a text document)
   app.post("/api/company-documents", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req)!;
@@ -1399,10 +1528,12 @@ Instructions:
       const createSchema = z.object({
         name: z.string().min(1, "Name is required"),
         description: z.string().optional(),
-        fileName: z.string().min(1),
-        fileSize: z.number().positive(),
-        mimeType: z.string().min(1),
-        storagePath: z.string().min(1),
+        content: z.any().optional(),
+        fileName: z.string().optional(),
+        fileSize: z.number().optional(),
+        mimeType: z.string().optional(),
+        storagePath: z.string().optional(),
+        folderId: z.string().optional(),
       });
       
       const parsed = createSchema.safeParse(req.body);
@@ -1410,19 +1541,27 @@ Instructions:
         return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
       }
       
-      // Set the file as private with user as owner
-      const objectStorageService = new ObjectStorageService();
-      await objectStorageService.trySetObjectEntityAclPolicy(
-        parsed.data.storagePath,
-        {
-          owner: userId,
-          visibility: "private",
-        }
-      );
+      // If it's an uploaded file, set ACL policy
+      if (parsed.data.storagePath) {
+        const objectStorageService = new ObjectStorageService();
+        await objectStorageService.trySetObjectEntityAclPolicy(
+          parsed.data.storagePath,
+          {
+            owner: userId,
+            visibility: "private",
+          }
+        );
+      }
       
       const document = await storage.createCompanyDocument({
-        ...parsed.data,
+        name: parsed.data.name,
         description: parsed.data.description || null,
+        content: parsed.data.content || null,
+        fileName: parsed.data.fileName || null,
+        fileSize: parsed.data.fileSize || null,
+        mimeType: parsed.data.mimeType || null,
+        storagePath: parsed.data.storagePath || null,
+        folderId: parsed.data.folderId || null,
         uploadedById: userId,
       });
       
@@ -1430,6 +1569,32 @@ Instructions:
     } catch (error) {
       console.error("Error creating company document:", error);
       res.status(500).json({ message: "Failed to create company document" });
+    }
+  });
+
+  // Update company document
+  app.patch("/api/company-documents/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const updateSchema = z.object({
+        name: z.string().min(1).optional(),
+        description: z.string().optional(),
+        content: z.any().optional(),
+      });
+      
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const document = await storage.updateCompanyDocument(req.params.id, parsed.data);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      res.json(document);
+    } catch (error) {
+      console.error("Error updating company document:", error);
+      res.status(500).json({ message: "Failed to update document" });
     }
   });
 
