@@ -93,7 +93,8 @@ export default function ProjectPage() {
         <PageTree projectId={projectId} />
       </div>
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="border-b border-border px-6 py-3 flex items-center gap-4">
+        <div className="border-b border-border px-6 py-3 flex items-center justify-between gap-4">
+          <Breadcrumbs project={project} />
           <Button 
             variant="ghost" 
             size="sm" 
@@ -103,7 +104,6 @@ export default function ProjectPage() {
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back
           </Button>
-          <Breadcrumbs project={project} />
         </div>
         <div className="max-w-3xl mx-auto px-6 py-8">
           <div className="flex items-center gap-4 mb-6">
