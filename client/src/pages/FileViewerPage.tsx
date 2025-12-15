@@ -20,9 +20,9 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import type { CompanyDocumentWithUploader } from "@shared/schema";
-import * as pdfjsLib from "pdfjs-dist";
+import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from "pdfjs-dist";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
 
 function getFileIcon(mimeType: string | null) {
   if (!mimeType) return FileText;
@@ -211,7 +211,7 @@ function FileContent({ mimeType, streamUrl, document }: {
 }
 
 function PdfViewer({ streamUrl }: { streamUrl: string }) {
-  const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [scale, setScale] = useState(1.5);
@@ -232,7 +232,7 @@ function PdfViewer({ streamUrl }: { streamUrl: string }) {
         }
         
         const arrayBuffer = await response.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pdf = await getDocument({ data: arrayBuffer }).promise;
         
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
@@ -267,7 +267,8 @@ function PdfViewer({ streamUrl }: { streamUrl: string }) {
         await page.render({
           canvasContext: context,
           viewport: viewport,
-        }).promise;
+          canvas: canvas,
+        } as any).promise;
       } catch (err) {
         console.error("Error rendering page:", err);
       }
