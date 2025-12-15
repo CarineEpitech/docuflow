@@ -167,7 +167,7 @@ export default function ClientDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
             onClick={() => navigate("/crm")}
             data-testid="button-back-to-crm"
