@@ -153,24 +153,9 @@ export default function CrmPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
-          <p className="text-muted-foreground">Manage your projects and client relationships</p>
-        </div>
-        <div className="flex gap-2">
-          {activeTab === "clients" ? (
-            <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-client">
-              <Plus className="w-4 h-4 mr-2" />
-              New Client
-            </Button>
-          ) : (
-            <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
-              <Plus className="w-4 h-4 mr-2" />
-              New Project
-            </Button>
-          )}
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
+        <p className="text-muted-foreground">Manage your projects and client relationships</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -189,15 +174,21 @@ export default function CrmPage() {
             </TabsTrigger>
           </TabsList>
           {activeTab === "clients" && (
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search clients..."
-                value={clientSearch}
-                onChange={(e) => setClientSearch(e.target.value)}
-                className="pl-9"
-                data-testid="input-client-search"
-              />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search clients..."
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-client-search"
+                />
+              </div>
+              <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-client">
+                <Plus className="w-4 h-4 mr-2" />
+                New Client
+              </Button>
             </div>
           )}
           {activeTab === "projects" && (
@@ -250,6 +241,10 @@ export default function CrmPage() {
                   <List className="w-4 h-4" />
                 </Button>
               </div>
+              <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
+                <Plus className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
             </div>
           )}
         </div>
