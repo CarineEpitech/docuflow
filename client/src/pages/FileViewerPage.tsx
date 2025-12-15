@@ -13,8 +13,6 @@ import {
   FileSpreadsheet,
   File,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -210,15 +208,69 @@ function FileContent({ mimeType, streamUrl, document }: {
   );
 }
 
+function PdfPage({ pdfDoc, pageNum, scale }: { pdfDoc: PDFDocumentProxy; pageNum: number; scale: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderTaskRef = useRef<any>(null);
+
+  useEffect(() => {
+    const renderPage = async () => {
+      if (!canvasRef.current) return;
+
+      try {
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel();
+        }
+
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale });
+        
+        const canvas = canvasRef.current;
+        const context = canvas.getContext("2d");
+        
+        if (!context) return;
+
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        renderTaskRef.current = page.render({
+          canvasContext: context,
+          viewport: viewport,
+        });
+
+        await renderTaskRef.current.promise;
+      } catch (err: any) {
+        if (err?.name !== "RenderingCancelledException") {
+          console.error("Error rendering page:", err);
+        }
+      }
+    };
+
+    renderPage();
+
+    return () => {
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+      }
+    };
+  }, [pdfDoc, pageNum, scale]);
+
+  return (
+    <div className="flex justify-center">
+      <canvas 
+        ref={canvasRef} 
+        className="shadow-lg bg-white"
+        data-testid={`pdf-canvas-page-${pageNum}`}
+      />
+    </div>
+  );
+}
+
 function PdfViewer({ streamUrl }: { streamUrl: string }) {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [scale, setScale] = useState(1.5);
+  const [scale, setScale] = useState(1.0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadPdf = async () => {
@@ -236,7 +288,6 @@ function PdfViewer({ streamUrl }: { streamUrl: string }) {
         
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
-        setCurrentPage(1);
       } catch (err) {
         console.error("Error loading PDF:", err);
         setError("Failed to load PDF document");
@@ -247,47 +298,6 @@ function PdfViewer({ streamUrl }: { streamUrl: string }) {
 
     loadPdf();
   }, [streamUrl]);
-
-  useEffect(() => {
-    const renderPage = async () => {
-      if (!pdfDoc || !canvasRef.current) return;
-
-      try {
-        const page = await pdfDoc.getPage(currentPage);
-        const viewport = page.getViewport({ scale });
-        
-        const canvas = canvasRef.current;
-        const context = canvas.getContext("2d");
-        
-        if (!context) return;
-
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        await page.render({
-          canvasContext: context,
-          viewport: viewport,
-          canvas: canvas,
-        } as any).promise;
-      } catch (err) {
-        console.error("Error rendering page:", err);
-      }
-    };
-
-    renderPage();
-  }, [pdfDoc, currentPage, scale]);
-
-  const goToPrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
 
   const zoomIn = () => {
     setScale(prev => Math.min(prev + 0.25, 3));
@@ -321,32 +331,14 @@ function PdfViewer({ streamUrl }: { streamUrl: string }) {
     );
   }
 
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-center gap-4 py-3 px-6 border-b bg-muted/30">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={goToPrevPage} 
-            disabled={currentPage <= 1}
-            data-testid="button-prev-page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm min-w-[100px] text-center" data-testid="text-page-info">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={goToNextPage} 
-            disabled={currentPage >= totalPages}
-            data-testid="button-next-page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+      <div className="flex items-center justify-center gap-4 py-3 px-6 border-b bg-muted/30 sticky top-0 z-10">
+        <span className="text-sm text-muted-foreground" data-testid="text-page-count">
+          {totalPages} page{totalPages !== 1 ? 's' : ''}
+        </span>
         <div className="h-6 w-px bg-border" />
         <div className="flex items-center gap-2">
           <Button 
@@ -372,15 +364,17 @@ function PdfViewer({ streamUrl }: { streamUrl: string }) {
           </Button>
         </div>
       </div>
-      <div 
-        ref={containerRef}
-        className="flex-1 overflow-auto bg-muted/20 flex justify-center p-6"
-      >
-        <canvas 
-          ref={canvasRef} 
-          className="shadow-lg"
-          data-testid="pdf-canvas"
-        />
+      <div className="flex-1 overflow-auto bg-muted/20">
+        <div className="flex flex-col items-center gap-4 p-6">
+          {pdfDoc && pageNumbers.map(pageNum => (
+            <PdfPage 
+              key={pageNum} 
+              pdfDoc={pdfDoc} 
+              pageNum={pageNum} 
+              scale={scale} 
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
