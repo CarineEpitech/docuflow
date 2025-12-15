@@ -667,8 +667,8 @@ function FolderCard({ folder, viewMode, onOpen, onRename, onDelete }: {
   }
 
   return (
-    <Card className="hover-elevate cursor-pointer" onClick={onOpen} data-testid={`card-folder-${folder.id}`}>
-      <CardContent className="flex flex-col items-center justify-center py-4 px-3 text-center relative">
+    <Card className="hover-elevate cursor-pointer aspect-square" onClick={onOpen} data-testid={`card-folder-${folder.id}`}>
+      <CardContent className="flex flex-col items-center justify-center h-full py-3 px-2 text-center relative">
         <div className="absolute top-1 right-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -760,8 +760,8 @@ function DocumentCard({ doc, viewMode, onDownload, onDelete, onRename, onClick, 
   }
 
   return (
-    <Card className="hover-elevate cursor-pointer" onClick={() => onClick(doc)} data-testid={`card-document-${doc.id}`}>
-      <CardContent className="flex flex-col items-center justify-center py-4 px-3 text-center relative">
+    <Card className="hover-elevate cursor-pointer aspect-square" onClick={() => onClick(doc)} data-testid={`card-document-${doc.id}`}>
+      <CardContent className="flex flex-col items-center justify-center h-full py-3 px-2 text-center relative">
         <div className="absolute top-1 right-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
