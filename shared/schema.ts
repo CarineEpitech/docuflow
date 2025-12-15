@@ -351,26 +351,66 @@ export type CrmProjectWithDetails = CrmProject & {
   assignee?: SafeUser;
 };
 
+// Company Document Folders table - folders for organizing company documents
+export const companyDocumentFolders = pgTable("company_document_folders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  createdById: varchar("created_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_company_document_folders_created_by").on(table.createdById),
+]);
+
+export const companyDocumentFoldersRelations = relations(companyDocumentFolders, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [companyDocumentFolders.createdById],
+    references: [users.id],
+  }),
+  documents: many(companyDocuments),
+}));
+
+export const insertCompanyDocumentFolderSchema = createInsertSchema(companyDocumentFolders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CompanyDocumentFolder = typeof companyDocumentFolders.$inferSelect;
+export type InsertCompanyDocumentFolder = z.infer<typeof insertCompanyDocumentFolderSchema>;
+
+// Company document folder with creator info
+export type CompanyDocumentFolderWithCreator = CompanyDocumentFolder & {
+  createdBy?: SafeUser;
+};
+
 // Company Documents table - company terms, policies, and other documents
 export const companyDocuments = pgTable("company_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 500 }).notNull(),
   description: text("description"),
-  fileName: varchar("file_name", { length: 500 }).notNull(),
-  fileSize: integer("file_size").notNull(),
-  mimeType: varchar("mime_type", { length: 100 }).notNull(),
-  storagePath: varchar("storage_path", { length: 1000 }).notNull(),
+  content: jsonb("content"),
+  fileName: varchar("file_name", { length: 500 }),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type", { length: 100 }),
+  storagePath: varchar("storage_path", { length: 1000 }),
+  folderId: varchar("folder_id").references(() => companyDocumentFolders.id, { onDelete: "cascade" }),
   uploadedById: varchar("uploaded_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_company_documents_uploaded_by").on(table.uploadedById),
+  index("idx_company_documents_folder").on(table.folderId),
 ]);
 
 export const companyDocumentsRelations = relations(companyDocuments, ({ one }) => ({
   uploadedBy: one(users, {
     fields: [companyDocuments.uploadedById],
     references: [users.id],
+  }),
+  folder: one(companyDocumentFolders, {
+    fields: [companyDocuments.folderId],
+    references: [companyDocumentFolders.id],
   }),
 }));
 
@@ -386,6 +426,7 @@ export type InsertCompanyDocument = z.infer<typeof insertCompanyDocumentSchema>;
 // Company document with uploader info
 export type CompanyDocumentWithUploader = CompanyDocument & {
   uploadedBy?: SafeUser;
+  folder?: CompanyDocumentFolder;
 };
 
 // Teams table - for organizing users into groups
