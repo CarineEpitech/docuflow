@@ -214,17 +214,13 @@ export async function registerRoutes(
 
   app.get("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req)!;
       const project = await storage.getProject(req.params.id);
 
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      if (project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
+      // Company-wide visibility - all authenticated users can view any project
       res.json(project);
     } catch (error) {
       console.error("Error fetching project:", error);
@@ -246,17 +242,13 @@ export async function registerRoutes(
   // This endpoint is restricted to only allow name updates (for sidebar rename functionality)
   app.patch("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req)!;
       const project = await storage.getProject(req.params.id);
 
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      if (project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
+      // Company-wide access - all authenticated users can update projects
       // Only allow name updates from this endpoint - other fields should go through CRM
       const updateSchema = z.object({
         name: z.string().min(1).optional(),
@@ -287,17 +279,13 @@ export async function registerRoutes(
 
   app.get("/api/projects/:projectId/documents", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req)!;
       const project = await storage.getProject(req.params.projectId);
 
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      if (project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
+      // Company-wide visibility - all authenticated users can view documents
       const documents = await storage.getDocuments(req.params.projectId);
       res.json(documents);
     } catch (error) {
@@ -315,10 +303,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Project not found" });
       }
 
-      if (project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
+      // Company-wide access - all authenticated users can create documents
       const createSchema = z.object({
         title: z.string().min(1),
         parentId: z.string().nullable().optional(),
@@ -401,10 +386,11 @@ export async function registerRoutes(
       }
 
       const project = await storage.getProject(document.projectId);
-      if (!project || project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
       }
 
+      // Company-wide visibility - all authenticated users can view documents
       // Get creator info if createdById is set
       let createdBy = null;
       if (document.createdById) {
@@ -428,10 +414,11 @@ export async function registerRoutes(
       }
 
       const project = await storage.getProject(document.projectId);
-      if (!project || project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
       }
 
+      // Company-wide visibility
       const ancestors = await storage.getDocumentAncestors(req.params.id);
       res.json(ancestors);
     } catch (error) {
@@ -450,10 +437,11 @@ export async function registerRoutes(
       }
 
       const project = await storage.getProject(document.projectId);
-      if (!project || project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
       }
 
+      // Company-wide access - all authenticated users can edit documents
       const updateSchema = z.object({
         title: z.string().optional(),
         content: z.any().optional(),
@@ -516,10 +504,11 @@ export async function registerRoutes(
       }
 
       const project = await storage.getProject(document.projectId);
-      if (!project || project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
       }
 
+      // Company-wide access - all authenticated users can delete documents
       // Delete embeddings first (cascade should handle this, but be explicit)
       try {
         await deleteDocumentEmbeddings(req.params.id);
@@ -553,10 +542,11 @@ export async function registerRoutes(
       }
 
       const project = await storage.getProject(document.projectId);
-      if (!project || project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
       }
 
+      // Company-wide access - all authenticated users can duplicate documents
       const newDoc = await storage.duplicateDocument(req.params.id);
       res.status(201).json(newDoc);
     } catch (error) {
@@ -718,10 +708,11 @@ export async function registerRoutes(
       }
 
       const project = await storage.getProject(document.projectId);
-      if (!project || project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
       }
 
+      // Company-wide visibility
       const status = await getTranscriptStatus(req.params.id);
       res.json(status);
     } catch (error) {
@@ -749,10 +740,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Transcript not found" });
       }
 
-      if (transcript.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
+      // Company-wide access - all authenticated users can retry transcripts
       const document = await storage.getDocument(transcript.documentId);
       const project = await storage.getProject(transcript.projectId);
       
@@ -793,10 +781,11 @@ export async function registerRoutes(
       }
 
       const project = await storage.getProject(document.projectId);
-      if (!project || project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
       }
 
+      // Company-wide access
       if (!document.content) {
         return res.json({ message: "No content to sync", added: 0, removed: 0 });
       }
@@ -1289,11 +1278,7 @@ Instructions:
         return res.status(404).json({ message: "CRM Project not found" });
       }
       
-      // Verify ownership via the linked project
-      if (crmProject.project && crmProject.project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
+      // Company-wide visibility - all authenticated users can view CRM projects
       res.json(crmProject);
     } catch (error) {
       console.error("Error fetching CRM project:", error);
@@ -1360,10 +1345,7 @@ Instructions:
         return res.status(404).json({ message: "CRM Project not found" });
       }
       
-      if (crmProject.project && crmProject.project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
+      // Company-wide access - all authenticated users can toggle documentation
       const toggleSchema = z.object({
         enabled: z.boolean(),
       });
@@ -1391,11 +1373,7 @@ Instructions:
         return res.status(404).json({ message: "CRM Project not found" });
       }
       
-      // Verify ownership via the linked project
-      if (crmProject.project && crmProject.project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
+      // Company-wide access - all authenticated users can update CRM projects
       const updateSchema = z.object({
         clientId: z.string().nullable().optional(),
         status: z.enum(crmProjectStatusValues).optional(),
@@ -1442,11 +1420,7 @@ Instructions:
         return res.status(404).json({ message: "CRM Project not found" });
       }
       
-      // Verify ownership via the linked project
-      if (crmProject.project && crmProject.project.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
+      // Company-wide access - all authenticated users can delete CRM projects
       await storage.deleteCrmProject(req.params.id);
       res.status(204).send();
     } catch (error) {

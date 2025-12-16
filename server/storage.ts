@@ -98,7 +98,7 @@ export interface IStorage {
   updateCrmProject(id: string, data: Partial<InsertCrmProject>): Promise<CrmProject | undefined>;
   deleteCrmProject(id: string): Promise<void>;
   toggleDocumentation(crmProjectId: string, enabled: boolean): Promise<CrmProject | undefined>;
-  getDocumentationEnabledProjects(userId: string): Promise<Project[]>;
+  getDocumentationEnabledProjects(userId?: string): Promise<Project[]>;
   
   // Link orphan projects to CRM (for migration of existing projects)
   linkOrphanProjectsToCrm(): Promise<{ linkedCount: number }>;
@@ -200,11 +200,11 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getProjects(userId: string): Promise<Project[]> {
+  async getProjects(userId?: string): Promise<Project[]> {
+    // Return all projects for company-wide visibility
     return db
       .select()
       .from(projects)
-      .where(eq(projects.ownerId, userId))
       .orderBy(desc(projects.updatedAt));
   }
 
@@ -506,12 +506,12 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  // CRM Clients
-  async getCrmClients(userId: string): Promise<CrmClient[]> {
+  // CRM Clients - Company-wide visibility
+  async getCrmClients(userId?: string): Promise<CrmClient[]> {
+    // Return all clients for company-wide visibility
     return db
       .select()
       .from(crmClients)
-      .where(eq(crmClients.ownerId, userId))
       .orderBy(asc(crmClients.name));
   }
 
@@ -570,8 +570,8 @@ export class DatabaseStorage implements IStorage {
     await db.delete(crmContacts).where(eq(crmContacts.id, id));
   }
 
-  // CRM Projects
-  async getCrmProjects(userId: string, options?: { 
+  // CRM Projects - Company-wide visibility
+  async getCrmProjects(userId?: string, options?: { 
     page?: number; 
     pageSize?: number; 
     status?: string;
@@ -581,42 +581,35 @@ export class DatabaseStorage implements IStorage {
     const pageSize = options?.pageSize || 10;
     const offset = (page - 1) * pageSize;
 
-    // Get user's projects first
-    const userProjects = await this.getProjects(userId);
-    const projectIds = userProjects.map((p) => p.id);
+    // Get all projects for company-wide visibility
+    const allProjects = await this.getProjects();
+    const projectIds = allProjects.map((p) => p.id);
 
     if (projectIds.length === 0) {
       return { data: [], total: 0, page, pageSize };
     }
 
     // Build conditions
-    const conditions = [
-      or(...projectIds.map((pid) => eq(crmProjects.projectId, pid)))
-    ];
+    const conditions: any[] = [];
 
     if (options?.status) {
       conditions.push(eq(crmProjects.status, options.status));
     }
 
     // Count total
-    const [countResult] = await db
-      .select({ count: count() })
-      .from(crmProjects)
-      .where(and(...conditions));
+    const [countResult] = conditions.length > 0 
+      ? await db.select({ count: count() }).from(crmProjects).where(and(...conditions))
+      : await db.select({ count: count() }).from(crmProjects);
 
     const total = countResult?.count || 0;
 
     // Get paginated data
-    const crmProjectRows = await db
-      .select()
-      .from(crmProjects)
-      .where(and(...conditions))
-      .orderBy(desc(crmProjects.updatedAt))
-      .limit(pageSize)
-      .offset(offset);
+    const crmProjectRows = conditions.length > 0
+      ? await db.select().from(crmProjects).where(and(...conditions)).orderBy(desc(crmProjects.updatedAt)).limit(pageSize).offset(offset)
+      : await db.select().from(crmProjects).orderBy(desc(crmProjects.updatedAt)).limit(pageSize).offset(offset);
 
     // Get all related data
-    const projectMap = new Map(userProjects.map((p) => [p.id, p]));
+    const projectMap = new Map(allProjects.map((p) => [p.id, p]));
 
     // Get clients
     const clientIds = crmProjectRows.map((cp) => cp.clientId).filter(Boolean) as string[];
@@ -769,15 +762,13 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getDocumentationEnabledProjects(userId: string): Promise<Project[]> {
+  async getDocumentationEnabledProjects(userId?: string): Promise<Project[]> {
+    // Company-wide visibility - return all documentation-enabled projects
     const result = await db
       .select({ project: projects })
       .from(projects)
       .innerJoin(crmProjects, eq(projects.id, crmProjects.projectId))
-      .where(and(
-        eq(projects.ownerId, userId),
-        eq(crmProjects.documentationEnabled, 1)
-      ))
+      .where(eq(crmProjects.documentationEnabled, 1))
       .orderBy(desc(projects.updatedAt));
     
     return result.map(r => r.project);
