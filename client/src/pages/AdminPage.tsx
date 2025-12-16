@@ -339,7 +339,16 @@ function UserListPage() {
                       </>
                     ) : (
                       <>
-                        {u.id !== user?.id && (
+                        {u.id === user?.id ? (
+                          <Select value="admin" disabled>
+                            <SelectTrigger className="w-24 opacity-60" data-testid={`select-role-${u.id}`}>
+                              <SelectValue placeholder="Admin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
                           <Select
                             value={u.role || "user"}
                             onValueChange={(role) => updateRoleMutation.mutate({ userId: u.id, role })}
