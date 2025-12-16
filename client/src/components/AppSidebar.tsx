@@ -224,7 +224,7 @@ export function AppSidebar() {
           <div className="flex flex-row items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center">
             <Button
               variant="ghost"
-              className="flex-1 justify-start gap-3 h-11 px-2 rounded-lg hover:bg-sidebar-accent group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:flex-none"
+              className="flex-1 max-w-[calc(100%-2.5rem)] justify-start gap-3 h-11 px-2 rounded-lg hover:bg-sidebar-accent group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:max-w-none"
               data-testid="button-user-menu"
             >
               <Avatar className="h-8 w-8 shrink-0">
