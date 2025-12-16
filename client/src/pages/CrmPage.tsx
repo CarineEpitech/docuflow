@@ -172,7 +172,7 @@ export default function CrmPage() {
   });
 
   const createClientMutation = useMutation({
-    mutationFn: async (data: { name: string; email?: string | null; company?: string | null; notes?: string | null }) => {
+    mutationFn: async (data: { name: string; email?: string | null; company?: string | null; status?: string; notes?: string | null }) => {
       return apiRequest("POST", "/api/crm/clients", data);
     },
     onSuccess: () => {
@@ -668,23 +668,24 @@ export default function CrmPage() {
 }
 
 const clientFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "Full name is required"),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   company: z.string().optional(),
+  status: z.string().default("lead"),
   notes: z.string().optional(),
 });
 
 interface AddClientDialogProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; email?: string | null; company?: string | null; notes?: string | null }) => void;
+  onSubmit: (data: { name: string; email?: string | null; company?: string | null; status?: string; notes?: string | null }) => void;
   isLoading: boolean;
 }
 
 function AddClientDialog({ open, onClose, onSubmit, isLoading }: AddClientDialogProps) {
   const form = useForm({
     resolver: zodResolver(clientFormSchema),
-    defaultValues: { name: "", email: "", company: "", notes: "" },
+    defaultValues: { name: "", email: "", company: "", status: "lead", notes: "" },
   });
 
   const handleSubmit = (data: z.infer<typeof clientFormSchema>) => {
@@ -692,6 +693,7 @@ function AddClientDialog({ open, onClose, onSubmit, isLoading }: AddClientDialog
       name: data.name,
       email: data.email || null,
       company: data.company || null,
+      status: data.status,
       notes: data.notes || null,
     });
     form.reset();
@@ -711,9 +713,9 @@ function AddClientDialog({ open, onClose, onSubmit, isLoading }: AddClientDialog
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Full Name</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Client name" data-testid="input-client-name" />
+                    <Input {...field} placeholder="Full name" data-testid="input-client-name" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -726,7 +728,7 @@ function AddClientDialog({ open, onClose, onSubmit, isLoading }: AddClientDialog
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input {...field} type="email" placeholder="client@example.com" data-testid="input-client-email" />
+                    <Input {...field} type="email" placeholder="contact@example.com" data-testid="input-client-email" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -747,6 +749,30 @@ function AddClientDialog({ open, onClose, onSubmit, isLoading }: AddClientDialog
             />
             <FormField
               control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-client-status">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {contactStatusOptions.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {contactStatusConfig[status]?.label || status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="notes"
               render={({ field }) => (
                 <FormItem>
@@ -761,7 +787,7 @@ function AddClientDialog({ open, onClose, onSubmit, isLoading }: AddClientDialog
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel-client">Cancel</Button>
               <Button type="submit" disabled={isLoading} data-testid="button-submit-client">
-                {isLoading ? "Creating..." : "Create Client"}
+                {isLoading ? "Creating..." : "Create Contact"}
               </Button>
             </DialogFooter>
           </form>
