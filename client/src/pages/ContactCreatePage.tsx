@@ -171,7 +171,10 @@ export default function ContactCreatePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="status" className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  Status
+                </Label>
                 <Select
                   value={form.watch("status")}
                   onValueChange={(value) => form.setValue("status", value)}
