@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,14 +48,18 @@ import type {
 
 const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   lead: { label: "Lead", variant: "secondary" },
-  in_discussion: { label: "In Discussion", variant: "outline" },
-  closed: { label: "Closed", variant: "destructive" },
-  in_development: { label: "In Development", variant: "default" },
-  documented: { label: "Documented", variant: "outline" },
-  finished: { label: "Finished", variant: "default" },
+  discovering_call_completed: { label: "Discovery Call Completed", variant: "outline" },
+  proposal_sent: { label: "Proposal Sent", variant: "outline" },
+  won: { label: "Won", variant: "default" },
+  won_not_started: { label: "Won - Not Started", variant: "default" },
+  won_in_progress: { label: "Won - In Progress", variant: "default" },
+  won_in_review: { label: "Won - In Review", variant: "outline" },
+  won_completed: { label: "Won - Completed", variant: "default" },
+  lost: { label: "Lost", variant: "destructive" },
+  cancelled: { label: "Cancelled", variant: "destructive" },
 };
 
-const statusOptions: CrmProjectStatus[] = ["lead", "in_discussion", "closed", "in_development", "documented", "finished"];
+const statusOptions: CrmProjectStatus[] = ["lead", "discovering_call_completed", "proposal_sent", "won", "won_not_started", "won_in_progress", "won_in_review", "won_completed", "lost", "cancelled"];
 
 export default function CrmProjectPage() {
   const { toast } = useToast();
@@ -372,15 +376,30 @@ export default function CrmProjectPage() {
             <DatePickerField
               label="Start Date"
               value={formData?.startDate || undefined}
-              onChange={(date) => updateFormField("startDate", date || null)}
+              onChange={(date) => {
+                if (!formData) return;
+                const startDate = date || null;
+                const dueDate = date ? addDays(date, 7) : null;
+                setFormData({ ...formData, startDate, dueDate });
+                setHasChanges(true);
+              }}
               testId="datepicker-start"
             />
-            <DatePickerField
-              label="Due Date"
-              value={formData?.dueDate || undefined}
-              onChange={(date) => updateFormField("dueDate", date || null)}
-              testId="datepicker-due"
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Due Date</label>
+              <div 
+                className="w-full flex items-center justify-start px-3 py-2 text-left font-normal border rounded-md bg-muted"
+                data-testid="display-due-date"
+              >
+                <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                {formData?.dueDate ? (
+                  <span>{format(formData.dueDate, "PPP")}</span>
+                ) : (
+                  <span className="text-muted-foreground italic">Set a start date first</span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">Automatically set to 7 days after start date</p>
+            </div>
             <DatePickerField
               label="Actual Finish Date"
               value={formData?.actualFinishDate || undefined}
