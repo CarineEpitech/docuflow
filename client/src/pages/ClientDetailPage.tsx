@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus, Pencil, Tag } from "lucide-react";
+import { ArrowLeft, Building2, Mail, Phone, FileText, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus, Pencil, X, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -87,7 +87,7 @@ export default function ClientDetailPage() {
   const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
   const [selectedProjectToLink, setSelectedProjectToLink] = useState<string>("");
   const [projectsPage, setProjectsPage] = useState(1);
-  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
@@ -122,7 +122,6 @@ export default function ClientDetailPage() {
   const totalProjects = clientProjects.length;
   const totalPages = Math.max(1, Math.ceil(totalProjects / PROJECTS_PER_PAGE));
   
-  // Clamp page to valid range when data changes
   useEffect(() => {
     if (projectsPage > totalPages && totalPages > 0) {
       setProjectsPage(totalPages);
@@ -187,14 +186,14 @@ export default function ClientDetailPage() {
       toast({ title: "Contact updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/clients", id] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
-      setShowEditDialog(false);
+      setIsEditing(false);
     },
     onError: () => {
       toast({ title: "Failed to update contact", variant: "destructive" });
     },
   });
 
-  const openEditDialog = () => {
+  const startEditing = () => {
     if (client) {
       setEditForm({
         name: client.name || "",
@@ -204,11 +203,29 @@ export default function ClientDetailPage() {
         status: client.status || "lead",
         notes: client.notes || "",
       });
-      setShowEditDialog(true);
+      setIsEditing(true);
     }
   };
 
-  const handleUpdateClient = () => {
+  const cancelEditing = () => {
+    setIsEditing(false);
+    if (client) {
+      setEditForm({
+        name: client.name || "",
+        email: client.email || "",
+        company: client.company || "",
+        phone: client.phone || "",
+        status: client.status || "lead",
+        notes: client.notes || "",
+      });
+    }
+  };
+
+  const handleSave = () => {
+    if (!editForm.name.trim()) {
+      toast({ title: "Name is required", variant: "destructive" });
+      return;
+    }
     updateClientMutation.mutate({
       name: editForm.name,
       email: editForm.email || null,
@@ -251,28 +268,10 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 w-full">
+    <div className="p-6 space-y-6 w-full max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold" data-testid="text-contact-name">{client.name}</h1>
-              {client.status && (
-                <Badge 
-                  variant={contactStatusConfig[client.status]?.variant || "secondary"}
-                  data-testid="badge-contact-status"
-                >
-                  {contactStatusConfig[client.status]?.label || client.status}
-                </Badge>
-              )}
-            </div>
-            {client.company && (
-              <p className="text-muted-foreground" data-testid="text-client-company">{client.company}</p>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="icon"
@@ -281,108 +280,231 @@ export default function ClientDetailPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={openEditDialog}
-            data-testid="button-edit-client"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="destructive"
-            size="icon"
-            onClick={() => setShowDeleteConfirm(true)}
-            data-testid="button-delete-client"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div>
+            {isEditing ? (
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                placeholder="Contact name"
+                className="text-2xl font-bold h-auto py-1"
+                data-testid="input-edit-name"
+              />
+            ) : (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" data-testid="text-contact-name">{client.name}</h1>
+                {client.status && (
+                  <Badge 
+                    variant={contactStatusConfig[client.status]?.variant || "secondary"}
+                    data-testid="badge-contact-status"
+                  >
+                    {contactStatusConfig[client.status]?.label || client.status}
+                  </Badge>
+                )}
+              </div>
+            )}
+            {!isEditing && client.company && (
+              <p className="text-muted-foreground" data-testid="text-client-company">{client.company}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isEditing ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={cancelEditing}
+                data-testid="button-cancel-edit"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={!editForm.name.trim() || updateClientMutation.isPending}
+                data-testid="button-save-edit"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {updateClientMutation.isPending ? "Saving..." : "Save"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={startEditing}
+                data-testid="button-edit-client"
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteConfirm(true)}
+                data-testid="button-delete-client"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Client Details Card */}
+      {/* Contact Details Card */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Contact Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {client.company && (
-              <div className="flex items-start gap-3">
-                <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Company</p>
-                  <p className="font-medium" data-testid="text-detail-company">{client.company}</p>
-                </div>
+          {isEditing ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="edit-company" className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  Company
+                </Label>
+                <Input
+                  id="edit-company"
+                  value={editForm.company}
+                  onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
+                  placeholder="Company name"
+                  data-testid="input-edit-company"
+                />
               </div>
-            )}
 
-            {client.email && (
-              <div className="flex items-start gap-3">
-                <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <a
-                    href={`mailto:${client.email}`}
-                    className="font-medium text-primary hover:underline"
-                    data-testid="link-client-email"
-                  >
-                    {client.email}
-                  </a>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  Email
+                </Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  placeholder="email@example.com"
+                  data-testid="input-edit-email"
+                />
               </div>
-            )}
 
-            {client.phone && (
-              <div className="flex items-start gap-3">
-                <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Phone</p>
-                  <a
-                    href={`tel:${client.phone}`}
-                    className="font-medium text-primary hover:underline"
-                    data-testid="link-client-phone"
-                  >
-                    {client.phone}
-                  </a>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone" className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  Phone
+                </Label>
+                <Input
+                  id="edit-phone"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  placeholder="+1 234 567 8900"
+                  data-testid="input-edit-phone"
+                />
               </div>
-            )}
 
-            <div className="flex items-start gap-3">
-              <Tag className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge 
-                  variant={contactStatusConfig[client.status || "lead"]?.variant || "secondary"}
-                  data-testid="text-detail-status"
+              <div className="space-y-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select
+                  value={editForm.status}
+                  onValueChange={(value) => setEditForm({ ...editForm, status: value })}
                 >
-                  {contactStatusConfig[client.status || "lead"]?.label || client.status || "Lead"}
-                </Badge>
+                  <SelectTrigger data-testid="select-edit-status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contactStatusOptions.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {contactStatusConfig[status]?.label || status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="edit-notes" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  Notes
+                </Label>
+                <Textarea
+                  id="edit-notes"
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  placeholder="Additional notes about this contact..."
+                  rows={4}
+                  data-testid="input-edit-notes"
+                />
               </div>
             </div>
-
-            <div className="flex items-start gap-3">
-              <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm text-muted-foreground">Created</p>
-                <p className="font-medium" data-testid="text-client-created">
-                  {format(new Date(client.createdAt), "MMMM d, yyyy")}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {client.notes && (
+          ) : (
             <>
-              <Separator />
-              <div className="flex items-start gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Notes</p>
-                  <p className="whitespace-pre-wrap" data-testid="text-client-notes">{client.notes}</p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {client.company && (
+                  <div className="flex items-start gap-3">
+                    <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Company</p>
+                      <p className="font-medium" data-testid="text-detail-company">{client.company}</p>
+                    </div>
+                  </div>
+                )}
+
+                {client.email && (
+                  <div className="flex items-start gap-3">
+                    <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <a 
+                        href={`mailto:${client.email}`} 
+                        className="font-medium text-primary hover:underline"
+                        data-testid="link-client-email"
+                      >
+                        {client.email}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {client.phone && (
+                  <div className="flex items-start gap-3">
+                    <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <a 
+                        href={`tel:${client.phone}`} 
+                        className="font-medium text-primary hover:underline"
+                        data-testid="link-client-phone"
+                      >
+                        {client.phone}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {client.createdAt && (
+                  <div className="flex items-start gap-3">
+                    <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Created</p>
+                      <p className="font-medium" data-testid="text-created-date">
+                        {format(new Date(client.createdAt), "MMM d, yyyy")}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {client.notes && (
+                <>
+                  <Separator />
+                  <div className="flex items-start gap-3">
+                    <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                      <p className="whitespace-pre-wrap" data-testid="text-client-notes">{client.notes}</p>
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
         </CardContent>
@@ -412,7 +534,7 @@ export default function ClientDetailPage() {
           {clientProjects.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No projects linked to this client</p>
+              <p>No projects linked to this contact</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -446,7 +568,6 @@ export default function ClientDetailPage() {
                 </div>
               ))}
               
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between pt-4 border-t">
                   <p className="text-sm text-muted-foreground">
@@ -486,10 +607,10 @@ export default function ClientDetailPage() {
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Client</AlertDialogTitle>
+            <AlertDialogTitle>Delete Contact</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete "{client.name}"? This action cannot be undone.
-              Any projects linked to this client will be unlinked.
+              Any projects linked to this contact will be unlinked.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -554,104 +675,6 @@ export default function ClientDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Edit Contact Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Contact</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Full Name *</Label>
-              <Input
-                id="edit-name"
-                value={editForm.name}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                placeholder="Contact name"
-                data-testid="input-edit-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                placeholder="email@example.com"
-                data-testid="input-edit-email"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-company">Company</Label>
-              <Input
-                id="edit-company"
-                value={editForm.company}
-                onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
-                placeholder="Company name"
-                data-testid="input-edit-company"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-phone">Phone</Label>
-              <Input
-                id="edit-phone"
-                value={editForm.phone}
-                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                placeholder="+1 234 567 8900"
-                data-testid="input-edit-phone"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-status">Status</Label>
-              <Select
-                value={editForm.status}
-                onValueChange={(value) => setEditForm({ ...editForm, status: value })}
-              >
-                <SelectTrigger data-testid="select-edit-status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {contactStatusOptions.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {contactStatusConfig[status]?.label || status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-notes">Notes</Label>
-              <Textarea
-                id="edit-notes"
-                value={editForm.notes}
-                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                placeholder="Additional notes about this contact..."
-                rows={3}
-                data-testid="input-edit-notes"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowEditDialog(false)}
-              data-testid="button-cancel-edit"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdateClient}
-              disabled={!editForm.name.trim() || updateClientMutation.isPending}
-              data-testid="button-save-edit"
-            >
-              {updateClientMutation.isPending ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
     </div>
   );
 }
