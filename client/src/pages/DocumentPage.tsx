@@ -11,7 +11,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ImagePlus, Save, PanelLeftClose, PanelLeft } from "lucide-react";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import type { Document, Project, DocumentWithCreator, SafeUser } from "@shared/schema";
 import { useDebouncedCallback } from "@/hooks/useDebounce";
 
@@ -205,97 +204,83 @@ export default function DocumentPage() {
 
   return (
     <div className="flex h-full" data-testid="document-page">
-      <PanelGroup direction="horizontal" autoSaveId="document-sidebar">
-        {!isSidebarCollapsed && (
-          <>
-            <Panel 
-              defaultSize={20} 
-              minSize={15} 
-              maxSize={40}
-              className="border-r border-sidebar-border"
-            >
-              <div className="h-full flex flex-col bg-sidebar">
-                <div className="flex items-center justify-end p-1 border-b border-sidebar-border">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsSidebarCollapsed(true)}
-                    className="h-7 w-7"
-                    data-testid="button-collapse-sidebar"
-                  >
-                    <PanelLeftClose className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <PageTree projectId={pageDoc.projectId} currentDocumentId={documentId} />
-                </div>
-              </div>
-            </Panel>
-            <PanelResizeHandle className="w-1 bg-transparent hover:bg-primary/20 transition-colors cursor-col-resize flex items-center justify-center group">
-              <div className="w-px h-8 bg-border group-hover:bg-primary/40 transition-colors" />
-            </PanelResizeHandle>
-          </>
-        )}
-        <Panel defaultSize={80}>
-          <div className="flex-1 flex flex-col overflow-hidden h-full">
-            <div className="border-b border-border px-6 py-3 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                {isSidebarCollapsed && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsSidebarCollapsed(false)}
-                    className="h-8 w-8"
-                    data-testid="button-expand-sidebar"
-                  >
-                    <PanelLeft className="h-4 w-4" />
-                  </Button>
-                )}
-                <Breadcrumbs project={project} document={pageDoc} ancestors={ancestors} />
-              </div>
-              <div className="flex items-center gap-3">
-                {pageDoc.createdBy && (
-                  <span className="text-sm text-muted-foreground" data-testid="text-page-creator">
-                    Created by {pageDoc.createdBy.firstName || pageDoc.createdBy.email}
-                  </span>
-                )}
-                {hasUnsavedChanges && !isSaving && (
-                  <span className="text-sm text-muted-foreground">Unsaved changes</span>
-                )}
-                {isSaving && (
-                  <span className="text-sm text-muted-foreground">Saving...</span>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleManualSave}
-                  disabled={!hasUnsavedChanges || isSaving}
-                  data-testid="button-save"
-                >
-                  <Save className="w-4 h-4 mr-1" />
-                  Save
-                </Button>
-              </div>
+      {!isSidebarCollapsed && (
+        <div className="w-[280px] border-r border-sidebar-border flex-shrink-0">
+          <div className="h-full flex flex-col bg-sidebar">
+            <div className="flex items-center justify-end p-1 border-b border-sidebar-border">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsSidebarCollapsed(true)}
+                className="h-7 w-7"
+                data-testid="button-collapse-sidebar"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <div className={isSidebarCollapsed ? "max-w-4xl mx-auto px-6 py-8" : "max-w-3xl mx-auto px-6 py-8"}>
-                <Input
-                  value={title}
-                  onChange={(e) => handleTitleChange(e.target.value)}
-                  placeholder="Untitled"
-                  className="text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 mb-8"
-                  data-testid="input-document-title"
-                />
-                <BlockEditor
-                  content={content}
-                  onChange={handleContentChange}
-                  onImageUpload={handleImageUpload}
-                />
-              </div>
+            <div className="flex-1 overflow-hidden">
+              <PageTree projectId={pageDoc.projectId} currentDocumentId={documentId} />
             </div>
           </div>
-        </Panel>
-      </PanelGroup>
+        </div>
+      )}
+      <div className="flex-1 flex flex-col overflow-hidden h-full">
+        <div className="border-b border-border px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            {isSidebarCollapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="h-8 w-8"
+                data-testid="button-expand-sidebar"
+              >
+                <PanelLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <Breadcrumbs project={project} document={pageDoc} ancestors={ancestors} />
+          </div>
+          <div className="flex items-center gap-3">
+            {pageDoc.createdBy && (
+              <span className="text-sm text-muted-foreground" data-testid="text-page-creator">
+                Created by {pageDoc.createdBy.firstName || pageDoc.createdBy.email}
+              </span>
+            )}
+            {hasUnsavedChanges && !isSaving && (
+              <span className="text-sm text-muted-foreground">Unsaved changes</span>
+            )}
+            {isSaving && (
+              <span className="text-sm text-muted-foreground">Saving...</span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualSave}
+              disabled={!hasUnsavedChanges || isSaving}
+              data-testid="button-save"
+            >
+              <Save className="w-4 h-4 mr-1" />
+              Save
+            </Button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className={isSidebarCollapsed ? "max-w-4xl mx-auto px-6 py-8" : "max-w-3xl mx-auto px-6 py-8"}>
+            <Input
+              value={title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              placeholder="Untitled"
+              className="text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 mb-8"
+              data-testid="input-document-title"
+            />
+            <BlockEditor
+              content={content}
+              onChange={handleContentChange}
+              onImageUpload={handleImageUpload}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
