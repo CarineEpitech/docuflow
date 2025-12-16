@@ -457,6 +457,41 @@ export type CompanyDocumentWithUploader = CompanyDocument & {
   folder?: CompanyDocumentFolder;
 };
 
+// Company Document embeddings table for vector search (uses pgvector)
+export const companyDocumentEmbeddings = pgTable("company_document_embeddings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyDocumentId: varchar("company_document_id").notNull().references(() => companyDocuments.id, { onDelete: "cascade" }),
+  folderId: varchar("folder_id").references(() => companyDocumentFolders.id, { onDelete: "cascade" }),
+  chunkIndex: integer("chunk_index").notNull().default(0),
+  chunkText: text("chunk_text").notNull(),
+  contentHash: varchar("content_hash", { length: 64 }).notNull(),
+  metadata: jsonb("metadata").$type<{
+    title?: string;
+    folderName?: string;
+    mimeType?: string;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_company_embeddings_document").on(table.companyDocumentId),
+  index("idx_company_embeddings_folder").on(table.folderId),
+  index("idx_company_embeddings_hash").on(table.contentHash),
+]);
+
+export const companyDocumentEmbeddingsRelations = relations(companyDocumentEmbeddings, ({ one }) => ({
+  companyDocument: one(companyDocuments, {
+    fields: [companyDocumentEmbeddings.companyDocumentId],
+    references: [companyDocuments.id],
+  }),
+  folder: one(companyDocumentFolders, {
+    fields: [companyDocumentEmbeddings.folderId],
+    references: [companyDocumentFolders.id],
+  }),
+}));
+
+export type CompanyDocumentEmbedding = typeof companyDocumentEmbeddings.$inferSelect;
+export type InsertCompanyDocumentEmbedding = typeof companyDocumentEmbeddings.$inferInsert;
+
 // Teams table - for organizing users into groups
 export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

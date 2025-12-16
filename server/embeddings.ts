@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { db } from "./db";
-import { documentEmbeddings, documents, projects } from "@shared/schema";
+import { documentEmbeddings, documents, projects, companyDocumentEmbeddings, companyDocuments, companyDocumentFolders } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -306,4 +306,145 @@ async function getDocumentBreadcrumbs(documentId: string): Promise<string[]> {
   }
   
   return breadcrumbs;
+}
+
+// ============ Company Document Embeddings Functions ============
+
+export interface CompanyDocSearchResult {
+  companyDocumentId: string;
+  folderId: string | null;
+  chunkText: string;
+  title: string;
+  folderName: string;
+  similarity: number;
+}
+
+export async function updateCompanyDocumentEmbeddings(
+  companyDocumentId: string,
+  folderId: string | null,
+  title: string,
+  content: any,
+  folderName: string = "Root",
+  mimeType?: string
+): Promise<void> {
+  const textContent = extractTextFromContent(content);
+  const chunks = chunkText(textContent, title);
+  
+  const existingEmbeddings = await db
+    .select()
+    .from(companyDocumentEmbeddings)
+    .where(eq(companyDocumentEmbeddings.companyDocumentId, companyDocumentId));
+  
+  const existingHashes = new Map(
+    existingEmbeddings.map(e => [e.chunkIndex, e.contentHash])
+  );
+  
+  let needsUpdate = existingEmbeddings.length !== chunks.length;
+  if (!needsUpdate) {
+    for (let i = 0; i < chunks.length; i++) {
+      const hash = computeHash(chunks[i]);
+      if (existingHashes.get(i) !== hash) {
+        needsUpdate = true;
+        break;
+      }
+    }
+  }
+  
+  if (!needsUpdate) {
+    return;
+  }
+  
+  let embeddings: number[][];
+  try {
+    embeddings = await generateEmbeddings(chunks);
+  } catch (error) {
+    console.error("Failed to generate embeddings for company document:", companyDocumentId, error);
+    throw error;
+  }
+  
+  await db.delete(companyDocumentEmbeddings).where(eq(companyDocumentEmbeddings.companyDocumentId, companyDocumentId));
+  
+  for (let i = 0; i < chunks.length; i++) {
+    const hash = computeHash(chunks[i]);
+    const embeddingArray = embeddings[i];
+    const embeddingString = `[${embeddingArray.join(",")}]`;
+    
+    await db.execute(sql`
+      INSERT INTO company_document_embeddings (
+        company_document_id, folder_id, chunk_index, chunk_text, content_hash, embedding, metadata
+      ) VALUES (
+        ${companyDocumentId}, ${folderId}, ${i}, ${chunks[i]}, ${hash}, 
+        ${embeddingString}::vector,
+        ${JSON.stringify({ title, folderName, mimeType })}::jsonb
+      )
+    `);
+  }
+}
+
+export async function deleteCompanyDocumentEmbeddings(companyDocumentId: string): Promise<void> {
+  await db.delete(companyDocumentEmbeddings).where(eq(companyDocumentEmbeddings.companyDocumentId, companyDocumentId));
+}
+
+export async function searchCompanyDocumentChunks(
+  query: string,
+  limit: number = 10
+): Promise<CompanyDocSearchResult[]> {
+  const queryEmbedding = await generateEmbedding(query);
+  const embeddingString = `[${queryEmbedding.join(",")}]`;
+  
+  const results = await db.execute(sql`
+    SELECT 
+      company_document_id,
+      folder_id,
+      chunk_text,
+      metadata,
+      1 - (embedding <=> ${embeddingString}::vector) as similarity
+    FROM company_document_embeddings
+    ORDER BY embedding <=> ${embeddingString}::vector
+    LIMIT ${limit}
+  `);
+  
+  return (results.rows as any[]).map(row => ({
+    companyDocumentId: row.company_document_id,
+    folderId: row.folder_id,
+    chunkText: row.chunk_text,
+    title: row.metadata?.title || "Untitled",
+    folderName: row.metadata?.folderName || "Root",
+    similarity: parseFloat(row.similarity),
+  }));
+}
+
+export async function hasCompanyDocumentEmbeddings(): Promise<boolean> {
+  const result = await db.execute(sql`SELECT COUNT(*) as count FROM company_document_embeddings`);
+  return ((result.rows[0] as any)?.count || 0) > 0;
+}
+
+export async function rebuildAllCompanyDocumentEmbeddings(): Promise<{ processed: number; errors: string[] }> {
+  const allDocs = await db.select().from(companyDocuments);
+  const allFolders = await db.select().from(companyDocumentFolders);
+  const folderMap = new Map(allFolders.map(f => [f.id, f.name]));
+  
+  let processed = 0;
+  const errors: string[] = [];
+  
+  for (const doc of allDocs) {
+    if (!doc.content) continue;
+    
+    try {
+      const folderName = doc.folderId ? folderMap.get(doc.folderId) || "Unknown Folder" : "Root";
+      await updateCompanyDocumentEmbeddings(
+        doc.id,
+        doc.folderId,
+        doc.name,
+        doc.content,
+        folderName,
+        doc.mimeType || undefined
+      );
+      processed++;
+    } catch (error: any) {
+      errors.push(`Failed to embed company document ${doc.id}: ${error.message}`);
+    }
+  }
+  
+  return { processed, errors };
 }

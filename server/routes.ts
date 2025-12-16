@@ -23,6 +23,10 @@ import {
   searchSimilarChunks,
   hasEmbeddings,
   rebuildAllEmbeddings,
+  updateCompanyDocumentEmbeddings,
+  deleteCompanyDocumentEmbeddings,
+  searchCompanyDocumentChunks,
+  rebuildAllCompanyDocumentEmbeddings,
 } from "./embeddings";
 import {
   syncDocumentVideoTranscripts,
@@ -952,57 +956,72 @@ export async function registerRoutes(
             companyDocsOverview += "\n";
           }
           
-          // Add company document content to context
-          const companyContent: string[] = [];
-          const MAX_COMPANY_CHARS = mode === "both" ? 25000 : 50000;
-          let companyCharsUsed = 0;
-          
-          for (const doc of companyDocs) {
-            if (companyCharsUsed >= MAX_COMPANY_CHARS) break;
+          // Use vector search for company documents
+          try {
+            const companySearchResults = await searchCompanyDocumentChunks(message, mode === "both" ? 8 : 12);
             
-            const folder = doc.folderId ? folderMap.get(doc.folderId) : null;
-            const folderPath = folder ? `${folder.name} / ` : "";
-            
-            let docContent = `## Company: ${folderPath}${doc.name}\n`;
-            
-            // Include file metadata for uploaded files
-            if (doc.fileName) {
-              docContent += `**File:** ${doc.fileName}`;
-              if (doc.fileSize) {
-                const sizeKB = Math.round(doc.fileSize / 1024);
-                docContent += ` (${sizeKB} KB)`;
+            if (companySearchResults.length > 0) {
+              relevantContext += "\n\n# Relevant Company Documents\n\n";
+              
+              const byCompanyDoc = new Map<string, typeof companySearchResults>();
+              for (const result of companySearchResults) {
+                const key = `${result.folderName}/${result.title}`;
+                const existing = byCompanyDoc.get(key) || [];
+                existing.push(result);
+                byCompanyDoc.set(key, existing);
               }
-              if (doc.mimeType) {
-                docContent += ` [${doc.mimeType}]`;
-              }
-              docContent += "\n";
-            }
-            
-            if (doc.description) {
-              docContent += `**Description:** ${doc.description}\n\n`;
-            }
-            
-            // Extract text content from JSONB content field (TipTap format)
-            if (doc.content) {
-              const textContent = extractTextFromContent(doc.content);
-              if (textContent) {
-                docContent += textContent + "\n\n";
+              
+              for (const [docKey, chunks] of byCompanyDoc) {
+                const first = chunks[0];
+                const docPath = first.folderName !== "Root" 
+                  ? `${first.folderName} / ${first.title}`
+                  : first.title;
+                
+                relevantContext += `## Company: ${docPath}\n\n`;
+                
+                for (const chunk of chunks) {
+                  relevantContext += chunk.chunkText + "\n\n";
+                }
               }
             }
-            
-            // For uploaded files without content, add a note
-            if (!doc.content && doc.fileName) {
-              docContent += "(This is an uploaded file. The content may not be fully searchable.)\n\n";
-            }
-            
-            if (docContent.length + companyCharsUsed <= MAX_COMPANY_CHARS) {
-              companyContent.push(docContent);
-              companyCharsUsed += docContent.length;
-            }
+          } catch (companySearchError) {
+            console.error("Error searching company document embeddings:", companySearchError);
           }
           
-          if (companyContent.length > 0) {
-            relevantContext += "\n\n# Company Document Content\n\n" + companyContent.join("");
+          // Fallback: If no embeddings found, include company docs directly
+          if (!relevantContext.includes("# Relevant Company Documents")) {
+            const companyContent: string[] = [];
+            const MAX_COMPANY_CHARS = mode === "both" ? 15000 : 30000;
+            let companyCharsUsed = 0;
+            
+            for (const doc of companyDocs) {
+              if (companyCharsUsed >= MAX_COMPANY_CHARS) break;
+              
+              const folder = doc.folderId ? folderMap.get(doc.folderId) : null;
+              const folderPath = folder ? `${folder.name} / ` : "";
+              
+              let docContent = `## Company: ${folderPath}${doc.name}\n`;
+              
+              if (doc.description) {
+                docContent += `**Description:** ${doc.description}\n\n`;
+              }
+              
+              if (doc.content) {
+                const textContent = extractTextFromContent(doc.content);
+                if (textContent) {
+                  docContent += textContent + "\n\n";
+                }
+              }
+              
+              if (docContent.length + companyCharsUsed <= MAX_COMPANY_CHARS) {
+                companyContent.push(docContent);
+                companyCharsUsed += docContent.length;
+              }
+            }
+            
+            if (companyContent.length > 0) {
+              relevantContext += "\n\n# Company Document Content\n\n" + companyContent.join("");
+            }
           }
         } else {
           companyDocsOverview += "(No company documents available)\n";
@@ -1614,6 +1633,25 @@ Instructions:
         uploadedById: userId,
       });
       
+      // Generate embeddings for text documents
+      if (parsed.data.content) {
+        try {
+          const folder = parsed.data.folderId 
+            ? await storage.getCompanyDocumentFolder(parsed.data.folderId)
+            : null;
+          await updateCompanyDocumentEmbeddings(
+            document.id,
+            parsed.data.folderId || null,
+            parsed.data.name,
+            parsed.data.content,
+            folder?.name || "Root",
+            parsed.data.mimeType
+          );
+        } catch (embeddingError) {
+          console.error("Failed to generate company document embeddings:", embeddingError);
+        }
+      }
+      
       res.status(201).json(document);
     } catch (error) {
       console.error("Error creating company document:", error);
@@ -1638,6 +1676,25 @@ Instructions:
       const document = await storage.updateCompanyDocument(req.params.id, parsed.data);
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Update embeddings when content changes
+      if (parsed.data.content || parsed.data.name) {
+        try {
+          const folder = document.folderId 
+            ? await storage.getCompanyDocumentFolder(document.folderId)
+            : null;
+          await updateCompanyDocumentEmbeddings(
+            document.id,
+            document.folderId || null,
+            document.name,
+            document.content,
+            folder?.name || "Root",
+            document.mimeType || undefined
+          );
+        } catch (embeddingError) {
+          console.error("Failed to update company document embeddings:", embeddingError);
+        }
       }
       
       res.json(document);
@@ -1794,6 +1851,13 @@ Instructions:
       
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Delete embeddings first
+      try {
+        await deleteCompanyDocumentEmbeddings(req.params.id);
+      } catch (embeddingError) {
+        console.error("Failed to delete company document embeddings:", embeddingError);
       }
       
       // Note: File remains in object storage but database record is deleted
