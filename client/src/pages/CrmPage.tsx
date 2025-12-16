@@ -209,14 +209,18 @@ export default function CrmPage() {
           <p className="text-muted-foreground">Manage your projects and contact relationships</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-contact">
-            <Plus className="w-4 h-4 mr-2" />
-            New Contact
-          </Button>
-          <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
-            <Plus className="w-4 h-4 mr-2" />
-            New Project
-          </Button>
+          {activeTab === "clients" && (
+            <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-contact">
+              <Plus className="w-4 h-4 mr-2" />
+              New Contact
+            </Button>
+          )}
+          {activeTab === "projects" && (
+            <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
+              <Plus className="w-4 h-4 mr-2" />
+              New Project
+            </Button>
+          )}
         </div>
       </div>
 
