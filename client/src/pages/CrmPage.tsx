@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,13 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { 
   Search, 
   Plus, 
@@ -106,7 +100,6 @@ export default function CrmPage() {
   const [search, setSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [, navigate] = useLocation();
-  const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
   const [projectViewMode, setProjectViewMode] = useState<"table" | "kanban">("kanban");
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
@@ -157,21 +150,6 @@ export default function CrmPage() {
     client.email?.toLowerCase().includes(clientSearch.toLowerCase())
   );
 
-  const createCrmProjectMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null }) => {
-      return apiRequest("POST", "/api/crm/projects", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
-      setShowLinkProjectDialog(false);
-      toast({ title: "Project created" });
-    },
-    onError: () => {
-      toast({ title: "Failed to create project", variant: "destructive" });
-    },
-  });
-
   
   const deleteContactMutation = useMutation({
     mutationFn: async (contactId: string) => {
@@ -220,10 +198,12 @@ export default function CrmPage() {
             </Button>
           )}
           {activeTab === "projects" && (
-            <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
-              <Plus className="w-4 h-4 mr-2" />
-              New Project
-            </Button>
+            <Link href="/crm/project/new">
+              <Button data-testid="button-new-project">
+                <Plus className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
+            </Link>
           )}
         </div>
       </div>
@@ -675,15 +655,6 @@ export default function CrmPage() {
         </TabsContent>
       </Tabs>
 
-      
-      <CreateProjectDialog
-        open={showLinkProjectDialog}
-        onClose={() => setShowLinkProjectDialog(false)}
-        clients={clients}
-        onSubmit={(data) => createCrmProjectMutation.mutate(data)}
-        isLoading={createCrmProjectMutation.isPending}
-      />
-
       {/* Delete Contact Confirmation */}
       <AlertDialog open={!!deleteContactId} onOpenChange={(open) => !open && setDeleteContactId(null)}>
         <AlertDialogContent>
@@ -726,132 +697,5 @@ export default function CrmPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
-
-const projectFormSchema = z.object({
-  name: z.string().min(1, "Project name is required"),
-  description: z.string().optional(),
-  clientId: z.string().optional(),
-  status: z.string().optional(),
-});
-
-interface CreateProjectDialogProps {
-  open: boolean;
-  onClose: () => void;
-  clients: CrmClient[];
-  onSubmit: (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null }) => void;
-  isLoading: boolean;
-}
-
-function CreateProjectDialog({ open, onClose, clients, onSubmit, isLoading }: CreateProjectDialogProps) {
-  const form = useForm({
-    resolver: zodResolver(projectFormSchema),
-    defaultValues: { name: "", description: "", clientId: "", status: "lead" },
-  });
-
-  const handleSubmit = (data: z.infer<typeof projectFormSchema>) => {
-    onSubmit({
-      name: data.name,
-      description: data.description || null,
-      clientId: data.clientId || null,
-      status: data.status || "lead",
-    });
-    form.reset();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create New Project</DialogTitle>
-          <DialogDescription>Add a new project to track in your CRM</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Project Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Enter project name" data-testid="input-project-name" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} placeholder="Project description (optional)" data-testid="textarea-project-description" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="clientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-project-contact">
-                        <SelectValue placeholder="Select a contact" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {clients.map(client => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-project-status">
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {statusOptions.map(status => (
-                        <SelectItem key={status} value={status}>
-                          {crmStatusConfig[status].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel-project">Cancel</Button>
-              <Button type="submit" disabled={isLoading} data-testid="button-submit-project">
-                {isLoading ? "Creating..." : "Create Project"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
   );
 }
