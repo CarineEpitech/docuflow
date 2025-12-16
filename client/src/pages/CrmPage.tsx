@@ -109,6 +109,7 @@ export default function CrmPage() {
   const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
   const [projectViewMode, setProjectViewMode] = useState<"table" | "kanban">("kanban");
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
+  const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const pageSize = 10;
 
   const { data: crmProjectsData, isLoading } = useQuery<CrmProjectsResponse>({
@@ -199,11 +200,26 @@ export default function CrmPage() {
     },
   });
 
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      await apiRequest("DELETE", `/api/crm/projects/${projectId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all"] });
+      setDeleteProjectId(null);
+      toast({ title: "Project deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete project", variant: "destructive" });
+    },
+  });
+
 
   const totalPages = crmProjectsData ? Math.ceil(crmProjectsData.total / pageSize) : 0;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 space-y-6 w-full">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
@@ -406,18 +422,19 @@ export default function CrmPage() {
                         <th className="text-left p-4 font-medium">Start Date</th>
                         <th className="text-left p-4 font-medium">Due Date</th>
                         <th className="text-left p-4 font-medium">Finished</th>
+                        <th className="text-right p-4 font-medium w-16"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {isLoading ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                          <td colSpan={8} className="p-8 text-center text-muted-foreground">
                             Loading projects...
                           </td>
                         </tr>
                       ) : !crmProjectsData?.data.length ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                          <td colSpan={8} className="p-8 text-center text-muted-foreground">
                             No projects found. Add your first project to get started.
                           </td>
                         </tr>
@@ -502,6 +519,19 @@ export default function CrmPage() {
                               ) : (
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
+                            </td>
+                            <td className="p-4 text-right">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteProjectId(crmProject.id);
+                                }}
+                                data-testid={`button-delete-project-${crmProject.id}`}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
                             </td>
                           </tr>
                         ))
@@ -656,6 +686,27 @@ export default function CrmPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteContactId && deleteContactMutation.mutate(deleteContactId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Project Confirmation */}
+      <AlertDialog open={!!deleteProjectId} onOpenChange={(open) => !open && setDeleteProjectId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this project? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteProjectId && deleteProjectMutation.mutate(deleteProjectId)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete

@@ -221,7 +221,7 @@ export default function ClientDetailPage() {
 
   if (clientLoading) {
     return (
-      <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <div className="p-6 space-y-6 w-full">
         <div className="flex items-center gap-4">
           <Skeleton className="h-10 w-10" />
           <Skeleton className="h-8 w-48" />
@@ -239,7 +239,7 @@ export default function ClientDetailPage() {
 
   if (!client) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 w-full">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Contact not found</p>
           <Button variant="outline" className="mt-4" onClick={() => navigate("/crm")}>
@@ -251,7 +251,7 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 w-full">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
