@@ -4,7 +4,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, X, Loader2, Sparkles } from "lucide-react";
+import { Bot, Send, X, Loader2, Sparkles, FileText, Building2, Layers } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Sheet,
   SheetContent,
@@ -12,6 +13,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+type ChatMode = "projects" | "company" | "both";
 
 interface Message {
   role: "user" | "assistant";
@@ -22,6 +30,7 @@ export function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [mode, setMode] = useState<ChatMode>("both");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -30,6 +39,7 @@ export function ChatBot() {
       const response = await apiRequest("POST", "/api/chat", {
         message,
         conversationHistory: messages,
+        mode,
       });
       return response;
     },
@@ -77,6 +87,22 @@ export function ChatBot() {
     setMessages([]);
   };
 
+  const getModeLabel = () => {
+    switch (mode) {
+      case "projects": return "Project Documentation";
+      case "company": return "Company Documents";
+      case "both": return "All Documents";
+    }
+  };
+
+  const getModeDescription = () => {
+    switch (mode) {
+      case "projects": return "Searching project documentation only";
+      case "company": return "Searching company documents only";
+      case "both": return "Searching both project and company documents";
+    }
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
@@ -113,6 +139,66 @@ export function ChatBot() {
               </Button>
             )}
           </div>
+          
+          <div className="mt-3 pt-3 border-t">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-muted-foreground">Search scope:</span>
+              <span className="text-xs font-medium">{getModeLabel()}</span>
+            </div>
+            <ToggleGroup type="single" value={mode} onValueChange={(v) => v && setMode(v as ChatMode)} className="w-full justify-start gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem 
+                    value="projects" 
+                    size="sm" 
+                    className="flex-1 gap-1.5 text-xs"
+                    data-testid="toggle-mode-projects"
+                    aria-label="Search project documentation only"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Projects
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Search project documentation only</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem 
+                    value="company" 
+                    size="sm" 
+                    className="flex-1 gap-1.5 text-xs"
+                    data-testid="toggle-mode-company"
+                    aria-label="Search company documents only"
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    Company
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Search company documents only</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem 
+                    value="both" 
+                    size="sm" 
+                    className="flex-1 gap-1.5 text-xs"
+                    data-testid="toggle-mode-both"
+                    aria-label="Search all documentation sources"
+                  >
+                    <Layers className="h-3.5 w-3.5" />
+                    All
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Search all documentation sources</p>
+                </TooltipContent>
+              </Tooltip>
+            </ToggleGroup>
+          </div>
         </SheetHeader>
 
         <ScrollArea className="flex-1 px-4" ref={scrollRef}>
@@ -124,45 +210,79 @@ export function ChatBot() {
                 </div>
                 <h3 className="font-medium mb-1">How can I help?</h3>
                 <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                  I have access to all your projects and pages. Ask me anything about your documentation!
+                  {getModeDescription()}. Ask me anything!
                 </p>
                 <div className="mt-4 space-y-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-start text-left text-xs"
-                    onClick={() => {
-                      setInput("What projects do I have?");
-                      inputRef.current?.focus();
-                    }}
-                    data-testid="button-suggestion-projects"
-                  >
-                    What projects do I have?
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-start text-left text-xs"
-                    onClick={() => {
-                      setInput("Summarize my documentation");
-                      inputRef.current?.focus();
-                    }}
-                    data-testid="button-suggestion-summarize"
-                  >
-                    Summarize my documentation
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-start text-left text-xs"
-                    onClick={() => {
-                      setInput("Help me organize my pages better");
-                      inputRef.current?.focus();
-                    }}
-                    data-testid="button-suggestion-organize"
-                  >
-                    Help me organize my pages better
-                  </Button>
+                  {mode !== "company" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-left text-xs"
+                        onClick={() => {
+                          setInput("What projects do I have?");
+                          inputRef.current?.focus();
+                        }}
+                        data-testid="button-suggestion-projects"
+                      >
+                        What projects do I have?
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-left text-xs"
+                        onClick={() => {
+                          setInput("Summarize my documentation");
+                          inputRef.current?.focus();
+                        }}
+                        data-testid="button-suggestion-summarize"
+                      >
+                        Summarize my documentation
+                      </Button>
+                    </>
+                  )}
+                  {mode !== "projects" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-left text-xs"
+                        onClick={() => {
+                          setInput("What company documents are available?");
+                          inputRef.current?.focus();
+                        }}
+                        data-testid="button-suggestion-company-docs"
+                      >
+                        What company documents are available?
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-left text-xs"
+                        onClick={() => {
+                          setInput("Find company policies");
+                          inputRef.current?.focus();
+                        }}
+                        data-testid="button-suggestion-policies"
+                      >
+                        Find company policies
+                      </Button>
+                    </>
+                  )}
+                  {mode === "both" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start text-left text-xs"
+                      onClick={() => {
+                        setInput("Search all documents for ...");
+                        inputRef.current?.focus();
+                      }}
+                      data-testid="button-suggestion-search-all"
+                    >
+                      Search all documents
+                    </Button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -200,7 +320,7 @@ export function ChatBot() {
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about your docs..."
+              placeholder={`Ask about ${mode === "projects" ? "project docs" : mode === "company" ? "company docs" : "your docs"}...`}
               disabled={chatMutation.isPending}
               className="flex-1"
               data-testid="input-chat-message"

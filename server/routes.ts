@@ -826,7 +826,7 @@ export async function registerRoutes(
 
   // Chat API endpoint - uses projects and pages as knowledge base
   // Knowledge base is dynamic: always fetches fresh data from database
-  // When pages are created/updated/deleted, the next chat query will reflect those changes
+  // Supports dual-mode: projects, company, or both
   app.post("/api/chat", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req)!;
@@ -836,7 +836,8 @@ export async function registerRoutes(
         conversationHistory: z.array(z.object({
           role: z.enum(["user", "assistant"]),
           content: z.string()
-        })).optional()
+        })).optional(),
+        mode: z.enum(["projects", "company", "both"]).optional().default("both")
       });
       
       const parsed = chatSchema.safeParse(req.body);
@@ -844,7 +845,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
       }
       
-      const { message, conversationHistory = [] } = parsed.data;
+      const { message, conversationHistory = [], mode } = parsed.data;
       
       // Lazily get OpenAI client - handles missing API key gracefully
       let openai: OpenAI;
@@ -855,103 +856,193 @@ export async function registerRoutes(
         return res.status(500).json({ message: "Chat service is not configured. Please add your OpenAI API key." });
       }
       
-      // Get project overview for context
-      const projects = await storage.getProjects(userId);
-      let projectOverview = "# Available Projects\n\n";
-      for (const project of projects) {
-        projectOverview += `- **${project.name}**`;
-        if (project.description) {
-          projectOverview += `: ${project.description}`;
-        }
-        projectOverview += "\n";
-      }
-      
-      // Use vector search to find relevant documentation chunks
-      // This allows unlimited access to all documentation without character limits
+      let projectOverview = "";
+      let companyDocsOverview = "";
       let relevantContext = "";
       let searchResults: { chunkText: string; title: string; projectName: string; breadcrumbs: string[]; similarity: number }[] = [];
       let usedFallback = false;
       
-      try {
-        // Search for chunks related to the user's question
-        searchResults = await searchSimilarChunks(userId, message, 15); // Get top 15 most relevant chunks
-        
-        if (searchResults.length > 0) {
-          relevantContext = "# Relevant Documentation\n\n";
-          
-          // Group results by document for better context
-          const byDocument = new Map<string, typeof searchResults>();
-          for (const result of searchResults) {
-            const key = `${result.projectName}/${result.title}`;
-            const existing = byDocument.get(key) || [];
-            existing.push(result);
-            byDocument.set(key, existing);
+      // Get project overview and docs if mode includes projects
+      if (mode === "projects" || mode === "both") {
+        const projects = await storage.getProjects(userId);
+        projectOverview = "# Available Projects\n\n";
+        for (const project of projects) {
+          projectOverview += `- **${project.name}**`;
+          if (project.description) {
+            projectOverview += `: ${project.description}`;
           }
-          
-          for (const [docKey, chunks] of byDocument) {
-            const first = chunks[0];
-            const breadcrumbPath = first.breadcrumbs.length > 0 
-              ? first.breadcrumbs.join(" > ") + " > " + first.title
-              : first.title;
-            
-            relevantContext += `## ${first.projectName} / ${breadcrumbPath}\n\n`;
-            
-            // Combine chunks from the same document
-            for (const chunk of chunks) {
-              relevantContext += chunk.chunkText + "\n\n";
-            }
-          }
+          projectOverview += "\n";
         }
-      } catch (error) {
-        console.error("Error searching embeddings:", error);
-        // Fall back to loading all documents directly
-      }
-      
-      // Fallback: If no embeddings found, load documents directly
-      if (searchResults.length === 0) {
-        usedFallback = true;
-        const allDocuments = await storage.getAllUserDocuments(userId);
-        const projectMap = new Map(projects.map(p => [p.id, p]));
         
-        if (allDocuments.length > 0) {
-          relevantContext = "# Documentation Content\n\n";
-          const MAX_FALLBACK_CHARS = 50000;
+        // Use vector search to find relevant documentation chunks
+        try {
+          searchResults = await searchSimilarChunks(userId, message, mode === "both" ? 10 : 15);
           
-          for (const doc of allDocuments) {
-            if (relevantContext.length >= MAX_FALLBACK_CHARS) {
-              relevantContext += "\n[Additional content available via semantic search...]\n";
-              break;
+          if (searchResults.length > 0) {
+            relevantContext = "# Relevant Project Documentation\n\n";
+            
+            const byDocument = new Map<string, typeof searchResults>();
+            for (const result of searchResults) {
+              const key = `${result.projectName}/${result.title}`;
+              const existing = byDocument.get(key) || [];
+              existing.push(result);
+              byDocument.set(key, existing);
             }
+            
+            for (const [docKey, chunks] of byDocument) {
+              const first = chunks[0];
+              const breadcrumbPath = first.breadcrumbs.length > 0 
+                ? first.breadcrumbs.join(" > ") + " > " + first.title
+                : first.title;
+              
+              relevantContext += `## ${first.projectName} / ${breadcrumbPath}\n\n`;
+              
+              for (const chunk of chunks) {
+                relevantContext += chunk.chunkText + "\n\n";
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error searching embeddings:", error);
+        }
+        
+        // Fallback for project docs
+        if (searchResults.length === 0) {
+          usedFallback = true;
+          const allDocuments = await storage.getAllUserDocuments(userId);
+          const projects = await storage.getProjects(userId);
+          const projectMap = new Map(projects.map(p => [p.id, p]));
+          
+          if (allDocuments.length > 0) {
+            relevantContext = "# Project Documentation Content\n\n";
+            const MAX_FALLBACK_CHARS = mode === "both" ? 25000 : 50000;
+            
+            for (const doc of allDocuments) {
+              if (relevantContext.length >= MAX_FALLBACK_CHARS) {
+                relevantContext += "\n[Additional content available via semantic search...]\n";
+                break;
+              }
             
             const project = projectMap.get(doc.projectId);
             const projectName = project?.name || "Unknown Project";
             
-            relevantContext += `## ${projectName} / ${doc.title}\n`;
-            const textContent = extractTextFromContent(doc.content);
-            if (textContent) {
-              relevantContext += textContent + "\n\n";
-            } else {
-              relevantContext += "(Empty page)\n\n";
+              relevantContext += `## ${projectName} / ${doc.title}\n`;
+              const textContent = extractTextFromContent(doc.content);
+              if (textContent) {
+                relevantContext += textContent + "\n\n";
+              } else {
+                relevantContext += "(Empty page)\n\n";
+              }
             }
           }
         }
       }
       
-      // Build system message with semantic search results
-      const systemMessage = `You are DocuFlow Assistant, a helpful AI that assists users with their documentation projects. You have access to ALL of the user's projects and pages through semantic search - there are no character limits. When pages are created, updated, or deleted, the knowledge base is automatically updated.
+      // Get company documents if mode includes company
+      if (mode === "company" || mode === "both") {
+        const companyDocs = await storage.getCompanyDocuments();
+        const folders = await storage.getCompanyDocumentFolders();
+        const folderMap = new Map(folders.map(f => [f.id, f]));
+        
+        // Always build company docs overview when in company or both mode
+        companyDocsOverview = "# Company Documents\n\n";
+        if (companyDocs.length > 0) {
+          for (const doc of companyDocs) {
+            const folder = doc.folderId ? folderMap.get(doc.folderId) : null;
+            companyDocsOverview += `- **${doc.name}**`;
+            if (folder) {
+              companyDocsOverview += ` (in ${folder.name})`;
+            }
+            if (doc.fileName) {
+              companyDocsOverview += ` [File: ${doc.fileName}]`;
+            }
+            if (doc.description) {
+              companyDocsOverview += `: ${doc.description}`;
+            }
+            companyDocsOverview += "\n";
+          }
+          
+          // Add company document content to context
+          const companyContent: string[] = [];
+          const MAX_COMPANY_CHARS = mode === "both" ? 25000 : 50000;
+          let companyCharsUsed = 0;
+          
+          for (const doc of companyDocs) {
+            if (companyCharsUsed >= MAX_COMPANY_CHARS) break;
+            
+            const folder = doc.folderId ? folderMap.get(doc.folderId) : null;
+            const folderPath = folder ? `${folder.name} / ` : "";
+            
+            let docContent = `## Company: ${folderPath}${doc.name}\n`;
+            
+            // Include file metadata for uploaded files
+            if (doc.fileName) {
+              docContent += `**File:** ${doc.fileName}`;
+              if (doc.fileSize) {
+                const sizeKB = Math.round(doc.fileSize / 1024);
+                docContent += ` (${sizeKB} KB)`;
+              }
+              if (doc.mimeType) {
+                docContent += ` [${doc.mimeType}]`;
+              }
+              docContent += "\n";
+            }
+            
+            if (doc.description) {
+              docContent += `**Description:** ${doc.description}\n\n`;
+            }
+            
+            // Extract text content from JSONB content field (TipTap format)
+            if (doc.content) {
+              const textContent = extractTextFromContent(doc.content);
+              if (textContent) {
+                docContent += textContent + "\n\n";
+              }
+            }
+            
+            // For uploaded files without content, add a note
+            if (!doc.content && doc.fileName) {
+              docContent += "(This is an uploaded file. The content may not be fully searchable.)\n\n";
+            }
+            
+            if (docContent.length + companyCharsUsed <= MAX_COMPANY_CHARS) {
+              companyContent.push(docContent);
+              companyCharsUsed += docContent.length;
+            }
+          }
+          
+          if (companyContent.length > 0) {
+            relevantContext += "\n\n# Company Document Content\n\n" + companyContent.join("");
+          }
+        } else {
+          companyDocsOverview += "(No company documents available)\n";
+        }
+      }
+      
+      // Build system message based on mode
+      const modeDescription = mode === "projects" 
+        ? "project documentation" 
+        : mode === "company" 
+          ? "company documents" 
+          : "both project documentation and company documents";
+      
+      const systemMessage = `You are DocuFlow Assistant, a helpful AI that assists users with their documentation. You currently have access to ${modeDescription}. When documents are created, updated, or deleted, the knowledge base is automatically updated.
 
 ${projectOverview}
 
-${relevantContext || "No specific documentation found related to this query. The user's documentation may be empty or their question may not relate to existing content."}
+${companyDocsOverview}
+
+${relevantContext || "No specific documentation found related to this query. The documentation may be empty or the question may not relate to existing content."}
 
 Instructions:
-- Answer questions based on the user's documentation when the relevant content is shown above
-- You can reference specific pages, projects, and their content
+- Answer questions based on the documentation when the relevant content is shown above
+- You can reference specific pages, projects, folders, and their content
 - Help with documentation-related tasks like organizing content, suggesting improvements, or finding information
 - Be concise and helpful
-- If the relevant documentation section is empty or doesn't contain what was asked about, you can still help but clarify that the specific information wasn't found in their docs
-- When referencing documentation, be specific about which project and page the information comes from
-- For general questions about projects, you have access to all project names listed above`;
+- If the relevant documentation section is empty or doesn't contain what was asked about, you can still help but clarify that the specific information wasn't found
+- When referencing documentation, be specific about which source (project page or company document) the information comes from
+- For questions about project documentation, reference the project and page names
+- For questions about company documents, reference the folder and document names`;
 
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: "system", content: systemMessage },
