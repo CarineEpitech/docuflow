@@ -2265,15 +2265,13 @@ Instructions:
   });
 
   // ==================== Admin Routes ====================
-  const ADMIN_EMAIL = "masdouk@techma.ca";
-  
   const isAdmin = async (req: any, res: any, next: any) => {
     const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ message: "Not authenticated" });
     }
     const user = await storage.getUser(userId);
-    if (!user || user.email !== ADMIN_EMAIL) {
+    if (!user || user.role !== "admin") {
       return res.status(403).json({ message: "Access denied" });
     }
     next();
