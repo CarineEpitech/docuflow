@@ -203,9 +203,21 @@ export default function CrmPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
-        <p className="text-muted-foreground">Manage your projects and contact relationships</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
+          <p className="text-muted-foreground">Manage your projects and contact relationships</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-contact">
+            <Plus className="w-4 h-4 mr-2" />
+            New Contact
+          </Button>
+          <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
+            <Plus className="w-4 h-4 mr-2" />
+            New Project
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -289,16 +301,8 @@ export default function CrmPage() {
                     <List className="w-4 h-4" />
                   </Button>
                 </div>
-                <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Project
-                </Button>
               </>
             )}
-            <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-contact">
-              <Plus className="w-4 h-4 mr-2" />
-              New Contact
-            </Button>
           </div>
         </div>
 
