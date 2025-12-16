@@ -1081,17 +1081,13 @@ Instructions:
   // Get single CRM client with contacts
   app.get("/api/crm/clients/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req)!;
       const client = await storage.getCrmClient(req.params.id);
       
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
       }
       
-      if (client.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
+      // Company-wide visibility - all authenticated users can view clients
       const contacts = await storage.getCrmContacts(client.id);
       res.json({ ...client, contacts });
     } catch (error) {
@@ -1121,17 +1117,13 @@ Instructions:
   // Update CRM client
   app.patch("/api/crm/clients/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req)!;
       const client = await storage.getCrmClient(req.params.id);
       
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
       }
       
-      if (client.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
+      // Company-wide access - all authenticated users can update clients
       const updateSchema = insertCrmClientSchema.partial();
       const parsed = updateSchema.safeParse(req.body);
       
@@ -1150,17 +1142,13 @@ Instructions:
   // Delete CRM client
   app.delete("/api/crm/clients/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req)!;
       const client = await storage.getCrmClient(req.params.id);
       
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
       }
       
-      if (client.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
+      // Company-wide access - all authenticated users can delete clients
       await storage.deleteCrmClient(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -1172,17 +1160,13 @@ Instructions:
   // Create CRM contact for a client
   app.post("/api/crm/clients/:clientId/contacts", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req)!;
       const client = await storage.getCrmClient(req.params.clientId);
       
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
       }
       
-      if (client.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
+      // Company-wide access - all authenticated users can create contacts
       const parsed = insertCrmContactSchema.safeParse({ ...req.body, clientId: req.params.clientId });
       
       if (!parsed.success) {
@@ -1200,18 +1184,13 @@ Instructions:
   // Update CRM contact
   app.patch("/api/crm/contacts/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req)!;
       const contact = await storage.getCrmContact(req.params.id);
       
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
       
-      const client = await storage.getCrmClient(contact.clientId);
-      if (!client || client.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
+      // Company-wide access - all authenticated users can update contacts
       const updateSchema = insertCrmContactSchema.partial().omit({ clientId: true });
       const parsed = updateSchema.safeParse(req.body);
       
@@ -1230,18 +1209,13 @@ Instructions:
   // Delete CRM contact
   app.delete("/api/crm/contacts/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req)!;
       const contact = await storage.getCrmContact(req.params.id);
       
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
       
-      const client = await storage.getCrmClient(contact.clientId);
-      if (!client || client.ownerId !== userId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
+      // Company-wide access - all authenticated users can delete contacts
       await storage.deleteCrmContact(req.params.id);
       res.status(204).send();
     } catch (error) {
