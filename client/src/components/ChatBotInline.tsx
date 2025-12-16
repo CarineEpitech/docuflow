@@ -4,7 +4,11 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, Loader2, Trash2 } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Bot, Send, Loader2, Trash2, FileText, Building2, Layers } from "lucide-react";
+
+type ChatMode = "projects" | "company" | "both";
 
 interface Message {
   role: "user" | "assistant";
@@ -14,6 +18,7 @@ interface Message {
 export function ChatBotInline() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [mode, setMode] = useState<ChatMode>("both");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -22,6 +27,7 @@ export function ChatBotInline() {
       const response = await apiRequest("POST", "/api/chat", {
         message,
         conversationHistory: messages,
+        mode,
       });
       return response;
     },
@@ -63,6 +69,14 @@ export function ChatBotInline() {
     setMessages([]);
   };
 
+  const getModeLabel = () => {
+    switch (mode) {
+      case "projects": return "Project Documentation";
+      case "company": return "Company Documents";
+      case "both": return "All Documents";
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b">
@@ -86,6 +100,73 @@ export function ChatBotInline() {
             Clear
           </Button>
         )}
+      </div>
+
+      <div className="px-4 py-3 border-b bg-muted/30">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Search scope:</span>
+            <span className="text-sm font-medium">{getModeLabel()}</span>
+          </div>
+          <ToggleGroup 
+            type="single" 
+            value={mode} 
+            onValueChange={(v) => v && setMode(v as ChatMode)} 
+            className="gap-1"
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem 
+                  value="projects" 
+                  size="sm" 
+                  className="gap-1.5 px-3"
+                  data-testid="toggle-mode-projects"
+                  aria-label="Search project documentation only"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Projects
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Search project documentation only</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem 
+                  value="company" 
+                  size="sm" 
+                  className="gap-1.5 px-3"
+                  data-testid="toggle-mode-company"
+                  aria-label="Search company documents only"
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  Company
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Search company documents only</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem 
+                  value="both" 
+                  size="sm" 
+                  className="gap-1.5 px-3"
+                  data-testid="toggle-mode-both"
+                  aria-label="Search all documentation sources"
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  All
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Search all documentation sources</p>
+              </TooltipContent>
+            </Tooltip>
+          </ToggleGroup>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 px-4" ref={scrollRef}>
