@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { FileText, ArrowLeft, PanelLeftClose, PanelLeft } from "lucide-react";
+import { FileText, ArrowLeft, PanelLeftClose, PanelLeft, GripVertical } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { PageTree } from "@/components/PageTree";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import type { Project } from "@shared/schema";
 
 export default function ProjectPage() {
@@ -72,64 +73,78 @@ export default function ProjectPage() {
 
   return (
     <div className="flex h-full" data-testid="project-page">
-      {!isSidebarCollapsed && (
-        <div className="w-64 flex-shrink-0 border-r border-sidebar-border">
-          <div className="h-full flex flex-col bg-sidebar">
-            <div className="flex items-center justify-end p-1 border-b border-sidebar-border">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsSidebarCollapsed(true)}
-                className="h-7 w-7"
-                data-testid="button-collapse-sidebar"
+      <PanelGroup direction="horizontal" autoSaveId="project-sidebar">
+        {!isSidebarCollapsed && (
+          <>
+            <Panel 
+              defaultSize={20} 
+              minSize={15} 
+              maxSize={40}
+              className="border-r border-sidebar-border"
+            >
+              <div className="h-full flex flex-col bg-sidebar">
+                <div className="flex items-center justify-end p-1 border-b border-sidebar-border">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsSidebarCollapsed(true)}
+                    className="h-7 w-7"
+                    data-testid="button-collapse-sidebar"
+                  >
+                    <PanelLeftClose className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <PageTree projectId={projectId} />
+                </div>
+              </div>
+            </Panel>
+            <PanelResizeHandle className="w-1 bg-transparent hover:bg-primary/20 transition-colors cursor-col-resize flex items-center justify-center group">
+              <div className="w-px h-8 bg-border group-hover:bg-primary/40 transition-colors" />
+            </PanelResizeHandle>
+          </>
+        )}
+        <Panel defaultSize={80}>
+          <div className="flex-1 flex flex-col overflow-hidden h-full">
+            <div className="border-b border-border px-6 py-3 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                {isSidebarCollapsed && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsSidebarCollapsed(false)}
+                    className="h-8 w-8"
+                    data-testid="button-expand-sidebar"
+                  >
+                    <PanelLeft className="h-4 w-4" />
+                  </Button>
+                )}
+                <Breadcrumbs project={project} />
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setLocation("/documentation")}
+                data-testid="button-back-to-docs"
               >
-                <PanelLeftClose className="h-4 w-4" />
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Back
               </Button>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <PageTree projectId={projectId} />
+            <div className="flex-1 overflow-y-auto custom-scrollbar flex items-center justify-center">
+              <div className="text-center py-16">
+                <FileText className="w-16 h-16 mx-auto text-muted-foreground/20 mb-6" />
+                <h3 className="text-xl font-medium text-muted-foreground mb-2" data-testid="text-select-page-prompt">
+                  Select a page to get started
+                </h3>
+                <p className="text-muted-foreground/60 text-sm max-w-sm mx-auto">
+                  Choose a page from the sidebar or create a new one to begin documenting your project.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="border-b border-border px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            {isSidebarCollapsed && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsSidebarCollapsed(false)}
-                className="h-8 w-8"
-                data-testid="button-expand-sidebar"
-              >
-                <PanelLeft className="h-4 w-4" />
-              </Button>
-            )}
-            <Breadcrumbs project={project} />
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setLocation("/documentation")}
-            data-testid="button-back-to-docs"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
-        </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar flex items-center justify-center">
-          <div className="text-center py-16">
-            <FileText className="w-16 h-16 mx-auto text-muted-foreground/20 mb-6" />
-            <h3 className="text-xl font-medium text-muted-foreground mb-2" data-testid="text-select-page-prompt">
-              Select a page to get started
-            </h3>
-            <p className="text-muted-foreground/60 text-sm max-w-sm mx-auto">
-              Choose a page from the sidebar or create a new one to begin documenting your project.
-            </p>
-          </div>
-        </div>
-      </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }
