@@ -21,6 +21,7 @@ import CompanyDocumentEditorPage from "@/pages/CompanyDocumentEditorPage";
 import FileViewerPage from "@/pages/FileViewerPage";
 import TeamManagementPage from "@/pages/TeamManagementPage";
 import JoinTeamPage from "@/pages/JoinTeamPage";
+import AdminPage from "@/pages/AdminPage";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -83,6 +84,7 @@ function Router() {
         <Route path="/join/:code" component={JoinTeamPage} />
         <Route path="/project/:projectId" component={ProjectPage} />
         <Route path="/document/:documentId" component={DocumentPage} />
+        <Route path="/admin" component={AdminPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

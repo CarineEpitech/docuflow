@@ -2121,5 +2121,55 @@ Instructions:
     }
   });
 
+  // ==================== Admin Routes ====================
+  const ADMIN_EMAIL = "masdouk@techma.ca";
+  
+  const isAdmin = async (req: any, res: any, next: any) => {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const user = await storage.getUser(userId);
+    if (!user || user.email !== ADMIN_EMAIL) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    next();
+  };
+
+  // Get all users (admin only)
+  app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Update user role (admin only)
+  app.patch("/api/admin/users/:id/role", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const roleSchema = z.object({
+        role: z.enum(["user", "admin"]),
+      });
+      
+      const parsed = roleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid role", errors: parsed.error.errors });
+      }
+      
+      const user = await storage.updateUserRole(req.params.id, parsed.data.role);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
   return httpServer;
 }

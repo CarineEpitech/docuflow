@@ -106,6 +106,9 @@ export interface IStorage {
   // Get all users for assignee dropdown
   getAllUsers(): Promise<SafeUser[]>;
   
+  // Update user role (admin only)
+  updateUserRole(userId: string, role: string): Promise<SafeUser | undefined>;
+  
   // Company Document Folders
   getCompanyDocumentFolders(): Promise<CompanyDocumentFolderWithCreator[]>;
   getCompanyDocumentFolder(id: string): Promise<CompanyDocumentFolderWithCreator | undefined>;
@@ -813,6 +816,15 @@ export class DatabaseStorage implements IStorage {
   async getAllUsers(): Promise<SafeUser[]> {
     const allUsers = await db.select().from(users).orderBy(asc(users.firstName), asc(users.lastName));
     return allUsers;
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<SafeUser | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
   }
 
   // Company Document Folders
