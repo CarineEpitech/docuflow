@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2 } from "lucide-react";
+import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -57,6 +71,8 @@ export default function ClientDetailPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
+  const [selectedProjectToLink, setSelectedProjectToLink] = useState<string>("");
   const [projectsPage, setProjectsPage] = useState(1);
 
   const { data: client, isLoading: clientLoading } = useQuery<CrmClient>({
@@ -80,6 +96,7 @@ export default function ClientDetailPage() {
   });
 
   const clientProjects = allProjects.filter(p => String(p.clientId) === String(id));
+  const availableProjects = allProjects.filter(p => !p.clientId || p.clientId === null);
   const totalProjects = clientProjects.length;
   const totalPages = Math.max(1, Math.ceil(totalProjects / PROJECTS_PER_PAGE));
   
@@ -121,6 +138,22 @@ export default function ClientDetailPage() {
     },
     onError: () => {
       toast({ title: "Failed to unlink project", variant: "destructive" });
+    },
+  });
+
+  const linkProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      await apiRequest("PATCH", `/api/crm/projects/${projectId}`, { clientId: id });
+    },
+    onSuccess: () => {
+      toast({ title: "Project linked successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      setShowLinkProjectDialog(false);
+      setSelectedProjectToLink("");
+    },
+    onError: () => {
+      toast({ title: "Failed to link project", variant: "destructive" });
     },
   });
 
@@ -262,7 +295,7 @@ export default function ClientDetailPage() {
 
       {/* Projects Card */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle className="text-lg flex items-center gap-2">
             <FolderOpen className="h-5 w-5" />
             Linked Projects
@@ -270,6 +303,15 @@ export default function ClientDetailPage() {
               <Badge variant="secondary" className="ml-2">{totalProjects}</Badge>
             )}
           </CardTitle>
+          <Button
+            size="sm"
+            onClick={() => setShowLinkProjectDialog(true)}
+            disabled={availableProjects.length === 0}
+            data-testid="button-link-project"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Link Project
+          </Button>
         </CardHeader>
         <CardContent>
           {clientProjects.length === 0 ? (
@@ -367,6 +409,56 @@ export default function ClientDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Link Project Dialog */}
+      <Dialog open={showLinkProjectDialog} onOpenChange={setShowLinkProjectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link Project to Contact</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Select
+              value={selectedProjectToLink}
+              onValueChange={setSelectedProjectToLink}
+            >
+              <SelectTrigger data-testid="select-project-to-link">
+                <SelectValue placeholder="Select a project to link" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableProjects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {availableProjects.length === 0 && (
+              <p className="text-sm text-muted-foreground mt-2">
+                No available projects to link. All projects are already linked to contacts.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowLinkProjectDialog(false);
+                setSelectedProjectToLink("");
+              }}
+              data-testid="button-cancel-link"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => linkProjectMutation.mutate(selectedProjectToLink)}
+              disabled={!selectedProjectToLink || linkProjectMutation.isPending}
+              data-testid="button-confirm-link"
+            >
+              Link Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
