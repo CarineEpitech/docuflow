@@ -438,21 +438,21 @@ export default function ClientDetailPage() {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {client.company && (
-                  <div className="flex items-start gap-3">
-                    <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Company</p>
-                      <p className="font-medium" data-testid="text-detail-company">{client.company}</p>
-                    </div>
+                <div className="flex items-start gap-3">
+                  <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Company</p>
+                    <p className={`font-medium ${!client.company ? 'text-muted-foreground italic' : ''}`} data-testid="text-detail-company">
+                      {client.company || "Not provided"}
+                    </p>
                   </div>
-                )}
+                </div>
 
-                {client.email && (
-                  <div className="flex items-start gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Email</p>
+                <div className="flex items-start gap-3">
+                  <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    {client.email ? (
                       <a 
                         href={`mailto:${client.email}`} 
                         className="font-medium text-primary hover:underline"
@@ -460,15 +460,17 @@ export default function ClientDetailPage() {
                       >
                         {client.email}
                       </a>
-                    </div>
+                    ) : (
+                      <p className="font-medium text-muted-foreground italic" data-testid="text-client-email">Not provided</p>
+                    )}
                   </div>
-                )}
+                </div>
 
-                {client.phone && (
-                  <div className="flex items-start gap-3">
-                    <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Phone</p>
+                <div className="flex items-start gap-3">
+                  <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Phone</p>
+                    {client.phone ? (
                       <a 
                         href={`tel:${client.phone}`} 
                         className="font-medium text-primary hover:underline"
@@ -476,35 +478,33 @@ export default function ClientDetailPage() {
                       >
                         {client.phone}
                       </a>
-                    </div>
+                    ) : (
+                      <p className="font-medium text-muted-foreground italic" data-testid="text-client-phone">Not provided</p>
+                    )}
                   </div>
-                )}
+                </div>
 
-                {client.createdAt && (
-                  <div className="flex items-start gap-3">
-                    <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Created</p>
-                      <p className="font-medium" data-testid="text-created-date">
-                        {format(new Date(client.createdAt), "MMM d, yyyy")}
-                      </p>
-                    </div>
+                <div className="flex items-start gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created</p>
+                    <p className="font-medium" data-testid="text-created-date">
+                      {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : "Unknown"}
+                    </p>
                   </div>
-                )}
+                </div>
               </div>
 
-              {client.notes && (
-                <>
-                  <Separator />
-                  <div className="flex items-start gap-3">
-                    <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Notes</p>
-                      <p className="whitespace-pre-wrap" data-testid="text-client-notes">{client.notes}</p>
-                    </div>
-                  </div>
-                </>
-              )}
+              <Separator />
+              <div className="flex items-start gap-3">
+                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                  <p className={`whitespace-pre-wrap ${!client.notes ? 'text-muted-foreground italic' : ''}`} data-testid="text-client-notes">
+                    {client.notes || "No notes added"}
+                  </p>
+                </div>
+              </div>
             </>
           )}
         </CardContent>
