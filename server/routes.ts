@@ -2295,6 +2295,14 @@ Instructions:
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
+      
+      // Block non-main admins from viewing main admin details
+      const requesterId = getUserId(req);
+      const requester = await storage.getUser(requesterId!);
+      if (user.isMainAdmin && !requester?.isMainAdmin) {
+        return res.status(403).json({ message: "Cannot view main administrator details" });
+      }
+      
       // Return user without the hashed password but with the last generated password
       const { password, ...userWithoutHash } = user;
       res.json(userWithoutHash);

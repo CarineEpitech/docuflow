@@ -370,15 +370,27 @@ function UserListPage() {
                           </Select>
                         )}
                         
-                        <Link href={`/admin/user/${u.id}`}>
+                        {u.isMainAdmin === 1 && user?.isMainAdmin !== 1 ? (
                           <Button 
                             size="icon" 
                             variant="ghost"
+                            disabled
+                            className="opacity-40"
                             data-testid={`button-view-${u.id}`}
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
-                        </Link>
+                        ) : (
+                          <Link href={`/admin/user/${u.id}`}>
+                            <Button 
+                              size="icon" 
+                              variant="ghost"
+                              data-testid={`button-view-${u.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </Link>
+                        )}
                         
                         {u.isMainAdmin === 1 && user?.isMainAdmin !== 1 ? (
                           <Button 
