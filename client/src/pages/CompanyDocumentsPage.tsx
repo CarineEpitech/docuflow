@@ -118,6 +118,12 @@ export default function CompanyDocumentsPage() {
     enabled: !!currentFolderId,
   });
 
+  // Search results state
+  const [searchResults, setSearchResults] = useState<{
+    documents: CompanyDocumentWithUploader[];
+    folders: CompanyDocumentFolderWithCreator[];
+  }>({ documents: [], folders: [] });
+
   // Fetch documents based on current folder or search
   const { data: documents = [], isLoading: documentsLoading } = useQuery<CompanyDocumentWithUploader[]>({
     queryKey: searchQuery 
@@ -127,13 +133,16 @@ export default function CompanyDocumentsPage() {
       if (searchQuery) {
         const res = await fetch(`/api/company-documents/search?q=${encodeURIComponent(searchQuery)}`);
         if (!res.ok) throw new Error("Failed to search");
-        return res.json();
+        const data = await res.json();
+        setSearchResults(data);
+        return data.documents || [];
       }
       const url = currentFolderId 
         ? `/api/company-documents?folderId=${currentFolderId}`
         : "/api/company-documents";
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch");
+      setSearchResults({ documents: [], folders: [] });
       return res.json();
     },
   });
@@ -431,22 +440,41 @@ export default function CompanyDocumentsPage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : searchQuery ? (
-        // Search results
-        documents.length === 0 ? (
+        // Search results - show both folders and documents
+        documents.length === 0 && searchResults.folders.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Search className="h-16 w-16 text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-medium mb-2">No results found</h3>
               <p className="text-muted-foreground text-center max-w-md">
-                No documents match "{searchQuery}"
+                No documents or folders match "{searchQuery}"
               </p>
             </CardContent>
           </Card>
         ) : (
-          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
-            {documents.map((doc) => (
-              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} showFolder />
-            ))}
+          <div className="space-y-6">
+            {/* Matching Folders */}
+            {searchResults.folders.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">Folders ({searchResults.folders.length})</h3>
+                <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
+                  {searchResults.folders.map((folder) => (
+                    <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onOpen={() => { setSearchQuery(""); setCurrentFolderId(folder.id); }} onRename={() => openRenameFolder(folder)} onDelete={() => confirmDelete(folder.id, "folder")} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Matching Documents */}
+            {documents.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">Documents ({documents.length})</h3>
+                <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
+                  {documents.map((doc) => (
+                    <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} showFolder />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )
       ) : !currentFolderId ? (

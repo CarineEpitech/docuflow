@@ -120,6 +120,7 @@ export interface IStorage {
   updateCompanyDocument(id: string, data: Partial<InsertCompanyDocument>): Promise<CompanyDocument | undefined>;
   deleteCompanyDocument(id: string): Promise<CompanyDocument | undefined>;
   searchCompanyDocuments(query: string): Promise<CompanyDocumentWithUploader[]>;
+  searchCompanyDocumentFolders(query: string): Promise<CompanyDocumentFolderWithCreator[]>;
   
   // Teams
   getTeams(userId: string): Promise<TeamWithDetails[]>;
@@ -940,6 +941,26 @@ export class DatabaseStorage implements IStorage {
       ...doc,
       uploadedBy: uploaderMap.get(doc.uploadedById),
       folder: doc.folderId ? folderMap.get(doc.folderId) : undefined,
+    }));
+  }
+
+  async searchCompanyDocumentFolders(query: string): Promise<CompanyDocumentFolderWithCreator[]> {
+    const searchPattern = `%${query}%`;
+    const folders = await db
+      .select()
+      .from(companyDocumentFolders)
+      .where(like(companyDocumentFolders.name, searchPattern))
+      .orderBy(desc(companyDocumentFolders.createdAt));
+    
+    const creatorIds = [...new Set(folders.map(f => f.createdById))];
+    const creatorsData = creatorIds.length > 0
+      ? await db.select().from(users).where(or(...creatorIds.map(id => eq(users.id, id))))
+      : [];
+    const creatorMap = new Map(creatorsData.map(u => [u.id, u]));
+    
+    return folders.map(folder => ({
+      ...folder,
+      createdBy: creatorMap.get(folder.createdById),
     }));
   }
 

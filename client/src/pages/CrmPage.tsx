@@ -45,14 +45,39 @@ import type {
 
 const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   lead: { label: "Lead", variant: "secondary" },
-  in_discussion: { label: "In Discussion", variant: "outline" },
-  closed: { label: "Closed", variant: "destructive" },
-  in_development: { label: "In Development", variant: "default" },
-  documented: { label: "Documented", variant: "outline" },
-  finished: { label: "Finished", variant: "default" },
+  discovering_call_completed: { label: "Discovering Call Completed", variant: "outline" },
+  proposal_sent: { label: "Proposal Sent", variant: "outline" },
+  won: { label: "Won", variant: "default" },
+  won_not_started: { label: "Won - Not Started", variant: "default" },
+  won_in_progress: { label: "Won - In Progress", variant: "default" },
+  won_in_review: { label: "Won - In Review", variant: "default" },
+  won_completed: { label: "Won - Completed", variant: "default" },
+  lost: { label: "Lost", variant: "destructive" },
+  cancelled: { label: "Cancelled", variant: "destructive" },
 };
 
-const statusOptions: CrmProjectStatus[] = ["lead", "in_discussion", "closed", "in_development", "documented", "finished"];
+const statusOptions: CrmProjectStatus[] = [
+  "lead",
+  "discovering_call_completed",
+  "proposal_sent",
+  "won",
+  "won_not_started",
+  "won_in_progress",
+  "won_in_review",
+  "won_completed",
+  "lost",
+  "cancelled"
+];
+
+// Contact status configuration
+const contactStatusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  lead: { label: "Lead", variant: "secondary" },
+  prospect: { label: "Prospect", variant: "outline" },
+  client: { label: "Client", variant: "default" },
+  client_recurrent: { label: "Client Récurrent", variant: "default" },
+};
+
+const contactStatusOptions = ["lead", "prospect", "client", "client_recurrent"];
 
 interface CrmProjectsResponse {
   data: CrmProjectWithDetails[];

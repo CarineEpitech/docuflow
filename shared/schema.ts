@@ -90,11 +90,13 @@ export const documents = pgTable("documents", {
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   parentId: varchar("parent_id"),
   position: integer("position").notNull().default(0),
+  createdById: varchar("created_by_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("IDX_document_project").on(table.projectId),
   index("IDX_document_parent").on(table.parentId),
+  index("IDX_document_created_by").on(table.createdById),
 ]);
 
 export const documentsRelations = relations(documents, ({ one, many }) => ({
@@ -110,6 +112,10 @@ export const documentsRelations = relations(documents, ({ one, many }) => ({
   children: many(documents, {
     relationName: "parentChild",
   }),
+  createdBy: one(users, {
+    fields: [documents.createdById],
+    references: [users.id],
+  }),
 }));
 
 export const insertDocumentSchema = createInsertSchema(documents).omit({
@@ -124,6 +130,11 @@ export type Document = typeof documents.$inferSelect;
 // Type for document with children for tree structure
 export type DocumentWithChildren = Document & {
   children?: DocumentWithChildren[];
+};
+
+// Type for document with creator info
+export type DocumentWithCreator = Document & {
+  createdBy?: SafeUser;
 };
 
 // Type for TipTap JSON content
@@ -225,16 +236,30 @@ export type VideoTranscriptStatus = "pending" | "processing" | "completed" | "er
 // CRM Project Status enum values
 export const crmProjectStatusValues = [
   "lead",
-  "in_discussion", 
-  "closed",
-  "in_development",
-  "documented",
-  "finished"
+  "discovering_call_completed",
+  "proposal_sent",
+  "won",
+  "won_not_started",
+  "won_in_progress",
+  "won_in_review",
+  "won_completed",
+  "lost",
+  "cancelled"
 ] as const;
 
 export type CrmProjectStatus = typeof crmProjectStatusValues[number];
 
-// CRM Clients table - companies/individuals associated with projects
+// Contact Status enum values
+export const contactStatusValues = [
+  "lead",
+  "prospect",
+  "client",
+  "client_recurrent"
+] as const;
+
+export type ContactStatus = typeof contactStatusValues[number];
+
+// CRM Clients table - companies/individuals associated with projects (now called Contacts)
 export const crmClients = pgTable("crm_clients", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 255 }).notNull(),
@@ -242,11 +267,13 @@ export const crmClients = pgTable("crm_clients", {
   email: varchar("email", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
   notes: text("notes"),
+  status: varchar("status", { length: 50 }).notNull().default("lead"),
   ownerId: varchar("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_crm_clients_owner").on(table.ownerId),
+  index("idx_crm_clients_status").on(table.status),
 ]);
 
 export const crmClientsRelations = relations(crmClients, ({ one, many }) => ({

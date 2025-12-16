@@ -1480,15 +1480,16 @@ Instructions:
     }
   });
   
-  // Search company documents
+  // Search company documents and folders
   app.get("/api/company-documents/search", isAuthenticated, async (req: any, res) => {
     try {
       const query = req.query.q as string;
       if (!query || query.trim().length === 0) {
-        return res.json([]);
+        return res.json({ documents: [], folders: [] });
       }
       const documents = await storage.searchCompanyDocuments(query);
-      res.json(documents);
+      const folders = await storage.searchCompanyDocumentFolders(query);
+      res.json({ documents, folders });
     } catch (error) {
       console.error("Error searching company documents:", error);
       res.status(500).json({ message: "Failed to search documents" });
