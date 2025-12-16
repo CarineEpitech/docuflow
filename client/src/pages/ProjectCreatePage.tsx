@@ -14,7 +14,6 @@ import {
   FolderKanban,
   Save
 } from "lucide-react";
-import { Link } from "wouter";
 import type { CrmClient, CrmProjectStatus } from "@shared/schema";
 
 const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -45,7 +44,7 @@ const statusOptions: CrmProjectStatus[] = [
 
 export default function ProjectCreatePage() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -69,7 +68,7 @@ export default function ProjectCreatePage() {
         title: "Project Created",
         description: "The project has been created successfully.",
       });
-      setLocation(`/crm/project/${newProject.id}`);
+      navigate(`/crm/project/${newProject.id}`);
     },
     onError: (error: Error) => {
       toast({
@@ -99,23 +98,29 @@ export default function ProjectCreatePage() {
   };
 
   return (
-    <div className="container max-w-2xl mx-auto py-8 px-4">
-      <div className="mb-6">
-        <Link href="/crm">
-          <Button variant="ghost" size="sm" data-testid="button-back-crm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to CRM
-          </Button>
-        </Link>
+    <div className="container max-w-2xl mx-auto p-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => navigate("/crm")}
+          data-testid="button-back-crm"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">New Project</h1>
+          <p className="text-sm text-muted-foreground">Add a new project to track in your CRM</p>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FolderKanban className="h-5 w-5" />
-            Create New Project
+            Project Information
           </CardTitle>
-          <CardDescription>Add a new project to track in your CRM</CardDescription>
+          <CardDescription>Fill in the details for your new project</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">

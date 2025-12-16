@@ -19,17 +19,17 @@ export default function CompanyDocumentEditorPage() {
   const [content, setContent] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const { data: document, isLoading } = useQuery<CompanyDocumentWithUploader>({
+  const { data: companyDoc, isLoading } = useQuery<CompanyDocumentWithUploader>({
     queryKey: ["/api/company-documents", documentId],
     enabled: !!documentId,
   });
 
   useEffect(() => {
-    if (document) {
-      setTitle(document.name);
-      setContent(document.content || { type: "doc", content: [{ type: "paragraph" }] });
+    if (companyDoc) {
+      setTitle(companyDoc.name);
+      setContent(companyDoc.content || { type: "doc", content: [{ type: "paragraph" }] });
     }
-  }, [document]);
+  }, [companyDoc]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -59,8 +59,8 @@ export default function CompanyDocumentEditorPage() {
   };
 
   const handleBack = () => {
-    if (document?.folderId) {
-      navigate(`/company-documents?folder=${document.folderId}`);
+    if (companyDoc?.folderId) {
+      navigate(`/company-documents?folder=${companyDoc.folderId}`);
     } else {
       navigate("/company-documents");
     }
@@ -104,7 +104,7 @@ export default function CompanyDocumentEditorPage() {
     );
   }
 
-  if (!document) {
+  if (!companyDoc) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <p className="text-muted-foreground">Document not found</p>

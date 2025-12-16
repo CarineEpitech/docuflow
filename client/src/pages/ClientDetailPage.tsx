@@ -278,7 +278,7 @@ export default function ClientDetailPage() {
             onClick={() => navigate("/crm")}
             data-testid="button-back-to-crm"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
             {isEditing ? (

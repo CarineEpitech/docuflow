@@ -235,13 +235,13 @@ export default function CrmProjectPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => setLocation("/crm")} data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-project-title">{project.project?.name}</h1>
-            <p className="text-muted-foreground">Project Details</p>
+            <p className="text-sm text-muted-foreground">Project Details</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -428,15 +428,11 @@ export default function CrmProjectPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Client Information
-              </CardTitle>
-              <CardDescription>Associated client and contacts</CardDescription>
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <User className="w-5 h-5" />
+            Client Information
+          </CardTitle>
+          <CardDescription>Associated client and contacts</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">

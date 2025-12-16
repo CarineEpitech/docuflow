@@ -188,7 +188,7 @@ export default function CrmPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
-          <p className="text-muted-foreground">Manage your projects and contact relationships</p>
+          <p className="text-sm text-muted-foreground">Manage your projects and contact relationships</p>
         </div>
         <div className="flex gap-2">
           {activeTab === "clients" && (

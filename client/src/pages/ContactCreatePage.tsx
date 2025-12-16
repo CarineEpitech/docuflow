@@ -90,11 +90,11 @@ export default function ContactCreatePage() {
           onClick={() => navigate("/crm")}
           data-testid="button-back-to-crm"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
           <h1 className="text-2xl font-bold">New Contact</h1>
-          <p className="text-muted-foreground">Create a new contact in your CRM</p>
+          <p className="text-sm text-muted-foreground">Create a new contact in your CRM</p>
         </div>
       </div>
 

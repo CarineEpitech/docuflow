@@ -371,16 +371,16 @@ export default function CompanyDocumentsPage() {
         <div className="flex items-center gap-3">
           {currentFolderId && (
             <Button variant="ghost" size="icon" onClick={() => setCurrentFolderId(null)} data-testid="button-back">
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-3" data-testid="text-page-title">
-              <Building2 className="h-7 w-7 text-primary" />
+              <Building2 className="h-6 w-6 text-primary" />
               {currentFolder ? currentFolder.name : "Company Documents"}
             </h1>
             {!currentFolderId && (
-              <p className="text-muted-foreground mt-1">Company terms, policies, and important documents</p>
+              <p className="text-sm text-muted-foreground mt-1">Company terms, policies, and important documents</p>
             )}
             {currentFolderId && (
               <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">

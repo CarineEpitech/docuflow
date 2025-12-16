@@ -231,10 +231,10 @@ function UserListPage() {
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Shield className="w-8 h-8 text-primary" />
+          <Shield className="w-6 h-6 text-primary" />
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-admin-title">Administration</h1>
-            <p className="text-muted-foreground">Manage users and system settings</p>
+            <p className="text-sm text-muted-foreground">Manage users and system settings</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -250,12 +250,12 @@ function UserListPage() {
       </div>
 
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
             User Management
           </CardTitle>
-          <CardDescription className="text-sm">
+          <CardDescription>
             View and manage all users. Create new users, update their info, or reset their passwords.
           </CardDescription>
         </CardHeader>
@@ -263,7 +263,7 @@ function UserListPage() {
           {!paginatedUsers || paginatedUsers.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No users found.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {paginatedUsers.map((u) => (
                 <div
                   key={u.id}
