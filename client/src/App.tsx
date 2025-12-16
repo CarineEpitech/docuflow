@@ -19,8 +19,6 @@ import DocumentationPage from "@/pages/DocumentationPage";
 import CompanyDocumentsPage from "@/pages/CompanyDocumentsPage";
 import CompanyDocumentEditorPage from "@/pages/CompanyDocumentEditorPage";
 import FileViewerPage from "@/pages/FileViewerPage";
-import TeamManagementPage from "@/pages/TeamManagementPage";
-import JoinTeamPage from "@/pages/JoinTeamPage";
 import AdminPage from "@/pages/AdminPage";
 import NotFound from "@/pages/not-found";
 
@@ -63,7 +61,6 @@ function Router() {
       <Switch>
         <Route path="/" component={Landing} />
         <Route path="/auth" component={AuthPage} />
-        <Route path="/join/:code" component={JoinTeamPage} />
         <Route component={Landing} />
       </Switch>
     );
@@ -80,8 +77,6 @@ function Router() {
         <Route path="/company-documents" component={CompanyDocumentsPage} />
         <Route path="/company-documents/:id/edit" component={CompanyDocumentEditorPage} />
         <Route path="/company-documents/:id/view" component={FileViewerPage} />
-        <Route path="/teams" component={TeamManagementPage} />
-        <Route path="/join/:code" component={JoinTeamPage} />
         <Route path="/project/:projectId" component={ProjectPage} />
         <Route path="/document/:documentId" component={DocumentPage} />
         <Route path="/admin" component={AdminPage} />
