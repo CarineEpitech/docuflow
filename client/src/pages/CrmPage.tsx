@@ -226,8 +226,8 @@ export default function CrmPage() {
               )}
             </TabsTrigger>
           </TabsList>
-          {activeTab === "clients" && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full sm:w-auto">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full sm:w-auto">
+            {activeTab === "clients" && (
               <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -238,68 +238,68 @@ export default function CrmPage() {
                   data-testid="input-client-search"
                 />
               </div>
-              <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-contact">
-                <Plus className="w-4 h-4 mr-2" />
-                New Contact
-              </Button>
-            </div>
-          )}
-          {activeTab === "projects" && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search projects..."
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  className="pl-9"
-                  data-testid="input-search"
-                />
-              </div>
-              {projectViewMode === "table" && (
-                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-                  <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    {statusOptions.map(status => (
-                      <SelectItem key={status} value={status}>
-                        {crmStatusConfig[status].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <div className="flex border rounded-md">
-                <Button
-                  variant={projectViewMode === "kanban" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setProjectViewMode("kanban")}
-                  className="rounded-r-none"
-                  data-testid="button-kanban-view"
-                >
-                  <LayoutGrid className="w-4 h-4" />
+            )}
+            {activeTab === "projects" && (
+              <>
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search projects..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
+                    className="pl-9"
+                    data-testid="input-search"
+                  />
+                </div>
+                {projectViewMode === "table" && (
+                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+                    <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      {statusOptions.map(status => (
+                        <SelectItem key={status} value={status}>
+                          {crmStatusConfig[status].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <div className="flex border rounded-md">
+                  <Button
+                    variant={projectViewMode === "kanban" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setProjectViewMode("kanban")}
+                    className="rounded-r-none"
+                    data-testid="button-kanban-view"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={projectViewMode === "table" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setProjectViewMode("table")}
+                    className="rounded-l-none"
+                    data-testid="button-table-view"
+                  >
+                    <List className="w-4 h-4" />
+                  </Button>
+                </div>
+                <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Project
                 </Button>
-                <Button
-                  variant={projectViewMode === "table" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setProjectViewMode("table")}
-                  className="rounded-l-none"
-                  data-testid="button-table-view"
-                >
-                  <List className="w-4 h-4" />
-                </Button>
-              </div>
-              <Button onClick={() => setShowLinkProjectDialog(true)} data-testid="button-link-project">
-                <Plus className="w-4 h-4 mr-2" />
-                New Project
-              </Button>
-            </div>
-          )}
+              </>
+            )}
+            <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-contact">
+              <Plus className="w-4 h-4 mr-2" />
+              New Contact
+            </Button>
+          </div>
         </div>
 
         <TabsContent value="projects" className="space-y-4 mt-0">
