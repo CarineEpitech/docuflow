@@ -29,6 +29,7 @@ import {
   getTranscriptStatus,
   retryTranscript,
 } from "./transcripts";
+import { sendWelcomeEmail, sendPasswordUpdateEmail } from "./email";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
 function getOpenAIClient(): OpenAI {
@@ -2259,6 +2260,165 @@ Instructions:
     } catch (error) {
       console.error("Error updating user role:", error);
       res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  // Create new user (admin only)
+  app.post("/api/admin/users", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const createUserSchema = z.object({
+        email: z.string().email(),
+        firstName: z.string().min(1),
+        lastName: z.string().min(1),
+        role: z.enum(["user", "admin"]).default("user"),
+      });
+      
+      const parsed = createUserSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid user data", errors: parsed.error.errors });
+      }
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(parsed.data.email);
+      if (existingUser) {
+        return res.status(409).json({ message: "User with this email already exists" });
+      }
+      
+      // Generate random password
+      const generatedPassword = randomBytes(8).toString('hex');
+      const hashedPassword = await hashPassword(generatedPassword);
+      
+      // Create user
+      const newUser = await storage.createUser({
+        email: parsed.data.email,
+        password: hashedPassword,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+      });
+      
+      // Update role if not default
+      if (parsed.data.role !== "user") {
+        await storage.updateUserRole(newUser.id, parsed.data.role);
+      }
+      
+      // Get app URL for email
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const host = req.headers.host || 'localhost:5000';
+      const appUrl = `${protocol}://${host}`;
+      
+      // Send welcome email
+      const emailResult = await sendWelcomeEmail(
+        parsed.data.email,
+        parsed.data.firstName,
+        generatedPassword,
+        appUrl
+      );
+      
+      res.status(201).json({ 
+        user: { ...newUser, password: undefined },
+        generatedPassword,
+        emailSent: emailResult.success,
+        emailError: emailResult.error
+      });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  // Update user info (admin only)
+  app.patch("/api/admin/users/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const updateUserSchema = z.object({
+        email: z.string().email().optional(),
+        firstName: z.string().min(1).optional(),
+        lastName: z.string().min(1).optional(),
+      });
+      
+      const parsed = updateUserSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid user data", errors: parsed.error.errors });
+      }
+      
+      // If email is being changed, check it's not taken
+      if (parsed.data.email) {
+        const existingUser = await storage.getUserByEmail(parsed.data.email);
+        if (existingUser && existingUser.id !== req.params.id) {
+          return res.status(409).json({ message: "Email is already in use" });
+        }
+      }
+      
+      const user = await storage.updateUser(req.params.id, parsed.data);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Reset user password (admin only)
+  app.post("/api/admin/users/:id/reset-password", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const user = await storage.getUserWithPassword(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Generate new random password
+      const newPassword = randomBytes(8).toString('hex');
+      const hashedPassword = await hashPassword(newPassword);
+      
+      await storage.updateUserPassword(req.params.id, hashedPassword);
+      
+      // Get app URL for email
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const host = req.headers.host || 'localhost:5000';
+      const appUrl = `${protocol}://${host}`;
+      
+      // Send password update email
+      const emailResult = await sendPasswordUpdateEmail(
+        user.email,
+        user.firstName || 'User',
+        newPassword,
+        appUrl
+      );
+      
+      res.json({ 
+        success: true, 
+        newPassword,
+        emailSent: emailResult.success,
+        emailError: emailResult.error
+      });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  // Delete user (admin only)
+  app.delete("/api/admin/users/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      
+      // Don't allow deleting yourself
+      if (userId === getUserId(req)) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      await storage.deleteUser(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
     }
   });
 

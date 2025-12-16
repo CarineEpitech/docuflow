@@ -109,6 +109,12 @@ export interface IStorage {
   // Update user role (admin only)
   updateUserRole(userId: string, role: string): Promise<SafeUser | undefined>;
   
+  // Admin user management
+  updateUser(userId: string, data: { firstName?: string; lastName?: string; email?: string }): Promise<SafeUser | undefined>;
+  updateUserPassword(userId: string, hashedPassword: string): Promise<SafeUser | undefined>;
+  deleteUser(userId: string): Promise<void>;
+  getUserWithPassword(userId: string): Promise<User | undefined>;
+  
   // Company Document Folders
   getCompanyDocumentFolders(): Promise<CompanyDocumentFolderWithCreator[]>;
   getCompanyDocumentFolder(id: string): Promise<CompanyDocumentFolderWithCreator | undefined>;
@@ -825,6 +831,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  async updateUser(userId: string, data: { firstName?: string; lastName?: string; email?: string }): Promise<SafeUser | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async updateUserPassword(userId: string, hashedPassword: string): Promise<SafeUser | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, userId));
+  }
+
+  async getUserWithPassword(userId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    return user;
   }
 
   // Company Document Folders
