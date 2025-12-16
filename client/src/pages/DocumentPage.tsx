@@ -270,7 +270,7 @@ export default function DocumentPage() {
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
               placeholder="Untitled"
-              className="text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 mb-8"
+              className="text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 mb-2"
               data-testid="input-document-title"
             />
             <BlockEditor
