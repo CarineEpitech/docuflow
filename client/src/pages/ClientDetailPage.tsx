@@ -101,12 +101,12 @@ export default function ClientDetailPage() {
       await apiRequest("DELETE", `/api/crm/clients/${id}`);
     },
     onSuccess: () => {
-      toast({ title: "Client deleted successfully" });
+      toast({ title: "Contact deleted successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
       navigate("/crm");
     },
     onError: () => {
-      toast({ title: "Failed to delete client", variant: "destructive" });
+      toast({ title: "Failed to delete contact", variant: "destructive" });
     },
   });
 
@@ -146,7 +146,7 @@ export default function ClientDetailPage() {
     return (
       <div className="p-6 max-w-5xl mx-auto">
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Client not found</p>
+          <p className="text-muted-foreground">Contact not found</p>
           <Button variant="outline" className="mt-4" onClick={() => navigate("/crm")}>
             Back to CRM
           </Button>
@@ -156,11 +156,11 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-client-name">{client.name}</h1>
+          <h1 className="text-2xl font-bold" data-testid="text-contact-name">{client.name}</h1>
           {client.company && (
             <p className="text-muted-foreground" data-testid="text-client-company">{client.company}</p>
           )}
@@ -188,7 +188,7 @@ export default function ClientDetailPage() {
       {/* Client Details Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Client Information</CardTitle>
+          <CardTitle className="text-lg">Contact Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

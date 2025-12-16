@@ -10,6 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,7 +44,8 @@ import {
   Pencil,
   LayoutGrid,
   List,
-  GripVertical
+  GripVertical,
+  Trash2
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
@@ -97,6 +108,7 @@ export default function CrmPage() {
   const [showAddClientDialog, setShowAddClientDialog] = useState(false);
   const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
   const [projectViewMode, setProjectViewMode] = useState<"table" | "kanban">("kanban");
+  const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
   const pageSize = 10;
 
   const { data: crmProjectsData, isLoading } = useQuery<CrmProjectsResponse>({
@@ -146,7 +158,7 @@ export default function CrmPage() {
   );
 
   const createCrmProjectMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null }) => {
+    mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null }) => {
       return apiRequest("POST", "/api/crm/projects", data);
     },
     onSuccess: () => {
@@ -166,10 +178,24 @@ export default function CrmPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
       setShowAddClientDialog(false);
-      toast({ title: "Client created" });
+      toast({ title: "Contact created" });
     },
     onError: () => {
-      toast({ title: "Failed to create client", variant: "destructive" });
+      toast({ title: "Failed to create contact", variant: "destructive" });
+    },
+  });
+
+  const deleteContactMutation = useMutation({
+    mutationFn: async (contactId: string) => {
+      await apiRequest("DELETE", `/api/crm/clients/${contactId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
+      setDeleteContactId(null);
+      toast({ title: "Contact deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete contact", variant: "destructive" });
     },
   });
 
@@ -180,7 +206,7 @@ export default function CrmPage() {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
-        <p className="text-muted-foreground">Manage your projects and client relationships</p>
+        <p className="text-muted-foreground">Manage your projects and contact relationships</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -203,16 +229,16 @@ export default function CrmPage() {
               <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search clients..."
+                  placeholder="Search contacts..."
                   value={clientSearch}
                   onChange={(e) => setClientSearch(e.target.value)}
                   className="pl-9"
                   data-testid="input-client-search"
                 />
               </div>
-              <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-client">
+              <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-contact">
                 <Plus className="w-4 h-4 mr-2" />
-                New Client
+                New Contact
               </Button>
             </div>
           )}
@@ -555,7 +581,7 @@ export default function CrmPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-muted-foreground hidden sm:block">
                           {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : ""}
                         </span>
@@ -564,9 +590,20 @@ export default function CrmPage() {
                           variant="ghost"
                           onClick={(e) => {
                             e.stopPropagation();
+                            setDeleteContactId(client.id);
+                          }}
+                          data-testid={`button-delete-contact-${client.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setLocation(`/crm/client/${client.id}`);
                           }}
-                          data-testid={`button-view-client-${client.id}`}
+                          data-testid={`button-view-contact-${client.id}`}
                         >
                           <ChevronRight className="w-4 h-4" />
                         </Button>
@@ -594,6 +631,27 @@ export default function CrmPage() {
         onSubmit={(data) => createCrmProjectMutation.mutate(data)}
         isLoading={createCrmProjectMutation.isPending}
       />
+
+      {/* Delete Contact Confirmation */}
+      <AlertDialog open={!!deleteContactId} onOpenChange={(open) => !open && setDeleteContactId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Contact</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this contact? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteContactId && deleteContactMutation.mutate(deleteContactId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -632,8 +690,8 @@ function AddClientDialog({ open, onClose, onSubmit, isLoading }: AddClientDialog
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add New Client</DialogTitle>
-          <DialogDescription>Create a new client to associate with projects</DialogDescription>
+          <DialogTitle>Add New Contact</DialogTitle>
+          <DialogDescription>Create a new contact to associate with projects</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -706,20 +764,21 @@ const projectFormSchema = z.object({
   name: z.string().min(1, "Project name is required"),
   description: z.string().optional(),
   clientId: z.string().optional(),
+  status: z.string().optional(),
 });
 
 interface CreateProjectDialogProps {
   open: boolean;
   onClose: () => void;
   clients: CrmClient[];
-  onSubmit: (data: { name: string; description?: string | null; clientId?: string | null }) => void;
+  onSubmit: (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null }) => void;
   isLoading: boolean;
 }
 
 function CreateProjectDialog({ open, onClose, clients, onSubmit, isLoading }: CreateProjectDialogProps) {
   const form = useForm({
     resolver: zodResolver(projectFormSchema),
-    defaultValues: { name: "", description: "", clientId: "" },
+    defaultValues: { name: "", description: "", clientId: "", status: "lead" },
   });
 
   const handleSubmit = (data: z.infer<typeof projectFormSchema>) => {
@@ -727,6 +786,7 @@ function CreateProjectDialog({ open, onClose, clients, onSubmit, isLoading }: Cr
       name: data.name,
       description: data.description || null,
       clientId: data.clientId || null,
+      status: data.status || "lead",
     });
     form.reset();
   };
@@ -771,17 +831,41 @@ function CreateProjectDialog({ open, onClose, clients, onSubmit, isLoading }: Cr
               name="clientId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Client (Optional)</FormLabel>
+                  <FormLabel>Contact (Optional)</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger data-testid="select-project-client">
-                        <SelectValue placeholder="Select a client" />
+                      <SelectTrigger data-testid="select-project-contact">
+                        <SelectValue placeholder="Select a contact" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {clients.map(client => (
                         <SelectItem key={client.id} value={client.id}>
                           {client.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-project-status">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {statusOptions.map(status => (
+                        <SelectItem key={status} value={status}>
+                          {crmStatusConfig[status].label}
                         </SelectItem>
                       ))}
                     </SelectContent>

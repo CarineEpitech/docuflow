@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ImagePlus, Save } from "lucide-react";
-import type { Document, Project } from "@shared/schema";
+import type { Document, Project, DocumentWithCreator, SafeUser } from "@shared/schema";
 import { useDebouncedCallback } from "@/hooks/useDebounce";
 
 export default function DocumentPage() {
@@ -51,7 +51,7 @@ export default function DocumentPage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  const { data: pageDoc, isLoading: documentLoading } = useQuery<Document>({
+  const { data: pageDoc, isLoading: documentLoading } = useQuery<DocumentWithCreator>({
     queryKey: ["/api/documents", documentId],
     enabled: !!documentId,
   });
@@ -209,7 +209,12 @@ export default function DocumentPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b border-border px-6 py-3 flex items-center justify-between gap-4">
           <Breadcrumbs project={project} document={pageDoc} ancestors={ancestors} />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {pageDoc.createdBy && (
+              <span className="text-sm text-muted-foreground" data-testid="text-page-creator">
+                Created by {pageDoc.createdBy.firstName || pageDoc.createdBy.email}
+              </span>
+            )}
             {hasUnsavedChanges && !isSaving && (
               <span className="text-sm text-muted-foreground">Unsaved changes</span>
             )}

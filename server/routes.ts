@@ -338,6 +338,7 @@ export async function registerRoutes(
         icon: parsed.data.icon || null,
         projectId: req.params.projectId,
         position: 0,
+        createdById: userId,
       });
 
       // Get breadcrumbs from parent if it exists
@@ -403,7 +404,13 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      res.json(document);
+      // Get creator info if createdById is set
+      let createdBy = null;
+      if (document.createdById) {
+        createdBy = await storage.getUser(document.createdById);
+      }
+
+      res.json({ ...document, createdBy });
     } catch (error) {
       console.error("Error fetching document:", error);
       res.status(500).json({ message: "Failed to fetch document" });
