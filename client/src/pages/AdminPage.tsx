@@ -13,14 +13,27 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, Users, Mail, ArrowLeft, Plus, Trash2, Key, Pencil, Check, X, Copy, CheckCircle } from "lucide-react";
+import { Shield, Users, Mail, ArrowLeft, Plus, Trash2, Key, Pencil, Check, X, Copy, CheckCircle, Eye, EyeOff, Calendar, User as UserIcon } from "lucide-react";
 import type { SafeUser } from "@shared/schema";
+
+interface AdminUserDetails {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+  role: string | null;
+  lastGeneratedPassword: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
 
 export default function AdminPage() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [isCreatePage] = useRoute("/admin/create");
+  const [isUserDetailPage, userDetailParams] = useRoute("/admin/user/:id");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -59,6 +72,10 @@ export default function AdminPage() {
 
   if (isCreatePage) {
     return <CreateUserPage />;
+  }
+
+  if (isUserDetailPage && userDetailParams?.id) {
+    return <UserDetailPage userId={userDetailParams.id} />;
   }
 
   return <UserListPage />;
@@ -313,6 +330,16 @@ function UserListPage() {
                             </SelectContent>
                           </Select>
                         )}
+                        
+                        <Link href={`/admin/user/${u.id}`}>
+                          <Button 
+                            size="icon" 
+                            variant="ghost"
+                            data-testid={`button-view-${u.id}`}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </Link>
                         
                         <Button 
                           size="icon" 
@@ -585,6 +612,203 @@ function CreateUserPage() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function UserDetailPage({ userId }: { userId: string }) {
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [showPassword, setShowPassword] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const { data: userDetails, isLoading } = useQuery<AdminUserDetails>({
+    queryKey: ["/api/admin/users", userId],
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/admin/users/${userId}/reset-password`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Password reset successfully" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to reset password",
+        description: error.message || "An error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const copyPassword = () => {
+    if (userDetails?.lastGeneratedPassword) {
+      navigator.clipboard.writeText(userDetails.lastGeneratedPassword);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6 max-w-2xl mx-auto">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (!userDetails) {
+    return (
+      <div className="p-6 space-y-6 max-w-2xl mx-auto">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">User Not Found</h1>
+          <Button variant="ghost" onClick={() => setLocation("/admin")}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Users
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6 max-w-2xl mx-auto">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <UserIcon className="w-8 h-8 text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold" data-testid="text-user-detail-title">User Details</h1>
+            <p className="text-muted-foreground">View and manage user information</p>
+          </div>
+        </div>
+        <Button variant="ghost" onClick={() => setLocation("/admin")} data-testid="button-back-to-users">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Users
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-4">
+            <Avatar className="w-16 h-16">
+              <AvatarImage src={userDetails.profileImageUrl || undefined} />
+              <AvatarFallback className="text-lg">
+                {userDetails.firstName?.[0]}{userDetails.lastName?.[0]}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <CardTitle className="text-xl" data-testid="text-user-name">
+                {userDetails.firstName} {userDetails.lastName}
+              </CardTitle>
+              <CardDescription className="flex items-center gap-1">
+                <Mail className="w-4 h-4" />
+                {userDetails.email}
+              </CardDescription>
+            </div>
+            <Badge variant={userDetails.role === "admin" ? "default" : "secondary"} className="ml-auto">
+              {userDetails.role || "user"}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-sm">First Name</Label>
+              <p className="font-medium" data-testid="text-user-firstname">{userDetails.firstName || "-"}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-sm">Last Name</Label>
+              <p className="font-medium" data-testid="text-user-lastname">{userDetails.lastName || "-"}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-sm">Email</Label>
+              <p className="font-medium" data-testid="text-user-email">{userDetails.email}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-sm">Role</Label>
+              <p className="font-medium" data-testid="text-user-role">{userDetails.role || "user"}</p>
+            </div>
+            {userDetails.createdAt && (
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-sm">Created</Label>
+                <p className="font-medium flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {new Date(userDetails.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+            )}
+            {userDetails.updatedAt && (
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-sm">Last Updated</Label>
+                <p className="font-medium flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {new Date(userDetails.updatedAt).toLocaleDateString()}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t pt-4">
+            <Label className="text-muted-foreground text-sm">Last Generated Password</Label>
+            {userDetails.lastGeneratedPassword ? (
+              <div className="flex items-center gap-2 mt-2">
+                <div className="bg-muted px-3 py-2 rounded-md font-mono flex-1" data-testid="text-generated-password">
+                  {showPassword ? userDetails.lastGeneratedPassword : "••••••••••••••••"}
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setShowPassword(!showPassword)}
+                  data-testid="button-toggle-password"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={copyPassword}
+                  data-testid="button-copy-password"
+                >
+                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-muted-foreground mt-2" data-testid="text-no-password">
+                No generated password available. The user may have set their own password.
+              </p>
+            )}
+          </div>
+
+          <div className="border-t pt-4 flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={resetPasswordMutation.isPending} data-testid="button-reset-user-password">
+                  <Key className="w-4 h-4 mr-2" />
+                  Reset Password
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset Password</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will generate a new random password for {userDetails.firstName} {userDetails.lastName} and send it to their email ({userDetails.email}).
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => resetPasswordMutation.mutate()}>
+                    Reset Password
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
