@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useRoute, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -93,6 +93,22 @@ function UserListPage() {
     queryKey: ["/api/admin/users"],
     enabled: !!user && user.role === "admin",
   });
+
+  const sortedUsers = useMemo(() => {
+    if (!users) return [];
+    return [...users].sort((a, b) => {
+      // Current logged-in admin first
+      if (a.id === user?.id) return -1;
+      if (b.id === user?.id) return 1;
+      // Then other admins
+      if (a.role === "admin" && b.role !== "admin") return -1;
+      if (a.role !== "admin" && b.role === "admin") return 1;
+      // Then alphabetically by name
+      const nameA = `${a.firstName || ""} ${a.lastName || ""}`.toLowerCase();
+      const nameB = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [users, user?.id]);
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
@@ -236,11 +252,11 @@ function UserListPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!users || users.length === 0 ? (
+          {!sortedUsers || sortedUsers.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No users found.</p>
           ) : (
             <div className="space-y-4">
-              {users.map((u) => (
+              {sortedUsers.map((u) => (
                 <div
                   key={u.id}
                   className="flex items-center justify-between p-4 border rounded-lg"
