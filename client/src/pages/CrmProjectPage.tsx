@@ -544,17 +544,6 @@ export default function CrmProjectPage() {
                 </div>
               )}
 
-              {(!project.client?.contacts || project.client.contacts.length === 0) && (
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => setShowAddContactDialog(true)}
-                  data-testid="button-add-first-contact"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add First Contact
-                </Button>
-              )}
             </>
           )}
         </CardContent>
