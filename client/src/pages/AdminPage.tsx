@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, Users, Mail, ArrowLeft, Plus, Trash2, Key, Pencil, Check, X, Copy, CheckCircle, Eye, EyeOff, Calendar, User as UserIcon } from "lucide-react";
+import { Shield, Users, Mail, ArrowLeft, Plus, Trash2, Key, Pencil, Check, X, Copy, CheckCircle, Eye, EyeOff, Calendar, User as UserIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import type { SafeUser } from "@shared/schema";
 
 interface AdminUserDetails {
@@ -88,6 +88,8 @@ function UserListPage() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ firstName: string; lastName: string; email: string }>({ firstName: "", lastName: "", email: "" });
   const [copiedPassword, setCopiedPassword] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const USERS_PER_PAGE = 7;
 
   const { data: users, isLoading: usersLoading } = useQuery<SafeUser[]>({
     queryKey: ["/api/admin/users"],
@@ -109,6 +111,12 @@ function UserListPage() {
       return nameA.localeCompare(nameB);
     });
   }, [users, user?.id]);
+
+  const totalPages = Math.ceil((sortedUsers?.length || 0) / USERS_PER_PAGE);
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * USERS_PER_PAGE;
+    return sortedUsers.slice(startIndex, startIndex + USERS_PER_PAGE);
+  }, [sortedUsers, currentPage]);
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
@@ -212,7 +220,7 @@ function UserListPage() {
 
   if (usersLoading) {
     return (
-      <div className="p-6 space-y-6 max-w-4xl mx-auto">
+      <div className="p-6 space-y-6 max-w-6xl mx-auto">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -220,7 +228,7 @@ function UserListPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Shield className="w-8 h-8 text-primary" />
@@ -252,11 +260,11 @@ function UserListPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!sortedUsers || sortedUsers.length === 0 ? (
+          {!paginatedUsers || paginatedUsers.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No users found.</p>
           ) : (
             <div className="space-y-2">
-              {sortedUsers.map((u) => (
+              {paginatedUsers.map((u) => (
                 <div
                   key={u.id}
                   className="flex items-center justify-between p-3 border rounded-lg"
@@ -429,6 +437,39 @@ function UserListPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t mt-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * USERS_PER_PAGE) + 1} - {Math.min(currentPage * USERS_PER_PAGE, sortedUsers.length)} of {sortedUsers.length} users
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  data-testid="button-prev-page"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Previous
+                </Button>
+                <span className="text-sm px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  data-testid="button-next-page"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
