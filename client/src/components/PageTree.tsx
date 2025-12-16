@@ -431,7 +431,7 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-sidebar border-r border-sidebar-border">
+    <div className="h-full flex flex-col bg-sidebar">
       <div className="p-3 border-b border-sidebar-border flex items-center justify-between">
         <h3 className="font-medium text-sm">Pages</h3>
         <Popover 
