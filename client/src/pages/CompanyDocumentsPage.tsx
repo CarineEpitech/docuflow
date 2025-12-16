@@ -35,7 +35,6 @@ import {
 import {
   FileText,
   Upload,
-  Download,
   Trash2,
   File,
   FileImage,
@@ -316,12 +315,6 @@ export default function CompanyDocumentsPage() {
     createDocMutation.mutate({ name: documentName.trim(), description: documentDescription.trim() });
   };
 
-  const handleDownload = (doc: CompanyDocumentWithUploader) => {
-    if (doc.storagePath) {
-      window.open(`/api/company-documents/${doc.id}/download`, "_blank");
-    }
-  };
-
   const handleFolderSubmit = () => {
     if (!folderName.trim()) return;
     if (editingFolder) {
@@ -470,7 +463,7 @@ export default function CompanyDocumentsPage() {
                 <h3 className="text-sm font-medium text-muted-foreground mb-3">Documents ({documents.length})</h3>
                 <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
                   {documents.map((doc) => (
-                    <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} showFolder />
+                    <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} showFolder />
                   ))}
                 </div>
               </div>
@@ -525,7 +518,7 @@ export default function CompanyDocumentsPage() {
         ) : (
           <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
             {documents.map((doc) => (
-              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} onDownload={handleDownload} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} />
+              <DocumentCard key={doc.id} doc={doc} viewMode={viewMode} onDelete={(id) => confirmDelete(id, "document")} onRename={openRenameDocument} onClick={handleDocumentClick} />
             ))}
           </div>
         )
@@ -726,17 +719,15 @@ function FolderCard({ folder, viewMode, onOpen, onRename, onDelete }: {
   );
 }
 
-function DocumentCard({ doc, viewMode, onDownload, onDelete, onRename, onClick, showFolder }: {
+function DocumentCard({ doc, viewMode, onDelete, onRename, onClick, showFolder }: {
   doc: CompanyDocumentWithUploader;
   viewMode: "grid" | "list";
-  onDownload: (doc: CompanyDocumentWithUploader) => void;
   onDelete: (id: string) => void;
   onRename: (doc: CompanyDocumentWithUploader) => void;
   onClick: (doc: CompanyDocumentWithUploader) => void;
   showFolder?: boolean;
 }) {
   const FileIcon = getFileIcon(doc.mimeType);
-  const isUploadedFile = !!doc.storagePath;
   const isEditableDoc = !!doc.content;
 
   if (viewMode === "list") {
@@ -761,11 +752,6 @@ function DocumentCard({ doc, viewMode, onDownload, onDelete, onRename, onClick, 
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isUploadedFile && (
-              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onDownload(doc); }} data-testid={`button-download-${doc.id}`}>
-                <Download className="h-4 w-4 mr-2" />Download
-              </Button>
-            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Button variant="ghost" size="icon" data-testid={`button-doc-menu-${doc.id}`}>
@@ -814,13 +800,6 @@ function DocumentCard({ doc, viewMode, onDownload, onDelete, onRename, onClick, 
         {doc.description && <p className="text-xs text-muted-foreground truncate w-full mt-0.5">{doc.description}</p>}
         {showFolder && doc.folder && (
           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Folder className="h-3 w-3" />{doc.folder.name}</p>
-        )}
-        {isUploadedFile && (
-          <div className="flex items-center gap-2 mt-2">
-            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onDownload(doc); }} data-testid={`button-download-${doc.id}`}>
-              <Download className="h-3.5 w-3.5 mr-1" />Download
-            </Button>
-          </div>
         )}
       </CardContent>
     </Card>
