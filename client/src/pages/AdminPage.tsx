@@ -410,7 +410,7 @@ function UserListPage() {
                           </AlertDialogContent>
                         </AlertDialog>
 
-                        {u.id !== user?.id && (
+                        {u.id !== user?.id ? (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button 
@@ -440,6 +440,8 @@ function UserListPage() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
+                        ) : (
+                          <div className="w-9 h-9" />
                         )}
                       </>
                     )}
