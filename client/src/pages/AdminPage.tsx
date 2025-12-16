@@ -316,6 +316,11 @@ function UserListPage() {
                     <Badge variant={u.role === "admin" ? "default" : "secondary"}>
                       {u.role || "user"}
                     </Badge>
+                    {u.isMainAdmin === 1 && (
+                      <Badge variant="outline" className="border-primary text-primary">
+                        Main
+                      </Badge>
+                    )}
 
                     {editingUser === u.id ? (
                       <>
@@ -339,13 +344,14 @@ function UserListPage() {
                       </>
                     ) : (
                       <>
-                        {u.id === user?.id ? (
-                          <Select value="admin" disabled>
+                        {u.id === user?.id || (u.isMainAdmin === 1 && user?.isMainAdmin !== 1) ? (
+                          <Select value={u.role || "admin"} disabled>
                             <SelectTrigger className="w-24 opacity-60" data-testid={`select-role-${u.id}`}>
-                              <SelectValue placeholder="Admin" />
+                              <SelectValue placeholder="Role" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="user">User</SelectItem>
                             </SelectContent>
                           </Select>
                         ) : (
@@ -374,15 +380,38 @@ function UserListPage() {
                           </Button>
                         </Link>
                         
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          onClick={() => startEditing(u)}
-                          data-testid={`button-edit-${u.id}`}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
+                        {u.isMainAdmin === 1 && user?.isMainAdmin !== 1 ? (
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            disabled
+                            className="opacity-40"
+                            data-testid={`button-edit-${u.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        ) : (
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            onClick={() => startEditing(u)}
+                            data-testid={`button-edit-${u.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
 
+                        {u.isMainAdmin === 1 && user?.isMainAdmin !== 1 ? (
+                          <Button 
+                            size="icon" 
+                            variant="ghost"
+                            disabled
+                            className="opacity-40"
+                            data-testid={`button-reset-password-${u.id}`}
+                          >
+                            <Key className="w-4 h-4" />
+                          </Button>
+                        ) : (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button 
@@ -409,8 +438,9 @@ function UserListPage() {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                        )}
 
-                        {u.id !== user?.id ? (
+                        {u.id !== user?.id && !(u.isMainAdmin === 1 && user?.isMainAdmin !== 1) ? (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button 

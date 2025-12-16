@@ -2309,6 +2309,12 @@ Instructions:
   // Update user role (admin only)
   app.patch("/api/admin/users/:id/role", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
+      // Check if target user is main admin
+      const targetUser = await storage.getUser(req.params.id);
+      if (targetUser?.isMainAdmin && targetUser.id !== getUserId(req)) {
+        return res.status(403).json({ message: "Cannot modify the main administrator" });
+      }
+      
       const roleSchema = z.object({
         role: z.enum(["user", "admin"]),
       });
@@ -2397,6 +2403,12 @@ Instructions:
   // Update user info (admin only)
   app.patch("/api/admin/users/:id", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
+      // Check if target user is main admin
+      const targetUser = await storage.getUser(req.params.id);
+      if (targetUser?.isMainAdmin && targetUser.id !== getUserId(req)) {
+        return res.status(403).json({ message: "Cannot modify the main administrator" });
+      }
+      
       const updateUserSchema = z.object({
         email: z.string().email().optional(),
         firstName: z.string().min(1).optional(),
@@ -2434,6 +2446,11 @@ Instructions:
       const user = await storage.getUserWithPassword(req.params.id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Check if target user is main admin
+      if (user.isMainAdmin && user.id !== getUserId(req)) {
+        return res.status(403).json({ message: "Cannot modify the main administrator" });
       }
       
       // Generate new random password
@@ -2481,6 +2498,11 @@ Instructions:
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Don't allow deleting the main admin
+      if (user.isMainAdmin) {
+        return res.status(403).json({ message: "Cannot delete the main administrator" });
       }
       
       await storage.deleteUser(userId);
