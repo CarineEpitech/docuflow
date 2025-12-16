@@ -117,7 +117,7 @@ export default function CompanyDocumentEditorPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="sticky top-0 z-20 bg-background border-b px-6 py-3 flex items-center gap-4">
+      <div className="sticky top-0 z-20 bg-background border-b px-6 pt-3 flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-to-docs">
           <ArrowLeft className="h-5 w-5" />
         </Button>
