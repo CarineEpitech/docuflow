@@ -137,7 +137,6 @@ export default function CrmPage() {
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
-    enabled: projectViewMode === "kanban",
   });
 
   const updateProjectStatusMutation = useMutation({
@@ -222,6 +221,9 @@ export default function CrmPage() {
             <TabsTrigger value="projects" className="gap-2" data-testid="tab-projects">
               <FolderKanban className="w-4 h-4" />
               Projects
+              {(allProjectsData?.total ?? crmProjectsData?.total) !== undefined && (
+                <Badge variant="secondary" className="ml-1">{allProjectsData?.total ?? crmProjectsData?.total}</Badge>
+              )}
             </TabsTrigger>
           </TabsList>
           {activeTab === "clients" && (
