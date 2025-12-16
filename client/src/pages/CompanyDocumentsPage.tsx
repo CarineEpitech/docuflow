@@ -52,8 +52,9 @@ import {
   ChevronRight,
   MoreVertical,
   Pencil,
-  ArrowLeft,
   FilePlus,
+  Home,
+  ArrowLeft,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { CompanyDocumentWithUploader, CompanyDocumentFolderWithCreator } from "@shared/schema";
@@ -383,13 +384,20 @@ export default function CompanyDocumentsPage() {
               <p className="text-sm text-muted-foreground mt-1">Company terms, policies, and important documents</p>
             )}
             {currentFolderId && (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                <button onClick={() => setCurrentFolderId(null)} className="hover:underline" data-testid="link-root">
-                  Company Documents
-                </button>
-                <ChevronRight className="h-4 w-4" />
-                <span>{currentFolder?.name}</span>
-              </div>
+              <nav className="flex items-center gap-1 text-sm mt-2" aria-label="Breadcrumb" data-testid="nav-breadcrumb">
+                <Button 
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentFolderId(null)} 
+                  className="gap-1.5 text-muted-foreground"
+                  data-testid="link-root"
+                >
+                  <Home className="h-4 w-4" />
+                  <span>Company Documents</span>
+                </Button>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+                <span className="text-sm font-medium text-foreground">{currentFolder?.name}</span>
+              </nav>
             )}
           </div>
         </div>
