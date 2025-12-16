@@ -12,6 +12,7 @@ DocuFlow is a Notion-like documentation application designed for organizing tech
 - Full-text search across projects and pages
 - AI-powered chatbot assistant (GPT-4.1-nano) with pgvector-based semantic search for unlimited documentation access
 - Company Documents page with folder organization, grid/list views, search, and file upload/text document creation
+- Automatic text extraction and embedding generation for uploaded files (PDF, Word, text files)
 - Dark mode support
 - Page templates (Client Project, Technical Solution)
 
@@ -125,6 +126,13 @@ Preferred communication style: Simple, everyday language.
 - Transcript embeddings stored in document_embeddings with metadata including transcriptId, videoProvider, projectName, breadcrumbs
 - Extraction methods: Fathom API (requires FATHOM_API_KEY) and Loom web scraping
 - Background processing for smooth UX with TranscriptStatusBanner showing real-time progress
+
+**Company Document Embeddings Table**
+- Stores vector embeddings for company documents (separate from project document embeddings)
+- Fields: id (UUID), companyDocumentId (FK), folderId (FK), chunkIndex (int), chunkText (text), contentHash (varchar), embedding (vector(1536)), metadata (JSONB), timestamps
+- Automatic embedding generation when company documents are created or updated
+- Supports text extraction from uploaded files: PDF (pdf-parse), Word (mammoth), and text files
+- Semantic search via cosine similarity for AI chatbot knowledge base
 
 **Object Storage**
 - **Google Cloud Storage** integration via `@google-cloud/storage`

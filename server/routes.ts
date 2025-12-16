@@ -34,6 +34,7 @@ import {
   retryTranscript,
 } from "./transcripts";
 import { sendWelcomeEmail, sendPasswordUpdateEmail } from "./email";
+import { extractTextFromFile, isSupportedForExtraction, isVideoFile } from "./contentExtraction";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
 function getOpenAIClient(): OpenAI {
@@ -1633,24 +1634,62 @@ Instructions:
         uploadedById: userId,
       });
       
-      // Generate embeddings for text documents
-      if (parsed.data.content) {
+      // Generate embeddings asynchronously (don't block response)
+      const generateEmbeddingsAsync = async () => {
         try {
           const folder = parsed.data.folderId 
             ? await storage.getCompanyDocumentFolder(parsed.data.folderId)
             : null;
-          await updateCompanyDocumentEmbeddings(
-            document.id,
-            parsed.data.folderId || null,
-            parsed.data.name,
-            parsed.data.content,
-            folder?.name || "Root",
-            parsed.data.mimeType
-          );
+          const folderName = folder?.name || "Root";
+          
+          let textContent: string | null = null;
+          
+          // For text documents with TipTap content
+          if (parsed.data.content) {
+            textContent = JSON.stringify(parsed.data.content);
+          }
+          // For uploaded files, extract text content
+          else if (parsed.data.storagePath && parsed.data.mimeType && parsed.data.fileName) {
+            if (isSupportedForExtraction(parsed.data.mimeType, parsed.data.fileName)) {
+              console.log(`[Embeddings] Extracting text from uploaded file: ${parsed.data.fileName}`);
+              const extraction = await extractTextFromFile(
+                parsed.data.storagePath,
+                parsed.data.mimeType,
+                parsed.data.fileName
+              );
+              
+              if (extraction.success && extraction.text) {
+                textContent = extraction.text;
+                console.log(`[Embeddings] Extracted ${textContent.length} characters from ${parsed.data.fileName}`);
+              } else if (extraction.error) {
+                console.log(`[Embeddings] Extraction warning for ${parsed.data.fileName}: ${extraction.error}`);
+              }
+            } else if (isVideoFile(parsed.data.mimeType, parsed.data.fileName)) {
+              console.log(`[Embeddings] Video file detected: ${parsed.data.fileName} - transcript extraction not yet implemented for direct uploads`);
+            } else {
+              console.log(`[Embeddings] Unsupported file type for extraction: ${parsed.data.mimeType}`);
+            }
+          }
+          
+          // Generate embeddings if we have content
+          if (textContent) {
+            await updateCompanyDocumentEmbeddings(
+              document.id,
+              parsed.data.folderId || null,
+              parsed.data.name,
+              { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: textContent }] }] },
+              folderName,
+              parsed.data.mimeType
+            );
+            console.log(`[Embeddings] Successfully generated embeddings for document: ${document.id}`);
+          }
         } catch (embeddingError) {
           console.error("Failed to generate company document embeddings:", embeddingError);
         }
-      }
+      };
+      
+      // Run async without blocking
+      generateEmbeddingsAsync();
       
       res.status(201).json(document);
     } catch (error) {
