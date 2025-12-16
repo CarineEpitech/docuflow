@@ -88,8 +88,9 @@ Preferred communication style: Simple, everyday language.
 
 **Users Table**
 - Stores Replit Auth user profile data
-- Fields: id (UUID), email, firstName, lastName, profileImageUrl, timestamps
+- Fields: id (UUID), email, firstName, lastName, profileImageUrl, role, isMainAdmin, timestamps
 - Automatic user upsert on login (onConflictDoUpdate)
+- Main admin protection: isMainAdmin field (integer, 0/1) prevents non-main admins from modifying main admin's info (edit, delete, reset password, role change)
 
 **Projects Table**
 - Top-level organizational containers
