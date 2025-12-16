@@ -242,12 +242,12 @@ function UserListPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Users className="w-5 h-5" />
             User Management
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm">
             View and manage all users. Create new users, update their info, or reset their passwords.
           </CardDescription>
         </CardHeader>
