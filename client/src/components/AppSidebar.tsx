@@ -191,7 +191,7 @@ export function AppSidebar() {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                {user?.email === "masdouk@techma.ca" && (
+                {user?.role === "admin" && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
