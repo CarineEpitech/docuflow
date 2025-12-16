@@ -105,7 +105,7 @@ export default function CrmPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
-  const [showAddClientDialog, setShowAddClientDialog] = useState(false);
+  const [, navigate] = useLocation();
   const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
   const [projectViewMode, setProjectViewMode] = useState<"table" | "kanban">("kanban");
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
@@ -172,20 +172,7 @@ export default function CrmPage() {
     },
   });
 
-  const createClientMutation = useMutation({
-    mutationFn: async (data: { name: string; email?: string | null; company?: string | null; status?: string; notes?: string | null }) => {
-      return apiRequest("POST", "/api/crm/clients", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
-      setShowAddClientDialog(false);
-      toast({ title: "Contact created" });
-    },
-    onError: () => {
-      toast({ title: "Failed to create contact", variant: "destructive" });
-    },
-  });
-
+  
   const deleteContactMutation = useMutation({
     mutationFn: async (contactId: string) => {
       await apiRequest("DELETE", `/api/crm/clients/${contactId}`);
@@ -227,7 +214,7 @@ export default function CrmPage() {
         </div>
         <div className="flex gap-2">
           {activeTab === "clients" && (
-            <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-contact">
+            <Button onClick={() => navigate("/crm/client/new")} data-testid="button-add-contact">
               <Plus className="w-4 h-4 mr-2" />
               New Contact
             </Button>
@@ -688,13 +675,7 @@ export default function CrmPage() {
         </TabsContent>
       </Tabs>
 
-      <AddClientDialog 
-        open={showAddClientDialog}
-        onClose={() => setShowAddClientDialog(false)}
-        onSubmit={(data) => createClientMutation.mutate(data)}
-        isLoading={createClientMutation.isPending}
-      />
-
+      
       <CreateProjectDialog
         open={showLinkProjectDialog}
         onClose={() => setShowLinkProjectDialog(false)}
@@ -745,136 +726,6 @@ export default function CrmPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
-
-const clientFormSchema = z.object({
-  name: z.string().min(1, "Full name is required"),
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
-  company: z.string().optional(),
-  status: z.string().default("lead"),
-  notes: z.string().optional(),
-});
-
-interface AddClientDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (data: { name: string; email?: string | null; company?: string | null; status?: string; notes?: string | null }) => void;
-  isLoading: boolean;
-}
-
-function AddClientDialog({ open, onClose, onSubmit, isLoading }: AddClientDialogProps) {
-  const form = useForm({
-    resolver: zodResolver(clientFormSchema),
-    defaultValues: { name: "", email: "", company: "", status: "lead", notes: "" },
-  });
-
-  const handleSubmit = (data: z.infer<typeof clientFormSchema>) => {
-    onSubmit({
-      name: data.name,
-      email: data.email || null,
-      company: data.company || null,
-      status: data.status,
-      notes: data.notes || null,
-    });
-    form.reset();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New Contact</DialogTitle>
-          <DialogDescription>Create a new contact to associate with projects</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Full Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Full name" data-testid="input-client-name" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input {...field} type="email" placeholder="contact@example.com" data-testid="input-client-email" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="company"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Company</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Company name (optional)" data-testid="input-client-company" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-client-status">
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {contactStatusOptions.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {contactStatusConfig[status]?.label || status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} placeholder="Additional notes (optional)" data-testid="textarea-client-notes" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel-client">Cancel</Button>
-              <Button type="submit" disabled={isLoading} data-testid="button-submit-client">
-                {isLoading ? "Creating..." : "Create Contact"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
   );
 }
 

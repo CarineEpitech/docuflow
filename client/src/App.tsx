@@ -15,6 +15,7 @@ import DocumentPage from "@/pages/DocumentPage";
 import CrmPage from "@/pages/CrmPage";
 import CrmProjectPage from "@/pages/CrmProjectPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
+import ContactCreatePage from "@/pages/ContactCreatePage";
 import DocumentationPage from "@/pages/DocumentationPage";
 import CompanyDocumentsPage from "@/pages/CompanyDocumentsPage";
 import CompanyDocumentEditorPage from "@/pages/CompanyDocumentEditorPage";
@@ -72,6 +73,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/crm" component={CrmPage} />
         <Route path="/crm/project/:id" component={CrmProjectPage} />
+        <Route path="/crm/client/new" component={ContactCreatePage} />
         <Route path="/crm/client/:id" component={ClientDetailPage} />
         <Route path="/documentation" component={DocumentationPage} />
         <Route path="/company-documents" component={CompanyDocumentsPage} />
