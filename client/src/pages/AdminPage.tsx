@@ -255,11 +255,11 @@ function UserListPage() {
           {!sortedUsers || sortedUsers.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No users found.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {sortedUsers.map((u) => (
                 <div
                   key={u.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
+                  className="flex items-center justify-between p-3 border rounded-lg"
                   data-testid={`row-user-${u.id}`}
                 >
                   {editingUser === u.id ? (
@@ -285,18 +285,18 @@ function UserListPage() {
                       />
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-10 h-10">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="w-8 h-8">
                         <AvatarImage src={u.profileImageUrl || undefined} />
-                        <AvatarFallback>
+                        <AvatarFallback className="text-xs">
                           {u.firstName?.[0]}{u.lastName?.[0]}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="font-medium">
+                        <div className="font-medium text-sm">
                           {u.firstName} {u.lastName}
                         </div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
                           <Mail className="w-3 h-3" />
                           {u.email}
                         </div>
