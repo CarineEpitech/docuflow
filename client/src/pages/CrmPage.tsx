@@ -422,19 +422,20 @@ export default function CrmPage() {
                         <th className="text-left p-4 font-medium">Start Date</th>
                         <th className="text-left p-4 font-medium">Due Date</th>
                         <th className="text-left p-4 font-medium">Finished</th>
+                        <th className="text-left p-4 font-medium">Days Diff</th>
                         <th className="text-right p-4 font-medium w-16"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {isLoading ? (
                         <tr>
-                          <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                          <td colSpan={9} className="p-8 text-center text-muted-foreground">
                             Loading projects...
                           </td>
                         </tr>
                       ) : !crmProjectsData?.data.length ? (
                         <tr>
-                          <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                          <td colSpan={9} className="p-8 text-center text-muted-foreground">
                             No projects found. Add your first project to get started.
                           </td>
                         </tr>
@@ -517,6 +518,35 @@ export default function CrmPage() {
                                   </span>
                                 </div>
                               ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {crmProject.dueDate && crmProject.actualFinishDate ? (() => {
+                                const dueDate = new Date(crmProject.dueDate);
+                                const actualDate = new Date(crmProject.actualFinishDate);
+                                const diffTime = dueDate.getTime() - actualDate.getTime();
+                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                if (diffDays > 0) {
+                                  return (
+                                    <Badge variant="default" className="text-xs">
+                                      {diffDays} days early
+                                    </Badge>
+                                  );
+                                } else if (diffDays < 0) {
+                                  return (
+                                    <Badge variant="destructive" className="text-xs">
+                                      {Math.abs(diffDays)} days late
+                                    </Badge>
+                                  );
+                                } else {
+                                  return (
+                                    <Badge variant="secondary" className="text-xs">
+                                      On time
+                                    </Badge>
+                                  );
+                                }
+                              })() : (
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
