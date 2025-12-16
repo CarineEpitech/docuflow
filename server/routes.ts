@@ -2239,6 +2239,22 @@ Instructions:
     }
   });
 
+  // Get single user details (admin only) - includes password info for admin viewing
+  app.get("/api/admin/users/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const user = await storage.getAdminUserDetails(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      // Return user without the hashed password but with the last generated password
+      const { password, ...userWithoutHash } = user;
+      res.json(userWithoutHash);
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+      res.status(500).json({ message: "Failed to fetch user details" });
+    }
+  });
+
   // Update user role (admin only)
   app.patch("/api/admin/users/:id/role", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
@@ -2288,12 +2304,13 @@ Instructions:
       const generatedPassword = randomBytes(8).toString('hex');
       const hashedPassword = await hashPassword(generatedPassword);
       
-      // Create user
+      // Create user with generated password stored for admin viewing
       const newUser = await storage.createUser({
         email: parsed.data.email,
         password: hashedPassword,
         firstName: parsed.data.firstName,
         lastName: parsed.data.lastName,
+        lastGeneratedPassword: generatedPassword,
       });
       
       // Update role if not default
@@ -2372,7 +2389,8 @@ Instructions:
       const newPassword = randomBytes(8).toString('hex');
       const hashedPassword = await hashPassword(newPassword);
       
-      await storage.updateUserPassword(req.params.id, hashedPassword);
+      // Update password and store the generated password for admin viewing
+      await storage.updateUserPassword(req.params.id, hashedPassword, newPassword);
       
       // Get app URL for email
       const protocol = req.headers['x-forwarded-proto'] || 'https';

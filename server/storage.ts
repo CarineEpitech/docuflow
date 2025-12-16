@@ -111,7 +111,8 @@ export interface IStorage {
   
   // Admin user management
   updateUser(userId: string, data: { firstName?: string; lastName?: string; email?: string }): Promise<SafeUser | undefined>;
-  updateUserPassword(userId: string, hashedPassword: string): Promise<SafeUser | undefined>;
+  updateUserPassword(userId: string, hashedPassword: string, plainPassword?: string): Promise<SafeUser | undefined>;
+  getAdminUserDetails(userId: string): Promise<User | undefined>;
   deleteUser(userId: string): Promise<void>;
   getUserWithPassword(userId: string): Promise<User | undefined>;
   
@@ -842,13 +843,22 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateUserPassword(userId: string, hashedPassword: string): Promise<SafeUser | undefined> {
+  async updateUserPassword(userId: string, hashedPassword: string, plainPassword?: string): Promise<SafeUser | undefined> {
+    const updateData: any = { password: hashedPassword, updatedAt: new Date() };
+    if (plainPassword) {
+      updateData.lastGeneratedPassword = plainPassword;
+    }
     const [updated] = await db
       .update(users)
-      .set({ password: hashedPassword, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  async getAdminUserDetails(userId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    return user;
   }
 
   async deleteUser(userId: string): Promise<void> {
