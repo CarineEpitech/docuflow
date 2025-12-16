@@ -1,11 +1,14 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus } from "lucide-react";
+import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus, Pencil, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,12 +38,22 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 
+const contactStatusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  lead: { label: "Lead", variant: "secondary" },
+  prospect: { label: "Prospect", variant: "outline" },
+  client: { label: "Client", variant: "default" },
+  client_recurrent: { label: "Client Récurrent", variant: "default" },
+};
+
+const contactStatusOptions = ["lead", "prospect", "client", "client_recurrent"];
+
 interface CrmClient {
   id: string;
   name: string;
   company: string | null;
   email: string | null;
   phone: string | null;
+  status: string | null;
   notes: string | null;
   ownerId: string;
   createdAt: string;
@@ -74,6 +87,15 @@ export default function ClientDetailPage() {
   const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
   const [selectedProjectToLink, setSelectedProjectToLink] = useState<string>("");
   const [projectsPage, setProjectsPage] = useState(1);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    company: "",
+    phone: "",
+    status: "lead",
+    notes: "",
+  });
 
   const { data: client, isLoading: clientLoading } = useQuery<CrmClient>({
     queryKey: ["/api/crm/clients", id],
@@ -157,6 +179,46 @@ export default function ClientDetailPage() {
     },
   });
 
+  const updateClientMutation = useMutation({
+    mutationFn: async (data: { name: string; email?: string | null; company?: string | null; phone?: string | null; status?: string; notes?: string | null }) => {
+      await apiRequest("PATCH", `/api/crm/clients/${id}`, data);
+    },
+    onSuccess: () => {
+      toast({ title: "Contact updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/clients", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
+      setShowEditDialog(false);
+    },
+    onError: () => {
+      toast({ title: "Failed to update contact", variant: "destructive" });
+    },
+  });
+
+  const openEditDialog = () => {
+    if (client) {
+      setEditForm({
+        name: client.name || "",
+        email: client.email || "",
+        company: client.company || "",
+        phone: client.phone || "",
+        status: client.status || "lead",
+        notes: client.notes || "",
+      });
+      setShowEditDialog(true);
+    }
+  };
+
+  const handleUpdateClient = () => {
+    updateClientMutation.mutate({
+      name: editForm.name,
+      email: editForm.email || null,
+      company: editForm.company || null,
+      phone: editForm.phone || null,
+      status: editForm.status,
+      notes: editForm.notes || null,
+    });
+  };
+
   if (clientLoading) {
     return (
       <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -192,11 +254,23 @@ export default function ClientDetailPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-contact-name">{client.name}</h1>
-          {client.company && (
-            <p className="text-muted-foreground" data-testid="text-client-company">{client.company}</p>
-          )}
+        <div className="flex items-center gap-3">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold" data-testid="text-contact-name">{client.name}</h1>
+              {client.status && (
+                <Badge 
+                  variant={contactStatusConfig[client.status]?.variant || "secondary"}
+                  data-testid="badge-contact-status"
+                >
+                  {contactStatusConfig[client.status]?.label || client.status}
+                </Badge>
+              )}
+            </div>
+            {client.company && (
+              <p className="text-muted-foreground" data-testid="text-client-company">{client.company}</p>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -206,6 +280,14 @@ export default function ClientDetailPage() {
             data-testid="button-back-to-crm"
           >
             <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={openEditDialog}
+            data-testid="button-edit-client"
+          >
+            <Pencil className="h-4 w-4" />
           </Button>
           <Button
             variant="destructive"
@@ -266,6 +348,19 @@ export default function ClientDetailPage() {
                 </div>
               </div>
             )}
+
+            <div className="flex items-start gap-3">
+              <Tag className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <Badge 
+                  variant={contactStatusConfig[client.status || "lead"]?.variant || "secondary"}
+                  data-testid="text-detail-status"
+                >
+                  {contactStatusConfig[client.status || "lead"]?.label || client.status || "Lead"}
+                </Badge>
+              </div>
+            </div>
 
             <div className="flex items-start gap-3">
               <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -455,6 +550,103 @@ export default function ClientDetailPage() {
               data-testid="button-confirm-link"
             >
               Link Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Contact Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Contact</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Full Name *</Label>
+              <Input
+                id="edit-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                placeholder="Contact name"
+                data-testid="input-edit-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                placeholder="email@example.com"
+                data-testid="input-edit-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-company">Company</Label>
+              <Input
+                id="edit-company"
+                value={editForm.company}
+                onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
+                placeholder="Company name"
+                data-testid="input-edit-company"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">Phone</Label>
+              <Input
+                id="edit-phone"
+                value={editForm.phone}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                placeholder="+1 234 567 8900"
+                data-testid="input-edit-phone"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-status">Status</Label>
+              <Select
+                value={editForm.status}
+                onValueChange={(value) => setEditForm({ ...editForm, status: value })}
+              >
+                <SelectTrigger data-testid="select-edit-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contactStatusOptions.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {contactStatusConfig[status]?.label || status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                placeholder="Additional notes about this contact..."
+                rows={3}
+                data-testid="input-edit-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditDialog(false)}
+              data-testid="button-cancel-edit"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateClient}
+              disabled={!editForm.name.trim() || updateClientMutation.isPending}
+              data-testid="button-save-edit"
+            >
+              {updateClientMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
