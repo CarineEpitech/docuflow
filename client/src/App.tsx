@@ -85,6 +85,7 @@ function Router() {
         <Route path="/project/:projectId" component={ProjectPage} />
         <Route path="/document/:documentId" component={DocumentPage} />
         <Route path="/admin" component={AdminPage} />
+        <Route path="/admin/create" component={AdminPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
