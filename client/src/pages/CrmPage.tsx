@@ -162,6 +162,7 @@ export default function CrmPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
       setShowLinkProjectDialog(false);
       toast({ title: "Project created" });
     },
