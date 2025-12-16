@@ -832,7 +832,7 @@ export async function registerRoutes(
           role: z.enum(["user", "assistant"]),
           content: z.string()
         })).optional(),
-        mode: z.enum(["projects", "company", "crm", "both"]).optional().default("both")
+        mode: z.enum(["projects", "company", "both"]).optional().default("both")
       });
       
       const parsed = chatSchema.safeParse(req.body);
@@ -1029,88 +1029,30 @@ export async function registerRoutes(
         }
       }
       
-      // Get CRM data if mode includes crm
-      let crmOverview = "";
-      if (mode === "crm" || mode === "both") {
-        const clients = await storage.getCrmClients(userId);
-        const crmProjects = await storage.getCrmProjects(userId);
-        
-        crmOverview = "# CRM Data\n\n";
-        
-        if (clients.length > 0) {
-          crmOverview += "## Clients\n\n";
-          for (const client of clients) {
-            const contacts = await storage.getCrmContacts(client.id);
-            crmOverview += `### ${client.name}\n`;
-            crmOverview += `- **Status:** ${client.status}\n`;
-            if (client.company) crmOverview += `- **Company:** ${client.company}\n`;
-            if (client.email) crmOverview += `- **Email:** ${client.email}\n`;
-            if (client.phone) crmOverview += `- **Phone:** ${client.phone}\n`;
-            if (client.notes) crmOverview += `- **Notes:** ${client.notes}\n`;
-            
-            if (contacts.length > 0) {
-              crmOverview += `- **Contacts (${contacts.length}):**\n`;
-              for (const contact of contacts) {
-                crmOverview += `  - ${contact.firstName} ${contact.lastName}`;
-                if (contact.role) crmOverview += ` (${contact.role})`;
-                if (contact.email) crmOverview += ` - ${contact.email}`;
-                crmOverview += `\n`;
-              }
-            }
-            crmOverview += "\n";
-          }
-        } else {
-          crmOverview += "## Clients\n(No clients found)\n\n";
-        }
-        
-        if (crmProjects.length > 0) {
-          crmOverview += "## CRM Projects\n\n";
-          for (const project of crmProjects) {
-            const client = clients.find(c => c.id === project.clientId);
-            crmOverview += `### ${project.name}\n`;
-            crmOverview += `- **Client:** ${client?.name || "Unknown"}\n`;
-            crmOverview += `- **Status:** ${project.status}\n`;
-            if (project.startDate) crmOverview += `- **Start Date:** ${project.startDate}\n`;
-            if (project.dueDate) crmOverview += `- **Due Date:** ${project.dueDate}\n`;
-            if (project.budget) crmOverview += `- **Budget:** $${project.budget}\n`;
-            if (project.description) crmOverview += `- **Description:** ${project.description}\n`;
-            crmOverview += "\n";
-          }
-        } else {
-          crmOverview += "## CRM Projects\n(No CRM projects found)\n\n";
-        }
-      }
-      
       // Build system message based on mode
       const modeDescription = mode === "projects" 
         ? "project documentation" 
         : mode === "company" 
           ? "company documents" 
-          : mode === "crm"
-            ? "CRM data (clients, contacts, and projects)"
-            : "project documentation, company documents, and CRM data";
+          : "both project documentation and company documents";
       
-      const systemMessage = `You are DocuFlow Assistant, a helpful AI that assists users with their documentation and CRM data. You currently have access to ${modeDescription}. When documents are created, updated, or deleted, the knowledge base is automatically updated.
+      const systemMessage = `You are DocuFlow Assistant, a helpful AI that assists users with their documentation. You currently have access to ${modeDescription}. When documents are created, updated, or deleted, the knowledge base is automatically updated.
 
 ${projectOverview}
 
 ${companyDocsOverview}
 
-${crmOverview}
-
 ${relevantContext || "No specific documentation found related to this query. The documentation may be empty or the question may not relate to existing content."}
 
 Instructions:
-- Answer questions based on the documentation and CRM data when the relevant content is shown above
-- You can reference specific pages, projects, folders, clients, contacts, and their content
+- Answer questions based on the documentation when the relevant content is shown above
+- You can reference specific pages, projects, folders, and their content
 - Help with documentation-related tasks like organizing content, suggesting improvements, or finding information
-- Help with CRM queries like finding client information, project statuses, or contact details
 - Be concise and helpful
 - If the relevant documentation section is empty or doesn't contain what was asked about, you can still help but clarify that the specific information wasn't found
-- When referencing documentation, be specific about which source (project page, company document, or CRM) the information comes from
+- When referencing documentation, be specific about which source (project page or company document) the information comes from
 - For questions about project documentation, reference the project and page names
-- For questions about company documents, reference the folder and document names
-- For questions about CRM, reference the client name, project name, or contact details`;
+- For questions about company documents, reference the folder and document names`;
 
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: "system", content: systemMessage },

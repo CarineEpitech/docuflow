@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, X, Loader2, Sparkles, FileText, Building2, Layers, Users } from "lucide-react";
+import { Bot, Send, X, Loader2, Sparkles, FileText, Building2, Layers } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Sheet,
@@ -19,7 +19,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-type ChatMode = "projects" | "company" | "crm" | "both";
+type ChatMode = "projects" | "company" | "both";
 
 interface Message {
   role: "user" | "assistant";
@@ -91,8 +91,7 @@ export function ChatBot() {
     switch (mode) {
       case "projects": return "Project Documentation";
       case "company": return "Company Documents";
-      case "crm": return "CRM Data";
-      case "both": return "All Sources";
+      case "both": return "All Documents";
     }
   };
 
@@ -100,8 +99,7 @@ export function ChatBot() {
     switch (mode) {
       case "projects": return "Searching project documentation only";
       case "company": return "Searching company documents only";
-      case "crm": return "Searching CRM clients, contacts, and projects";
-      case "both": return "Searching all documentation and CRM data";
+      case "both": return "Searching both project and company documents";
     }
   };
 
@@ -185,23 +183,6 @@ export function ChatBot() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ToggleGroupItem 
-                    value="crm" 
-                    size="sm" 
-                    className="flex-1 gap-1.5 text-xs"
-                    data-testid="toggle-mode-crm"
-                    aria-label="Search CRM data only"
-                  >
-                    <Users className="h-3.5 w-3.5" />
-                    CRM
-                  </ToggleGroupItem>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Search CRM clients, contacts, and projects</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <ToggleGroupItem 
                     value="both" 
                     size="sm" 
                     className="flex-1 gap-1.5 text-xs"
@@ -213,7 +194,7 @@ export function ChatBot() {
                   </ToggleGroupItem>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p>Search all documentation and CRM data</p>
+                  <p>Search all documentation sources</p>
                 </TooltipContent>
               </Tooltip>
             </ToggleGroup>
@@ -232,7 +213,7 @@ export function ChatBot() {
                   {getModeDescription()}. Ask me anything!
                 </p>
                 <div className="mt-4 space-y-2">
-                  {(mode === "projects" || mode === "both") && (
+                  {mode !== "company" && (
                     <>
                       <Button
                         variant="outline"
@@ -260,7 +241,7 @@ export function ChatBot() {
                       </Button>
                     </>
                   )}
-                  {(mode === "company" || mode === "both") && (
+                  {mode !== "projects" && (
                     <>
                       <Button
                         variant="outline"
@@ -274,35 +255,33 @@ export function ChatBot() {
                       >
                         What company documents are available?
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-left text-xs"
+                        onClick={() => {
+                          setInput("Find company policies");
+                          inputRef.current?.focus();
+                        }}
+                        data-testid="button-suggestion-policies"
+                      >
+                        Find company policies
+                      </Button>
                     </>
                   )}
-                  {(mode === "crm" || mode === "both") && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start text-left text-xs"
-                        onClick={() => {
-                          setInput("List all my clients");
-                          inputRef.current?.focus();
-                        }}
-                        data-testid="button-suggestion-clients"
-                      >
-                        List all my clients
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start text-left text-xs"
-                        onClick={() => {
-                          setInput("Show active CRM projects");
-                          inputRef.current?.focus();
-                        }}
-                        data-testid="button-suggestion-crm-projects"
-                      >
-                        Show active CRM projects
-                      </Button>
-                    </>
+                  {mode === "both" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start text-left text-xs"
+                      onClick={() => {
+                        setInput("Search all documents for ...");
+                        inputRef.current?.focus();
+                      }}
+                      data-testid="button-suggestion-search-all"
+                    >
+                      Search all documents
+                    </Button>
                   )}
                 </div>
               </div>
@@ -341,7 +320,7 @@ export function ChatBot() {
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={`Ask about ${mode === "projects" ? "project docs" : mode === "company" ? "company docs" : mode === "crm" ? "CRM data" : "anything"}...`}
+              placeholder={`Ask about ${mode === "projects" ? "project docs" : mode === "company" ? "company docs" : "your docs"}...`}
               disabled={chatMutation.isPending}
               className="flex-1"
               data-testid="input-chat-message"
