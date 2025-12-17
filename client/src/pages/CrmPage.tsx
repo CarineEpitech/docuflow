@@ -729,67 +729,70 @@ export default function CrmPage() {
                     onClick={() => setLocation(`/crm/client/${client.id}`)}
                     data-testid={`row-client-${client.id}`}
                   >
-                    <CardContent className="p-2.5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <User className="w-4 h-4 text-primary" />
+                    <CardContent className="px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <User className="w-3 h-3 text-primary" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <p className="font-medium truncate" data-testid={`text-client-name-${client.id}`}>
+                              <p className="text-sm font-medium truncate" data-testid={`text-client-name-${client.id}`}>
                                 {client.name}
                               </p>
                               {client.status && (
                                 <Badge 
                                   variant={contactStatusConfig[client.status]?.variant || "secondary"}
+                                  className="text-xs py-0"
                                   data-testid={`badge-client-status-${client.id}`}
                                 >
                                   {contactStatusConfig[client.status]?.label || client.status}
                                 </Badge>
                               )}
                             </div>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               {client.company && (
                                 <span className="flex items-center gap-1 truncate">
-                                  <Building2 className="w-3.5 h-3.5 shrink-0" />
+                                  <Building2 className="w-3 h-3 shrink-0" />
                                   {client.company}
                                 </span>
                               )}
                               {client.email && (
                                 <span className="flex items-center gap-1 truncate">
-                                  <Mail className="w-3.5 h-3.5 shrink-0" />
+                                  <Mail className="w-3 h-3 shrink-0" />
                                   {client.email}
                                 </span>
                               )}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0">
                           <span className="text-xs text-muted-foreground hidden sm:block">
                             {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : ""}
                           </span>
                           <Button
                             size="icon"
                             variant="ghost"
+                            className="w-7 h-7"
                             onClick={(e) => {
                               e.stopPropagation();
                               setDeleteContactId(client.id);
                             }}
                             data-testid={`button-delete-contact-${client.id}`}
                           >
-                            <Trash2 className="w-4 h-4 text-destructive" />
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
+                            className="w-7 h-7"
                             onClick={(e) => {
                               e.stopPropagation();
                               setLocation(`/crm/client/${client.id}`);
                             }}
                             data-testid={`button-view-contact-${client.id}`}
                           >
-                            <ChevronRight className="w-4 h-4" />
+                            <ChevronRight className="w-3.5 h-3.5" />
                           </Button>
                         </div>
                       </div>
