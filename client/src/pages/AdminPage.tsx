@@ -313,12 +313,13 @@ function UserListPage() {
                   )}
                   
                   <div className="flex items-center gap-2">
-                    <Badge variant={u.role === "admin" ? "default" : "secondary"}>
-                      {u.role || "user"}
-                    </Badge>
-                    {u.isMainAdmin === 1 && (
-                      <Badge variant="outline" className="border-primary text-primary">
+                    {u.isMainAdmin === 1 ? (
+                      <Badge className="bg-green-600 hover:bg-green-700 text-white">
                         SuperAdmin
+                      </Badge>
+                    ) : (
+                      <Badge variant={u.role === "admin" ? "default" : "secondary"}>
+                        {u.role || "user"}
                       </Badge>
                     )}
 
