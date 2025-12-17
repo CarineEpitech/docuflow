@@ -152,6 +152,7 @@ export default function CrmPage() {
   const updateProjectStatusMutation = useMutation({
     mutationFn: async ({ projectId, status }: { projectId: string; status: string }) => {
       await apiRequest("PATCH", `/api/crm/projects/${projectId}`, { status });
+      return { projectId };
     },
     onMutate: async ({ projectId, status }) => {
       await queryClient.cancelQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
@@ -169,7 +170,7 @@ export default function CrmPage() {
         });
       }
       
-      return { previousData };
+      return { previousData, projectId };
     },
     onError: (_err, _variables, context) => {
       if (context?.previousData) {
@@ -177,9 +178,10 @@ export default function CrmPage() {
       }
       toast({ title: "Failed to update project status", variant: "destructive" });
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", variables.projectId] });
     },
   });
 
