@@ -4,6 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useSearch } from "wouter";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -197,6 +198,26 @@ export default function CrmPage() {
     },
   });
 
+  const handleDragEnd = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+    
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId) return;
+    
+    const newStatus = destination.droppableId as CrmProjectStatus;
+    
+    updateProjectStatusMutation.mutate(
+      { projectId: draggableId, status: newStatus },
+      {
+        onSuccess: () => {
+          toast({ title: `Project moved to ${crmStatusConfig[newStatus].label}` });
+        },
+        onError: () => {
+          toast({ title: "Failed to update project status", variant: "destructive" });
+        },
+      }
+    );
+  };
 
   const totalPages = crmProjectsData ? Math.ceil(crmProjectsData.total / pageSize) : 0;
 
@@ -350,85 +371,105 @@ export default function CrmPage() {
 
         <TabsContent value="projects" className="space-y-4 mt-0">
           {projectViewMode === "kanban" ? (
-            <div className="overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              <div className="flex gap-4 min-w-max">
-                {statusOptions.map((status) => {
-                  const projectsInColumn = (allProjectsData?.data || []).filter(
-                    p => p.status === status && 
-                    (search === "" || p.project?.name.toLowerCase().includes(search.toLowerCase()))
-                  );
-                  return (
-                    <div
-                      key={status}
-                      className="w-72 flex-shrink-0"
-                      data-testid={`kanban-column-${status}`}
-                    >
-                      <div className="bg-muted/50 rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={crmStatusConfig[status].variant}>
-                              {crmStatusConfig[status].label}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {projectsInColumn.length}
-                            </span>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div className="flex gap-4 min-w-max">
+                  {statusOptions.map((status) => {
+                    const projectsInColumn = (allProjectsData?.data || []).filter(
+                      p => p.status === status && 
+                      (search === "" || p.project?.name.toLowerCase().includes(search.toLowerCase()))
+                    );
+                    return (
+                      <div
+                        key={status}
+                        className="w-72 flex-shrink-0"
+                        data-testid={`kanban-column-${status}`}
+                      >
+                        <div className="bg-muted/50 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={crmStatusConfig[status].variant}>
+                                {crmStatusConfig[status].label}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {projectsInColumn.length}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                        <div className="space-y-2 min-h-[100px]">
-                          {projectsInColumn.map((project) => (
-                            <Card
-                              key={project.id}
-                              className="hover-elevate cursor-pointer"
-                              onClick={() => setLocation(`/crm/project/${project.id}`)}
-                              data-testid={`kanban-card-${project.id}`}
-                            >
-                              <CardContent className="p-3">
-                                <div className="flex items-start gap-2">
-                                  <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0 opacity-50" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate">
-                                      {project.project?.name || "Unknown"}
-                                    </p>
-                                    {project.client && (
-                                      <p className="text-xs text-muted-foreground truncate mt-1">
-                                        {project.client.name}
-                                      </p>
-                                    )}
-                                    {project.dueDate && (
-                                      <p className={`text-xs mt-2 ${new Date(project.dueDate) < new Date() && project.status !== "finished" ? "text-destructive" : "text-muted-foreground"}`}>
-                                        Due: {format(new Date(project.dueDate), "MMM d")}
-                                      </p>
-                                    )}
-                                    {project.assignee && (
-                                      <div className="flex items-center gap-1.5 mt-2">
-                                        <Avatar className="w-5 h-5">
-                                          <AvatarImage src={project.assignee.profileImageUrl || undefined} />
-                                          <AvatarFallback className="text-[10px]">
-                                            {project.assignee.firstName?.[0]}{project.assignee.lastName?.[0]}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <span className="text-xs text-muted-foreground truncate">
-                                          {project.assignee.firstName}
-                                        </span>
+                          <Droppable droppableId={status}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                className={`space-y-2 min-h-[100px] rounded-md transition-colors ${snapshot.isDraggingOver ? "bg-muted/80" : ""}`}
+                              >
+                                {projectsInColumn.map((project, index) => (
+                                  <Draggable key={project.id} draggableId={project.id} index={index}>
+                                    {(provided, snapshot) => (
+                                      <div
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
+                                      >
+                                        <Card
+                                          className={`hover-elevate cursor-grab ${snapshot.isDragging ? "shadow-lg rotate-2" : ""}`}
+                                          onClick={() => !snapshot.isDragging && setLocation(`/crm/project/${project.id}`)}
+                                          data-testid={`kanban-card-${project.id}`}
+                                        >
+                                          <CardContent className="p-3">
+                                            <div className="flex items-start gap-2">
+                                              <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                                              <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-sm truncate">
+                                                  {project.project?.name || "Unknown"}
+                                                </p>
+                                                {project.client && (
+                                                  <p className="text-xs text-muted-foreground truncate mt-1">
+                                                    {project.client.name}
+                                                  </p>
+                                                )}
+                                                {project.dueDate && (
+                                                  <p className={`text-xs mt-2 ${new Date(project.dueDate) < new Date() && project.status !== "finished" ? "text-destructive" : "text-muted-foreground"}`}>
+                                                    Due: {format(new Date(project.dueDate), "MMM d")}
+                                                  </p>
+                                                )}
+                                                {project.assignee && (
+                                                  <div className="flex items-center gap-1.5 mt-2">
+                                                    <Avatar className="w-5 h-5">
+                                                      <AvatarImage src={project.assignee.profileImageUrl || undefined} />
+                                                      <AvatarFallback className="text-[10px]">
+                                                        {project.assignee.firstName?.[0]}{project.assignee.lastName?.[0]}
+                                                      </AvatarFallback>
+                                                    </Avatar>
+                                                    <span className="text-xs text-muted-foreground truncate">
+                                                      {project.assignee.firstName}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </CardContent>
+                                        </Card>
                                       </div>
                                     )}
+                                  </Draggable>
+                                ))}
+                                {provided.placeholder}
+                                {projectsInColumn.length === 0 && !snapshot.isDraggingOver && (
+                                  <div className="text-center py-4 text-xs text-muted-foreground">
+                                    No projects
                                   </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                          {projectsInColumn.length === 0 && (
-                            <div className="text-center py-4 text-xs text-muted-foreground">
-                              No projects
-                            </div>
-                          )}
+                                )}
+                              </div>
+                            )}
+                          </Droppable>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            </DragDropContext>
           ) : (
             <Card>
               <CardContent className="p-0">
