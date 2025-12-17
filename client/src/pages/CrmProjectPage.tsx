@@ -107,7 +107,7 @@ export default function CrmProjectPage() {
   });
 
   useEffect(() => {
-    if (project && !formData) {
+    if (project) {
       setFormData({
         status: project.status as CrmProjectStatus,
         clientId: project.clientId,
@@ -118,8 +118,9 @@ export default function CrmProjectPage() {
         comments: project.comments || "",
         documentationEnabled: project.documentationEnabled === 1,
       });
+      setHasChanges(false);
     }
-  }, [project, formData]);
+  }, [project]);
 
   const updateFormField = <K extends keyof NonNullable<typeof formData>>(
     field: K, 
