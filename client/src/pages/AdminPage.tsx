@@ -314,7 +314,7 @@ function UserListPage() {
                   
                   <div className="flex items-center gap-2">
                     {u.isMainAdmin === 1 ? (
-                      <Badge className="bg-green-600 hover:bg-green-700 text-white">
+                      <Badge variant="default">
                         SuperAdmin
                       </Badge>
                     ) : (
