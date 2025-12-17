@@ -651,3 +651,51 @@ export type InsertCrmProjectNote = z.infer<typeof insertCrmProjectNoteSchema>;
 export type CrmProjectNoteWithCreator = CrmProjectNote & {
   createdBy?: SafeUser;
 };
+
+// Notifications table - for user mention notifications
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 50 }).notNull().default("mention"),
+  noteId: varchar("note_id").references(() => crmProjectNotes.id, { onDelete: "cascade" }),
+  crmProjectId: varchar("crm_project_id").references(() => crmProjects.id, { onDelete: "cascade" }),
+  fromUserId: varchar("from_user_id").references(() => users.id, { onDelete: "set null" }),
+  message: text("message"),
+  isRead: integer("is_read").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_notifications_user").on(table.userId),
+  index("idx_notifications_unread").on(table.userId, table.isRead),
+]);
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+  fromUser: one(users, {
+    fields: [notifications.fromUserId],
+    references: [users.id],
+  }),
+  note: one(crmProjectNotes, {
+    fields: [notifications.noteId],
+    references: [crmProjectNotes.id],
+  }),
+  crmProject: one(crmProjects, {
+    fields: [notifications.crmProjectId],
+    references: [crmProjects.id],
+  }),
+}));
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+export type NotificationWithDetails = Notification & {
+  fromUser?: SafeUser;
+  crmProject?: { id: string; project?: { name: string } };
+};

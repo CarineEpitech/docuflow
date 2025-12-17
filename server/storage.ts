@@ -12,6 +12,7 @@ import {
   teams,
   teamMembers,
   teamInvites,
+  notifications,
   type User,
   type SafeUser,
   type InsertUser,
@@ -44,6 +45,9 @@ import {
   type InsertTeamInvite,
   type TeamInviteWithTeam,
   type TeamWithDetails,
+  type Notification,
+  type InsertNotification,
+  type NotificationWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, like, or, isNull, sql, gt, asc, count } from "drizzle-orm";
@@ -163,6 +167,13 @@ export interface IStorage {
   createCrmProjectNote(note: InsertCrmProjectNote): Promise<CrmProjectNote>;
   updateCrmProjectNote(id: string, data: Partial<InsertCrmProjectNote>): Promise<CrmProjectNote | undefined>;
   deleteCrmProjectNote(id: string): Promise<void>;
+  
+  // Notifications
+  getUserNotifications(userId: string): Promise<NotificationWithDetails[]>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationRead(id: string): Promise<void>;
+  markAllNotificationsRead(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1335,6 +1346,60 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCrmProjectNote(id: string): Promise<void> {
     await db.delete(crmProjectNotes).where(eq(crmProjectNotes.id, id));
+  }
+
+  async getUserNotifications(userId: string): Promise<NotificationWithDetails[]> {
+    const notifs = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(50);
+
+    if (!notifs.length) return [];
+
+    const fromUserIds = [...new Set(notifs.map(n => n.fromUserId).filter(Boolean))];
+    const crmProjectIds = [...new Set(notifs.map(n => n.crmProjectId).filter(Boolean))];
+
+    const fromUsersData = fromUserIds.length > 0 
+      ? await db.select().from(users).where(sql`${users.id} IN ${fromUserIds}`)
+      : [];
+    const fromUserMap = new Map(fromUsersData.map(u => [u.id, { id: u.id, email: u.email, firstName: u.firstName, lastName: u.lastName, profileImageUrl: u.profileImageUrl, role: u.role, isMainAdmin: u.isMainAdmin, lastGeneratedPassword: u.lastGeneratedPassword, createdAt: u.createdAt, updatedAt: u.updatedAt }]));
+
+    const projectsData = crmProjectIds.length > 0
+      ? await db.select().from(crmProjects).leftJoin(projects, eq(crmProjects.projectId, projects.id)).where(sql`${crmProjects.id} IN ${crmProjectIds}`)
+      : [];
+    const projectMap = new Map(projectsData.map(p => [p.crm_projects.id, { id: p.crm_projects.id, project: p.projects ? { name: p.projects.name } : undefined }]));
+
+    return notifs.map(n => ({
+      ...n,
+      fromUser: n.fromUserId ? fromUserMap.get(n.fromUserId) : undefined,
+      crmProject: n.crmProjectId ? projectMap.get(n.crmProjectId) : undefined,
+    }));
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: count() })
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, 0)));
+    return result?.count || 0;
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [newNotif] = await db.insert(notifications).values({
+      ...notification,
+      id: randomUUID(),
+    }).returning();
+    return newNotif;
+  }
+
+  async markNotificationRead(id: string): Promise<void> {
+    await db.update(notifications).set({ isRead: 1 }).where(eq(notifications.id, id));
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    await db.update(notifications).set({ isRead: 1 }).where(eq(notifications.userId, userId));
   }
 }
 
