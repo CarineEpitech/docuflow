@@ -432,8 +432,8 @@ export default function CrmPage() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-hidden">
-                  <table className="w-full table-fixed">
+                <div className="scrollbar-hidden">
+                  <table className="w-full min-w-[900px]">
                     <thead>
                       <tr className="border-b bg-muted/50">
                         <th className="text-left px-3 py-2 font-medium text-sm w-[15%]">Project</th>
@@ -744,8 +744,8 @@ export default function CrmPage() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-hidden">
-                  <table className="w-full table-fixed">
+                <div className="scrollbar-hidden">
+                  <table className="w-full min-w-[700px]">
                     <thead>
                       <tr className="border-b bg-muted/50">
                         <th className="text-left px-3 py-2 font-medium text-sm w-[20%]">Name</th>

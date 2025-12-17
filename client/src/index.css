@@ -310,6 +310,16 @@
     @apply hidden;
   }
 
+  /* Invisible scrollbar - allows scrolling but hides the scrollbar */
+  .scrollbar-hidden {
+    overflow-x: auto;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+
   [contenteditable][data-placeholder]:empty::before {
     content: attr(data-placeholder);
     color: hsl(var(--muted-foreground));
