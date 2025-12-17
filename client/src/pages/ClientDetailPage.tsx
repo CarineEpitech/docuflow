@@ -329,11 +329,11 @@ export default function ClientDetailPage() {
             <>
               <Button
                 variant="outline"
+                size="icon"
                 onClick={startEditing}
                 data-testid="button-edit-client"
               >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
+                <Pencil className="h-4 w-4" />
               </Button>
               <Button
                 variant="destructive"
