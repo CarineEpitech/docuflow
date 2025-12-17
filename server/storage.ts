@@ -6,6 +6,7 @@ import {
   crmProjects,
   crmClients,
   crmContacts,
+  crmProjectNotes,
   companyDocuments,
   companyDocumentFolders,
   teams,
@@ -25,6 +26,9 @@ import {
   type CrmContact,
   type InsertCrmContact,
   type CrmProjectWithDetails,
+  type CrmProjectNote,
+  type InsertCrmProjectNote,
+  type CrmProjectNoteWithCreator,
   type CompanyDocument,
   type InsertCompanyDocument,
   type CompanyDocumentWithUploader,
@@ -152,6 +156,13 @@ export interface IStorage {
   createTeamInvite(invite: InsertTeamInvite): Promise<TeamInvite>;
   useTeamInvite(code: string, userId: string): Promise<{ success: boolean; team?: Team; error?: string }>;
   deactivateTeamInvite(id: string): Promise<void>;
+  
+  // CRM Project Notes
+  getCrmProjectNotes(crmProjectId: string): Promise<CrmProjectNoteWithCreator[]>;
+  getCrmProjectLatestNote(crmProjectId: string): Promise<CrmProjectNoteWithCreator | undefined>;
+  createCrmProjectNote(note: InsertCrmProjectNote): Promise<CrmProjectNote>;
+  updateCrmProjectNote(id: string, data: Partial<InsertCrmProjectNote>): Promise<CrmProjectNote | undefined>;
+  deleteCrmProjectNote(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1224,6 +1235,63 @@ export class DatabaseStorage implements IStorage {
 
   async deactivateTeamInvite(id: string): Promise<void> {
     await db.update(teamInvites).set({ isActive: "false" }).where(eq(teamInvites.id, id));
+  }
+
+  // CRM Project Notes
+  async getCrmProjectNotes(crmProjectId: string): Promise<CrmProjectNoteWithCreator[]> {
+    const notes = await db
+      .select()
+      .from(crmProjectNotes)
+      .where(eq(crmProjectNotes.crmProjectId, crmProjectId))
+      .orderBy(desc(crmProjectNotes.createdAt));
+    
+    if (notes.length === 0) return [];
+    
+    const creatorIds = [...new Set(notes.map(n => n.createdById))];
+    const creatorsData = await db.select().from(users).where(or(...creatorIds.map(id => eq(users.id, id))));
+    const creatorMap = new Map(creatorsData.map(u => [u.id, { id: u.id, email: u.email, firstName: u.firstName, lastName: u.lastName, profileImageUrl: u.profileImageUrl, role: u.role, isMainAdmin: u.isMainAdmin, lastGeneratedPassword: u.lastGeneratedPassword, createdAt: u.createdAt, updatedAt: u.updatedAt }]));
+    
+    return notes.map(n => ({
+      ...n,
+      createdBy: creatorMap.get(n.createdById),
+    }));
+  }
+
+  async getCrmProjectLatestNote(crmProjectId: string): Promise<CrmProjectNoteWithCreator | undefined> {
+    const [note] = await db
+      .select()
+      .from(crmProjectNotes)
+      .where(eq(crmProjectNotes.crmProjectId, crmProjectId))
+      .orderBy(desc(crmProjectNotes.createdAt))
+      .limit(1);
+    
+    if (!note) return undefined;
+    
+    const [creator] = await db.select().from(users).where(eq(users.id, note.createdById));
+    const safeCreator = creator ? { id: creator.id, email: creator.email, firstName: creator.firstName, lastName: creator.lastName, profileImageUrl: creator.profileImageUrl, role: creator.role, isMainAdmin: creator.isMainAdmin, lastGeneratedPassword: creator.lastGeneratedPassword, createdAt: creator.createdAt, updatedAt: creator.updatedAt } : undefined;
+    
+    return { ...note, createdBy: safeCreator };
+  }
+
+  async createCrmProjectNote(note: InsertCrmProjectNote): Promise<CrmProjectNote> {
+    const [newNote] = await db.insert(crmProjectNotes).values({
+      ...note,
+      id: randomUUID(),
+    }).returning();
+    return newNote;
+  }
+
+  async updateCrmProjectNote(id: string, data: Partial<InsertCrmProjectNote>): Promise<CrmProjectNote | undefined> {
+    const [updated] = await db
+      .update(crmProjectNotes)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(crmProjectNotes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCrmProjectNote(id: string): Promise<void> {
+    await db.delete(crmProjectNotes).where(eq(crmProjectNotes.id, id));
   }
 }
 

@@ -1423,6 +1423,83 @@ Instructions:
     }
   });
 
+  // ==================== CRM Project Notes ====================
+
+  // Get notes for a CRM project
+  app.get("/api/crm/projects/:id/notes", isAuthenticated, async (req: any, res) => {
+    try {
+      const notes = await storage.getCrmProjectNotes(req.params.id);
+      res.json(notes);
+    } catch (error) {
+      console.error("Error fetching CRM project notes:", error);
+      res.status(500).json({ message: "Failed to fetch notes" });
+    }
+  });
+
+  // Create a note for a CRM project
+  app.post("/api/crm/projects/:id/notes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const createSchema = z.object({
+        content: z.string().min(1, "Note content is required"),
+        mentionedUserIds: z.array(z.string()).optional(),
+      });
+      
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const note = await storage.createCrmProjectNote({
+        crmProjectId: req.params.id,
+        content: parsed.data.content,
+        createdById: userId,
+        mentionedUserIds: parsed.data.mentionedUserIds || null,
+      });
+      
+      res.status(201).json(note);
+    } catch (error) {
+      console.error("Error creating CRM project note:", error);
+      res.status(500).json({ message: "Failed to create note" });
+    }
+  });
+
+  // Update a note
+  app.patch("/api/crm/projects/:projectId/notes/:noteId", isAuthenticated, async (req: any, res) => {
+    try {
+      const updateSchema = z.object({
+        content: z.string().min(1, "Note content is required").optional(),
+        mentionedUserIds: z.array(z.string()).optional().nullable(),
+      });
+      
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const note = await storage.updateCrmProjectNote(req.params.noteId, parsed.data);
+      if (!note) {
+        return res.status(404).json({ message: "Note not found" });
+      }
+      
+      res.json(note);
+    } catch (error) {
+      console.error("Error updating CRM project note:", error);
+      res.status(500).json({ message: "Failed to update note" });
+    }
+  });
+
+  // Delete a note
+  app.delete("/api/crm/projects/:projectId/notes/:noteId", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteCrmProjectNote(req.params.noteId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting CRM project note:", error);
+      res.status(500).json({ message: "Failed to delete note" });
+    }
+  });
+
   // Get all users for assignee dropdown
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {

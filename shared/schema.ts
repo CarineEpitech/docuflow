@@ -611,3 +611,42 @@ export type TeamWithDetails = Team & {
   members?: TeamMemberWithUser[];
   memberCount?: number;
 };
+
+// CRM Project Notes table - notes with user mentions for project updates
+export const crmProjectNotes = pgTable("crm_project_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  crmProjectId: varchar("crm_project_id").notNull().references(() => crmProjects.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdById: varchar("created_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  mentionedUserIds: text("mentioned_user_ids").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_project_notes_project").on(table.crmProjectId),
+  index("idx_crm_project_notes_created_by").on(table.createdById),
+]);
+
+export const crmProjectNotesRelations = relations(crmProjectNotes, ({ one }) => ({
+  crmProject: one(crmProjects, {
+    fields: [crmProjectNotes.crmProjectId],
+    references: [crmProjects.id],
+  }),
+  createdBy: one(users, {
+    fields: [crmProjectNotes.createdById],
+    references: [users.id],
+  }),
+}));
+
+export const insertCrmProjectNoteSchema = createInsertSchema(crmProjectNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CrmProjectNote = typeof crmProjectNotes.$inferSelect;
+export type InsertCrmProjectNote = z.infer<typeof insertCrmProjectNoteSchema>;
+
+// CRM Project Note with creator info
+export type CrmProjectNoteWithCreator = CrmProjectNote & {
+  createdBy?: SafeUser;
+};
