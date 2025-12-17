@@ -65,7 +65,7 @@ export async function sendWelcomeEmail(
           <p>Your account has been created. Here are your login credentials:</p>
           <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <p style="margin: 5px 0;"><strong>Email:</strong> ${toEmail}</p>
-            <p style="margin: 5px 0;"><strong>Temporary Password:</strong> ${password}</p>
+            <p style="margin: 5px 0;"><strong>Password:</strong> ${password}</p>
           </div>
           <p>Please log in and change your password as soon as possible for security.</p>
           <p>

@@ -26,7 +26,7 @@ const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "defau
   won_in_review: { label: "Won - In Review", variant: "outline" },
   won_completed: { label: "Won - Completed", variant: "default" },
   lost: { label: "Lost", variant: "destructive" },
-  cancelled: { label: "Cancelled", variant: "destructive" },
+  won_cancelled: { label: "Won-Cancelled", variant: "destructive" },
 };
 
 const statusOptions: CrmProjectStatus[] = [
@@ -39,7 +39,7 @@ const statusOptions: CrmProjectStatus[] = [
   "won_in_review",
   "won_completed",
   "lost",
-  "cancelled"
+  "won_cancelled"
 ];
 
 export default function ProjectCreatePage() {

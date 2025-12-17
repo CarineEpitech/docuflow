@@ -246,7 +246,7 @@ export const crmProjectStatusValues = [
   "won_in_review",
   "won_completed",
   "lost",
-  "cancelled"
+  "won_cancelled"
 ] as const;
 
 export type CrmProjectStatus = typeof crmProjectStatusValues[number];
