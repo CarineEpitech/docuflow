@@ -1457,6 +1457,20 @@ Instructions:
         mentionedUserIds: parsed.data.mentionedUserIds || null,
       });
       
+      // Create notifications for mentioned users (excluding the note author)
+      const mentionedUserIds = parsed.data.mentionedUserIds || [];
+      for (const mentionedUserId of mentionedUserIds) {
+        if (mentionedUserId !== userId) {
+          await storage.createNotification({
+            userId: mentionedUserId,
+            type: "mention",
+            noteId: note.id,
+            crmProjectId: req.params.id,
+            fromUserId: userId,
+          });
+        }
+      }
+      
       res.status(201).json(note);
     } catch (error) {
       console.error("Error creating CRM project note:", error);
@@ -1467,6 +1481,7 @@ Instructions:
   // Update a note
   app.patch("/api/crm/projects/:projectId/notes/:noteId", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = getUserId(req)!;
       const updateSchema = z.object({
         content: z.string().min(1, "Note content is required").optional(),
         mentionedUserIds: z.array(z.string()).optional().nullable(),
@@ -1477,9 +1492,30 @@ Instructions:
         return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
       }
       
+      // Get existing note to compare mentions
+      const existingNotes = await storage.getCrmProjectNotes(req.params.projectId);
+      const existingNote = existingNotes.find(n => n.id === req.params.noteId);
+      const oldMentions = existingNote?.mentionedUserIds || [];
+      
       const note = await storage.updateCrmProjectNote(req.params.noteId, parsed.data);
       if (!note) {
         return res.status(404).json({ message: "Note not found" });
+      }
+      
+      // Create notifications only for newly mentioned users
+      if (parsed.data.mentionedUserIds) {
+        const newMentions = parsed.data.mentionedUserIds.filter(id => !oldMentions.includes(id));
+        for (const mentionedUserId of newMentions) {
+          if (mentionedUserId !== userId) {
+            await storage.createNotification({
+              userId: mentionedUserId,
+              type: "mention",
+              noteId: note.id,
+              crmProjectId: req.params.projectId,
+              fromUserId: userId,
+            });
+          }
+        }
       }
       
       res.json(note);
@@ -2596,6 +2632,51 @@ Instructions:
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // ==================== Notifications ====================
+  
+  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const notifications = await storage.getUserNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const count = await storage.getUnreadNotificationCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ message: "Failed to fetch unread count" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.markNotificationRead(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification read:", error);
+      res.status(500).json({ message: "Failed to mark notification read" });
+    }
+  });
+
+  app.patch("/api/notifications/mark-all-read", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      await storage.markAllNotificationsRead(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all notifications read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications read" });
     }
   });
 
