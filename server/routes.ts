@@ -1467,6 +1467,7 @@ Instructions:
       const userId = getUserId(req)!;
       const createSchema = z.object({
         name: z.string().min(1, "Folder name is required"),
+        description: z.string().optional(),
       });
       
       const parsed = createSchema.safeParse(req.body);
@@ -1476,6 +1477,7 @@ Instructions:
       
       const folder = await storage.createCompanyDocumentFolder({
         name: parsed.data.name,
+        description: parsed.data.description || null,
         createdById: userId,
       });
       
@@ -1486,11 +1488,12 @@ Instructions:
     }
   });
 
-  // Update folder (rename)
+  // Update folder (rename/update)
   app.patch("/api/company-document-folders/:id", isAuthenticated, async (req: any, res) => {
     try {
       const updateSchema = z.object({
-        name: z.string().min(1, "Folder name is required"),
+        name: z.string().min(1, "Folder name is required").optional(),
+        description: z.string().optional().nullable(),
       });
       
       const parsed = updateSchema.safeParse(req.body);

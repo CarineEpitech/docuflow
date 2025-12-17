@@ -83,7 +83,11 @@ export default function ContactCreatePage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">New Contact</h1>
+          <p className="text-sm text-muted-foreground">Create a new contact in your CRM</p>
+        </div>
         <Button
           variant="outline"
           size="icon"
@@ -92,10 +96,6 @@ export default function ContactCreatePage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold">New Contact</h1>
-          <p className="text-sm text-muted-foreground">Create a new contact in your CRM</p>
-        </div>
       </div>
 
       <Card>

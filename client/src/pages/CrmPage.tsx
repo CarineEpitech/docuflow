@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -94,16 +94,29 @@ interface CrmProjectsResponse {
 export default function CrmPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const [activeTab, setActiveTab] = useState<string>("clients");
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [contactStatusFilter, setContactStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [, navigate] = useLocation();
   const [projectViewMode, setProjectViewMode] = useState<"table" | "kanban">("kanban");
+  const [contactViewMode, setContactViewMode] = useState<"cards" | "table">("cards");
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const pageSize = 10;
+
+  // Handle URL tab parameter
+  useEffect(() => {
+    if (!searchString) return;
+    const params = new URLSearchParams(searchString);
+    const tab = params.get("tab");
+    if (tab === "projects" || tab === "contacts" || tab === "clients") {
+      setActiveTab(tab === "contacts" ? "clients" : tab);
+    }
+  }, [searchString]);
 
   const { data: crmProjectsData, isLoading } = useQuery<CrmProjectsResponse>({
     queryKey: ["/api/crm/projects", page, pageSize, statusFilter !== "all" ? statusFilter : undefined, search || undefined],
@@ -143,12 +156,14 @@ export default function CrmPage() {
     },
   });
 
-  const filteredClients = clients.filter(client => 
-    clientSearch === "" || 
-    client.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    client.company?.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    client.email?.toLowerCase().includes(clientSearch.toLowerCase())
-  );
+  const filteredClients = clients.filter(client => {
+    const matchesSearch = clientSearch === "" || 
+      client.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+      client.company?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+      client.email?.toLowerCase().includes(clientSearch.toLowerCase());
+    const matchesStatus = contactStatusFilter === "all" || client.status === contactStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   
   const deleteContactMutation = useMutation({
@@ -228,16 +243,53 @@ export default function CrmPage() {
           </TabsList>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full sm:w-auto">
             {activeTab === "clients" && (
-              <div className="relative flex-1 sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search contacts..."
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  className="pl-9"
-                  data-testid="input-client-search"
-                />
-              </div>
+              <>
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search contacts..."
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-client-search"
+                  />
+                </div>
+                {contactViewMode === "table" && (
+                  <Select value={contactStatusFilter} onValueChange={(v) => setContactStatusFilter(v)}>
+                    <SelectTrigger className="w-[180px]" data-testid="select-contact-status-filter">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      {contactStatusOptions.map(status => (
+                        <SelectItem key={status} value={status}>
+                          {contactStatusConfig[status].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <div className="flex border rounded-md">
+                  <Button
+                    variant={contactViewMode === "cards" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setContactViewMode("cards")}
+                    className="rounded-r-none"
+                    data-testid="button-contact-cards-view"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={contactViewMode === "table" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setContactViewMode("table")}
+                    className="rounded-l-none"
+                    data-testid="button-contact-table-view"
+                  >
+                    <List className="w-4 h-4" />
+                  </Button>
+                </div>
+              </>
             )}
             {activeTab === "projects" && (
               <>
@@ -569,89 +621,198 @@ export default function CrmPage() {
         </TabsContent>
 
         <TabsContent value="clients" className="space-y-4 mt-0">
-          <div className="space-y-2">
-            {clientsLoading ? (
-              <Card>
-                <CardContent className="p-8 text-center text-muted-foreground">
-                  Loading contacts...
-                </CardContent>
-              </Card>
-            ) : filteredClients.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center text-muted-foreground">
-                  <User className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>{clients.length === 0 
-                    ? "No contacts yet. Add your first contact to get started."
-                    : "No contacts match your search."}</p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredClients.map((client) => (
-                <Card
-                  key={client.id}
-                  className="hover-elevate cursor-pointer transition-colors"
-                  onClick={() => setLocation(`/crm/client/${client.id}`)}
-                  data-testid={`row-client-${client.id}`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <User className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium truncate" data-testid={`text-client-name-${client.id}`}>
-                            {client.name}
-                          </p>
-                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                            {client.company && (
-                              <span className="flex items-center gap-1 truncate">
-                                <Building2 className="w-3.5 h-3.5 shrink-0" />
-                                {client.company}
-                              </span>
-                            )}
-                            {client.email && (
-                              <span className="flex items-center gap-1 truncate">
-                                <Mail className="w-3.5 h-3.5 shrink-0" />
-                                {client.email}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-muted-foreground hidden sm:block">
-                          {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : ""}
-                        </span>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteContactId(client.id);
-                          }}
-                          data-testid={`button-delete-contact-${client.id}`}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocation(`/crm/client/${client.id}`);
-                          }}
-                          data-testid={`button-view-contact-${client.id}`}
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
+          {contactViewMode === "cards" ? (
+            <div className="space-y-2">
+              {clientsLoading ? (
+                <Card>
+                  <CardContent className="p-8 text-center text-muted-foreground">
+                    Loading contacts...
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </div>
+              ) : filteredClients.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center text-muted-foreground">
+                    <User className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>{clients.length === 0 
+                      ? "No contacts yet. Add your first contact to get started."
+                      : "No contacts match your search."}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredClients.map((client) => (
+                  <Card
+                    key={client.id}
+                    className="hover-elevate cursor-pointer transition-colors"
+                    onClick={() => setLocation(`/crm/client/${client.id}`)}
+                    data-testid={`row-client-${client.id}`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <User className="w-5 h-5 text-primary" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium truncate" data-testid={`text-client-name-${client.id}`}>
+                                {client.name}
+                              </p>
+                              {client.status && (
+                                <Badge 
+                                  variant={contactStatusConfig[client.status]?.variant || "secondary"}
+                                  data-testid={`badge-client-status-${client.id}`}
+                                >
+                                  {contactStatusConfig[client.status]?.label || client.status}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                              {client.company && (
+                                <span className="flex items-center gap-1 truncate">
+                                  <Building2 className="w-3.5 h-3.5 shrink-0" />
+                                  {client.company}
+                                </span>
+                              )}
+                              {client.email && (
+                                <span className="flex items-center gap-1 truncate">
+                                  <Mail className="w-3.5 h-3.5 shrink-0" />
+                                  {client.email}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-muted-foreground hidden sm:block">
+                            {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : ""}
+                          </span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteContactId(client.id);
+                            }}
+                            data-testid={`button-delete-contact-${client.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLocation(`/crm/client/${client.id}`);
+                            }}
+                            data-testid={`button-view-contact-${client.id}`}
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-4 font-medium">Name</th>
+                        <th className="text-left p-4 font-medium">Company</th>
+                        <th className="text-left p-4 font-medium">Email</th>
+                        <th className="text-left p-4 font-medium">Status</th>
+                        <th className="text-left p-4 font-medium">Created</th>
+                        <th className="text-right p-4 font-medium w-16"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientsLoading ? (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                            Loading contacts...
+                          </td>
+                        </tr>
+                      ) : filteredClients.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                            {clients.length === 0 
+                              ? "No contacts yet. Add your first contact to get started."
+                              : "No contacts match your search."}
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredClients.map((client) => (
+                          <tr 
+                            key={client.id} 
+                            className="border-b hover-elevate cursor-pointer"
+                            onClick={() => setLocation(`/crm/client/${client.id}`)}
+                            data-testid={`row-client-table-${client.id}`}
+                          >
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                  <User className="w-4 h-4 text-primary" />
+                                </div>
+                                <span className="font-medium">{client.name}</span>
+                              </div>
+                            </td>
+                            <td className="p-4 text-muted-foreground">{client.company || "-"}</td>
+                            <td className="p-4 text-muted-foreground">{client.email || "-"}</td>
+                            <td className="p-4">
+                              {client.status ? (
+                                <Badge 
+                                  variant={contactStatusConfig[client.status]?.variant || "secondary"}
+                                  data-testid={`badge-client-table-status-${client.id}`}
+                                >
+                                  {contactStatusConfig[client.status]?.label || client.status}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-muted-foreground">
+                              {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : "-"}
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteContactId(client.id);
+                                  }}
+                                  data-testid={`button-delete-contact-table-${client.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLocation(`/crm/client/${client.id}`);
+                                  }}
+                                  data-testid={`button-view-contact-table-${client.id}`}
+                                >
+                                  <ChevronRight className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 

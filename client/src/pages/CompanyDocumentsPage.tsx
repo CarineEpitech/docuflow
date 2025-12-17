@@ -97,6 +97,7 @@ export default function CompanyDocumentsPage() {
   const [uploading, setUploading] = useState(false);
   
   const [folderName, setFolderName] = useState("");
+  const [folderDescription, setFolderDescription] = useState("");
   
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteType, setDeleteType] = useState<"document" | "folder">("document");
@@ -151,13 +152,14 @@ export default function CompanyDocumentsPage() {
 
   // Folder mutations
   const createFolderMutation = useMutation({
-    mutationFn: async (name: string) => {
-      return apiRequest("POST", "/api/company-document-folders", { name });
+    mutationFn: async ({ name, description }: { name: string; description?: string }) => {
+      return apiRequest("POST", "/api/company-document-folders", { name, description });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/company-document-folders"] });
       setShowFolderDialog(false);
       setFolderName("");
+      setFolderDescription("");
       toast({ title: "Folder created" });
     },
     onError: (error: Error) => {
@@ -321,13 +323,14 @@ export default function CompanyDocumentsPage() {
     if (editingFolder) {
       renameFolderMutation.mutate({ id: editingFolder.id, name: folderName.trim() });
     } else {
-      createFolderMutation.mutate(folderName.trim());
+      createFolderMutation.mutate({ name: folderName.trim(), description: folderDescription.trim() || undefined });
     }
   };
 
   const openRenameFolder = (folder: CompanyDocumentFolderWithCreator) => {
     setEditingFolder(folder);
     setFolderName(folder.name);
+    setFolderDescription("");
   };
 
   const openRenameDocument = (doc: CompanyDocumentWithUploader) => {
@@ -369,39 +372,37 @@ export default function CompanyDocumentsPage() {
     <div className="h-full py-6 px-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-3" data-testid="text-page-title">
+            <Building2 className="h-6 w-6 text-primary" />
+            {currentFolder ? currentFolder.name : "Company Documents"}
+          </h1>
+          {!currentFolderId && (
+            <p className="text-sm text-muted-foreground mt-1">Company terms, policies, and important documents</p>
+          )}
+          {currentFolderId && (
+            <nav className="flex items-center gap-1 text-sm mt-2" aria-label="Breadcrumb" data-testid="nav-breadcrumb">
+              <Button 
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentFolderId(null)} 
+                className="gap-1.5 text-muted-foreground"
+                data-testid="link-root"
+              >
+                <Home className="h-4 w-4" />
+                <span>Company Documents</span>
+              </Button>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+              <span className="text-sm font-medium text-foreground">{currentFolder?.name}</span>
+            </nav>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
           {currentFolderId && (
             <Button variant="ghost" size="icon" onClick={() => setCurrentFolderId(null)} data-testid="button-back">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
-          <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-3" data-testid="text-page-title">
-              <Building2 className="h-6 w-6 text-primary" />
-              {currentFolder ? currentFolder.name : "Company Documents"}
-            </h1>
-            {!currentFolderId && (
-              <p className="text-sm text-muted-foreground mt-1">Company terms, policies, and important documents</p>
-            )}
-            {currentFolderId && (
-              <nav className="flex items-center gap-1 text-sm mt-2" aria-label="Breadcrumb" data-testid="nav-breadcrumb">
-                <Button 
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentFolderId(null)} 
-                  className="gap-1.5 text-muted-foreground"
-                  data-testid="link-root"
-                >
-                  <Home className="h-4 w-4" />
-                  <span>Company Documents</span>
-                </Button>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
-                <span className="text-sm font-medium text-foreground">{currentFolder?.name}</span>
-              </nav>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -588,7 +589,7 @@ export default function CompanyDocumentsPage() {
       </Dialog>
 
       {/* Folder Dialog */}
-      <Dialog open={showFolderDialog || !!editingFolder} onOpenChange={(open) => { if (!open) { setShowFolderDialog(false); setEditingFolder(null); } }}>
+      <Dialog open={showFolderDialog || !!editingFolder} onOpenChange={(open) => { if (!open) { setShowFolderDialog(false); setEditingFolder(null); setFolderDescription(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingFolder ? "Rename Folder" : "Create Folder"}</DialogTitle>
@@ -598,9 +599,15 @@ export default function CompanyDocumentsPage() {
               <Label htmlFor="folder-name">Folder Name</Label>
               <Input id="folder-name" value={folderName} onChange={(e) => setFolderName(e.target.value)} placeholder="e.g., Policies" data-testid="input-folder-name" />
             </div>
+            {!editingFolder && (
+              <div className="space-y-2">
+                <Label htmlFor="folder-description">Description (optional)</Label>
+                <Textarea id="folder-description" value={folderDescription} onChange={(e) => setFolderDescription(e.target.value)} placeholder="Brief description of the folder contents..." rows={3} data-testid="input-folder-description" />
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowFolderDialog(false); setEditingFolder(null); }} data-testid="button-cancel-folder">Cancel</Button>
+            <Button variant="outline" onClick={() => { setShowFolderDialog(false); setEditingFolder(null); setFolderDescription(""); }} data-testid="button-cancel-folder">Cancel</Button>
             <Button onClick={handleFolderSubmit} disabled={!folderName.trim() || createFolderMutation.isPending || renameFolderMutation.isPending} data-testid="button-confirm-folder">
               {(createFolderMutation.isPending || renameFolderMutation.isPending) ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               {editingFolder ? "Rename" : "Create"}

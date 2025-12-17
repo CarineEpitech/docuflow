@@ -99,7 +99,11 @@ export default function ProjectCreatePage() {
 
   return (
     <div className="container max-w-2xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">New Project</h1>
+          <p className="text-sm text-muted-foreground">Add a new project to track in your CRM</p>
+        </div>
         <Button
           variant="outline"
           size="icon"
@@ -108,10 +112,6 @@ export default function ProjectCreatePage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold">New Project</h1>
-          <p className="text-sm text-muted-foreground">Add a new project to track in your CRM</p>
-        </div>
       </div>
 
       <Card>

@@ -235,16 +235,14 @@ export default function CrmProjectPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/crm")} data-testid="button-back">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold" data-testid="text-project-title">{project.project?.name}</h1>
-            <p className="text-sm text-muted-foreground">Project Details</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold" data-testid="text-project-title">{project.project?.name}</h1>
+          <p className="text-sm text-muted-foreground">Project Details</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setLocation("/crm?tab=projects")} data-testid="button-back">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           {formData?.documentationEnabled && (
             <Link href={`/project/${project.projectId}`}>
               <Button variant="outline" data-testid="button-view-docs">

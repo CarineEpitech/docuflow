@@ -100,31 +100,31 @@ export default function FileViewerPage() {
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-              <FileIcon className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold" data-testid="text-file-name">{document.name}</h1>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                {document.fileName && <span>{document.fileName}</span>}
-                {document.fileSize && <span>{formatFileSize(document.fileSize)}</span>}
-                {document.createdAt && (
-                  <span>Uploaded {format(new Date(document.createdAt), "MMM d, yyyy")}</span>
-                )}
-              </div>
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+            <FileIcon className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold" data-testid="text-file-name">{document.name}</h1>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {document.fileName && <span>{document.fileName}</span>}
+              {document.fileSize && <span>{formatFileSize(document.fileSize)}</span>}
+              {document.createdAt && (
+                <span>Uploaded {format(new Date(document.createdAt), "MMM d, yyyy")}</span>
+              )}
             </div>
           </div>
         </div>
-        {!isWordDoc && (
-          <Button onClick={handleDownload} data-testid="button-download">
-            <Download className="h-4 w-4 mr-2" />
-            Download
+        <div className="flex items-center gap-2">
+          {!isWordDoc && (
+            <Button onClick={handleDownload} data-testid="button-download">
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back">
+            <ArrowLeft className="h-5 w-5" />
           </Button>
-        )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto">

@@ -271,43 +271,41 @@ export default function ClientDetailPage() {
     <div className="p-6 space-y-6 w-full max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div>
+          {isEditing ? (
+            <Input
+              value={editForm.name}
+              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              placeholder="Contact name"
+              className="text-2xl font-bold h-auto py-1"
+              data-testid="input-edit-name"
+            />
+          ) : (
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold" data-testid="text-contact-name">{client.name}</h1>
+              {client.status && (
+                <Badge 
+                  variant={contactStatusConfig[client.status]?.variant || "secondary"}
+                  data-testid="badge-contact-status"
+                >
+                  {contactStatusConfig[client.status]?.label || client.status}
+                </Badge>
+              )}
+            </div>
+          )}
+          {!isEditing && client.company && (
+            <p className="text-muted-foreground" data-testid="text-client-company">{client.company}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="icon"
-            onClick={() => navigate("/crm")}
+            onClick={() => navigate("/crm?tab=contacts")}
             data-testid="button-back-to-crm"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            {isEditing ? (
-              <Input
-                value={editForm.name}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                placeholder="Contact name"
-                className="text-2xl font-bold h-auto py-1"
-                data-testid="input-edit-name"
-              />
-            ) : (
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold" data-testid="text-contact-name">{client.name}</h1>
-                {client.status && (
-                  <Badge 
-                    variant={contactStatusConfig[client.status]?.variant || "secondary"}
-                    data-testid="badge-contact-status"
-                  >
-                    {contactStatusConfig[client.status]?.label || client.status}
-                  </Badge>
-                )}
-              </div>
-            )}
-            {!isEditing && client.company && (
-              <p className="text-muted-foreground" data-testid="text-client-company">{client.company}</p>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
           {isEditing ? (
             <>
               <Button
