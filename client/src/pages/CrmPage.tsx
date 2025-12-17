@@ -435,17 +435,17 @@ export default function CrmPage() {
                 <div className="scrollbar-hidden">
                   <table className="w-full min-w-[900px]">
                     <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[15%]">Project</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[12%]">Client</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[10%]">Status</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[10%]">Assigned</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[9%]">Start</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[9%]">Due</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[9%]">Finished</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[8%]">Days</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[15%]">Last Note</th>
-                        <th className="text-right px-3 py-2 font-medium w-[3%]"></th>
+                      <tr className="border-b bg-muted/50 whitespace-nowrap">
+                        <th className="text-left px-3 py-2 font-medium text-sm">Project</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Client</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Status</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Assigned</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Start</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Due</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Finished</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Days</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Last Note</th>
+                        <th className="text-right px-3 py-2 font-medium w-10"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -465,28 +465,28 @@ export default function CrmPage() {
                         crmProjectsData?.data.map((crmProject) => (
                           <tr 
                             key={crmProject.id} 
-                            className="border-b hover-elevate cursor-pointer"
+                            className="border-b hover-elevate cursor-pointer whitespace-nowrap"
                             onClick={() => setLocation(`/crm/project/${crmProject.id}`)}
                             data-testid={`row-crm-project-${crmProject.id}`}
                           >
                             <td className="px-3 py-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="font-medium text-sm truncate">{crmProject.project?.name || "Unknown"}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-medium text-sm">{crmProject.project?.name || "Unknown"}</span>
                                 {crmProject.documentationEnabled === 1 && (
                                   <Link 
                                     href={`/project/${crmProject.projectId}`} 
                                     onClick={(e) => e.stopPropagation()}
                                   >
-                                    <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground shrink-0" />
+                                    <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
                                   </Link>
                                 )}
                               </div>
                             </td>
                             <td className="px-3 py-2">
                               {crmProject.client ? (
-                                <div className="flex items-center gap-1 min-w-0">
-                                  <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                  <span className="text-sm truncate">{crmProject.client.name}</span>
+                                <div className="flex items-center gap-1">
+                                  <User className="w-3.5 h-3.5 text-muted-foreground" />
+                                  <span className="text-sm">{crmProject.client.name}</span>
                                 </div>
                               ) : (
                                 <span className="text-muted-foreground text-sm">—</span>
@@ -499,14 +499,14 @@ export default function CrmPage() {
                             </td>
                             <td className="px-3 py-2">
                               {crmProject.assignee ? (
-                                <div className="flex items-center gap-1 min-w-0">
-                                  <Avatar className="w-5 h-5 shrink-0">
+                                <div className="flex items-center gap-1">
+                                  <Avatar className="w-5 h-5">
                                     <AvatarImage src={crmProject.assignee.profileImageUrl || undefined} />
                                     <AvatarFallback className="text-[10px]">
                                       {crmProject.assignee.firstName?.[0]}{crmProject.assignee.lastName?.[0]}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span className="text-sm truncate">{crmProject.assignee.firstName}</span>
+                                  <span className="text-sm">{crmProject.assignee.firstName}</span>
                                 </div>
                               ) : (
                                 <span className="text-muted-foreground text-sm">—</span>
@@ -586,7 +586,7 @@ export default function CrmPage() {
                                   <TooltipContent side="left" className="max-w-[300px]">
                                     <p className="text-sm whitespace-pre-wrap">{crmProject.latestNote.content}</p>
                                     <p className="text-xs text-muted-foreground mt-1">
-                                      — {crmProject.latestNote.createdBy?.firstName} {crmProject.latestNote.createdBy?.lastName}, {format(new Date(crmProject.latestNote.createdAt), "MMM d")}
+                                      — {crmProject.latestNote.createdBy?.firstName} {crmProject.latestNote.createdBy?.lastName}{crmProject.latestNote.createdAt ? `, ${format(new Date(crmProject.latestNote.createdAt), "MMM d")}` : ""}
                                     </p>
                                   </TooltipContent>
                                 </Tooltip>
@@ -747,13 +747,13 @@ export default function CrmPage() {
                 <div className="scrollbar-hidden">
                   <table className="w-full min-w-[700px]">
                     <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[20%]">Name</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[20%]">Company</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[25%]">Email</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[12%]">Status</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm w-[15%]">Created</th>
-                        <th className="text-right px-3 py-2 font-medium w-[8%]"></th>
+                      <tr className="border-b bg-muted/50 whitespace-nowrap">
+                        <th className="text-left px-3 py-2 font-medium text-sm">Name</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Company</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Email</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Status</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm">Created</th>
+                        <th className="text-right px-3 py-2 font-medium w-10"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -775,20 +775,20 @@ export default function CrmPage() {
                         filteredClients.map((client) => (
                           <tr 
                             key={client.id} 
-                            className="border-b hover-elevate cursor-pointer"
+                            className="border-b hover-elevate cursor-pointer whitespace-nowrap"
                             onClick={() => setLocation(`/crm/client/${client.id}`)}
                             data-testid={`row-client-table-${client.id}`}
                           >
                             <td className="px-3 py-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
                                   <User className="w-2.5 h-2.5 text-primary" />
                                 </div>
-                                <span className="font-medium text-sm truncate">{client.name}</span>
+                                <span className="font-medium text-sm">{client.name}</span>
                               </div>
                             </td>
-                            <td className="px-3 py-2 text-muted-foreground text-sm truncate">{client.company || "-"}</td>
-                            <td className="px-3 py-2 text-muted-foreground text-sm truncate">{client.email || "-"}</td>
+                            <td className="px-3 py-2 text-muted-foreground text-sm">{client.company || "-"}</td>
+                            <td className="px-3 py-2 text-muted-foreground text-sm">{client.email || "-"}</td>
                             <td className="px-3 py-2">
                               {client.status ? (
                                 <Badge 
