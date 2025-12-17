@@ -294,7 +294,7 @@ export default function CrmProjectPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-6 w-[80%] mx-auto">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-muted rounded w-1/3"></div>
           <div className="h-64 bg-muted rounded"></div>
@@ -305,7 +305,7 @@ export default function CrmProjectPage() {
 
   if (!project) {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-6 w-[80%] mx-auto">
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">Project not found</p>
@@ -322,7 +322,7 @@ export default function CrmProjectPage() {
   const selectedAssignee = users.find(u => u.id === formData?.assigneeId);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 w-[80%] mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-project-title">{project.project?.name}</h1>
