@@ -2412,11 +2412,11 @@ Instructions:
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Block non-main admins from viewing main admin details
+      // Block non-SuperAdmins from viewing SuperAdmin details
       const requesterId = getUserId(req);
       const requester = await storage.getUser(requesterId!);
       if (user.isMainAdmin && !requester?.isMainAdmin) {
-        return res.status(403).json({ message: "Cannot view main administrator details" });
+        return res.status(403).json({ message: "Cannot view SuperAdmin details" });
       }
       
       // Return user without the hashed password but with the last generated password
@@ -2431,10 +2431,10 @@ Instructions:
   // Update user role (admin only)
   app.patch("/api/admin/users/:id/role", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      // Check if target user is main admin
+      // Check if target user is SuperAdmin
       const targetUser = await storage.getUser(req.params.id);
       if (targetUser?.isMainAdmin && targetUser.id !== getUserId(req)) {
-        return res.status(403).json({ message: "Cannot modify the main administrator" });
+        return res.status(403).json({ message: "Cannot modify the SuperAdmin" });
       }
       
       const roleSchema = z.object({
@@ -2525,10 +2525,10 @@ Instructions:
   // Update user info (admin only)
   app.patch("/api/admin/users/:id", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      // Check if target user is main admin
+      // Check if target user is SuperAdmin
       const targetUser = await storage.getUser(req.params.id);
       if (targetUser?.isMainAdmin && targetUser.id !== getUserId(req)) {
-        return res.status(403).json({ message: "Cannot modify the main administrator" });
+        return res.status(403).json({ message: "Cannot modify the SuperAdmin" });
       }
       
       const updateUserSchema = z.object({
@@ -2570,9 +2570,9 @@ Instructions:
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Check if target user is main admin
+      // Check if target user is SuperAdmin
       if (user.isMainAdmin && user.id !== getUserId(req)) {
-        return res.status(403).json({ message: "Cannot modify the main administrator" });
+        return res.status(403).json({ message: "Cannot modify the SuperAdmin" });
       }
       
       // Generate new random password
@@ -2622,9 +2622,9 @@ Instructions:
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Don't allow deleting the main admin
+      // Don't allow deleting the SuperAdmin
       if (user.isMainAdmin) {
-        return res.status(403).json({ message: "Cannot delete the main administrator" });
+        return res.status(403).json({ message: "Cannot delete the SuperAdmin" });
       }
       
       await storage.deleteUser(userId);

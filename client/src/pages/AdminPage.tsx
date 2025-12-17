@@ -318,7 +318,7 @@ function UserListPage() {
                     </Badge>
                     {u.isMainAdmin === 1 && (
                       <Badge variant="outline" className="border-primary text-primary">
-                        Main
+                        SuperAdmin
                       </Badge>
                     )}
 
