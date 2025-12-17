@@ -153,7 +153,31 @@ export default function CrmPage() {
     mutationFn: async ({ projectId, status }: { projectId: string; status: string }) => {
       await apiRequest("PATCH", `/api/crm/projects/${projectId}`, { status });
     },
-    onSuccess: () => {
+    onMutate: async ({ projectId, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
+      
+      const previousData = queryClient.getQueryData<CrmProjectsResponse>(["/api/crm/projects/all-kanban"]);
+      
+      if (previousData) {
+        queryClient.setQueryData<CrmProjectsResponse>(["/api/crm/projects/all-kanban"], {
+          ...previousData,
+          data: previousData.data.map(project => 
+            project.id === projectId 
+              ? { ...project, status: status as CrmProjectStatus }
+              : project
+          ),
+        });
+      }
+      
+      return { previousData };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/crm/projects/all-kanban"], context.previousData);
+      }
+      toast({ title: "Failed to update project status", variant: "destructive" });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
     },
@@ -206,17 +230,7 @@ export default function CrmPage() {
     
     const newStatus = destination.droppableId as CrmProjectStatus;
     
-    updateProjectStatusMutation.mutate(
-      { projectId: draggableId, status: newStatus },
-      {
-        onSuccess: () => {
-          toast({ title: `Project moved to ${crmStatusConfig[newStatus].label}` });
-        },
-        onError: () => {
-          toast({ title: "Failed to update project status", variant: "destructive" });
-        },
-      }
-    );
+    updateProjectStatusMutation.mutate({ projectId: draggableId, status: newStatus });
   };
 
   const totalPages = crmProjectsData ? Math.ceil(crmProjectsData.total / pageSize) : 0;
