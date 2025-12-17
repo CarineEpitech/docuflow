@@ -378,6 +378,7 @@ export type CrmProjectWithDetails = CrmProject & {
   project?: Project;
   client?: CrmClient & { contacts?: CrmContact[] };
   assignee?: SafeUser;
+  latestNote?: CrmProjectNoteWithCreator;
 };
 
 // Company Document Folders table - folders for organizing company documents

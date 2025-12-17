@@ -655,18 +655,61 @@ export class DatabaseStorage implements IStorage {
       updatedAt: u.updatedAt,
     } as SafeUser]));
 
+    // Get latest notes for each CRM project
+    const crmProjectIds = crmProjectRows.map((cp) => cp.id);
+    const latestNotesMap = new Map<string, CrmProjectNoteWithCreator>();
+    
+    if (crmProjectIds.length > 0) {
+      // Get all notes and group by project, keeping only the latest
+      const allNotes = await db
+        .select()
+        .from(crmProjectNotes)
+        .where(or(...crmProjectIds.map(id => eq(crmProjectNotes.crmProjectId, id))))
+        .orderBy(desc(crmProjectNotes.createdAt));
+      
+      // Get unique creator IDs for notes
+      const noteCreatorIds = [...new Set(allNotes.map(n => n.createdById))];
+      const noteCreatorsData = noteCreatorIds.length > 0
+        ? await db.select().from(users).where(or(...noteCreatorIds.map(id => eq(users.id, id))))
+        : [];
+      const noteCreatorMap = new Map(noteCreatorsData.map(u => [u.id, {
+        id: u.id,
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        profileImageUrl: u.profileImageUrl,
+        role: u.role,
+        isMainAdmin: u.isMainAdmin,
+        lastGeneratedPassword: u.lastGeneratedPassword,
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt,
+      } as SafeUser]));
+      
+      // Keep only the latest note per project
+      allNotes.forEach(note => {
+        if (!latestNotesMap.has(note.crmProjectId)) {
+          latestNotesMap.set(note.crmProjectId, {
+            ...note,
+            createdBy: noteCreatorMap.get(note.createdById),
+          });
+        }
+      });
+    }
+
     // Build result with search filter if needed
     let data: CrmProjectWithDetails[] = crmProjectRows.map((cp) => {
       const project = projectMap.get(cp.projectId);
       const client = cp.clientId ? clientMap.get(cp.clientId) : undefined;
       const clientContacts = cp.clientId ? contactsByClient.get(cp.clientId) : undefined;
       const assignee = cp.assigneeId ? assigneeMap.get(cp.assigneeId) : undefined;
+      const latestNote = latestNotesMap.get(cp.id);
 
       return {
         ...cp,
         project,
         client: client ? { ...client, contacts: clientContacts } : undefined,
         assignee,
+        latestNote,
       };
     });
 

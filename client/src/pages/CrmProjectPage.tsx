@@ -35,7 +35,9 @@ import {
   FileText,
   Save,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Plus,
+  StickyNote
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
@@ -43,7 +45,8 @@ import type {
   CrmClient, 
   CrmContact, 
   SafeUser,
-  CrmProjectStatus
+  CrmProjectStatus,
+  CrmProjectNoteWithCreator
 } from "@shared/schema";
 
 const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -181,6 +184,73 @@ export default function CrmProjectPage() {
       toast({ title: "Failed to add contact", variant: "destructive" });
     },
   });
+
+  // Notes state and queries
+  const [newNoteContent, setNewNoteContent] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteContent, setEditNoteContent] = useState("");
+
+  const { data: notes = [], isLoading: notesLoading } = useQuery<CrmProjectNoteWithCreator[]>({
+    queryKey: ["/api/crm/projects", projectId, "notes"],
+    queryFn: async () => {
+      const res = await fetch(`/api/crm/projects/${projectId}/notes`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch notes");
+      return res.json();
+    },
+    enabled: !!projectId,
+  });
+
+  const createNoteMutation = useMutation({
+    mutationFn: async (data: { content: string; mentionedUserIds?: string[] }) => {
+      return apiRequest("POST", `/api/crm/projects/${projectId}/notes`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId, "notes"] });
+      setNewNoteContent("");
+      toast({ title: "Note added" });
+    },
+    onError: () => {
+      toast({ title: "Failed to add note", variant: "destructive" });
+    },
+  });
+
+  const updateNoteMutation = useMutation({
+    mutationFn: async ({ noteId, data }: { noteId: string; data: { content: string } }) => {
+      return apiRequest("PATCH", `/api/crm/projects/${projectId}/notes/${noteId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId, "notes"] });
+      setEditingNoteId(null);
+      setEditNoteContent("");
+      toast({ title: "Note updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update note", variant: "destructive" });
+    },
+  });
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      return apiRequest("DELETE", `/api/crm/projects/${projectId}/notes/${noteId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId, "notes"] });
+      toast({ title: "Note deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete note", variant: "destructive" });
+    },
+  });
+
+  const handleAddNote = () => {
+    if (!newNoteContent.trim()) return;
+    createNoteMutation.mutate({ content: newNoteContent.trim() });
+  };
+
+  const handleUpdateNote = (noteId: string) => {
+    if (!editNoteContent.trim()) return;
+    updateNoteMutation.mutate({ noteId, data: { content: editNoteContent.trim() } });
+  };
 
   const handleSave = () => {
     if (!formData) return;
@@ -559,6 +629,125 @@ export default function CrmProjectPage() {
 
             </>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Project Notes Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <StickyNote className="w-5 h-5" />
+            Notes
+          </CardTitle>
+          <CardDescription>Add notes and updates about this project</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Add Note Form */}
+          <div className="space-y-2">
+            <Textarea
+              placeholder="Add a note..."
+              value={newNoteContent}
+              onChange={(e) => setNewNoteContent(e.target.value)}
+              className="min-h-[80px]"
+              data-testid="textarea-new-note"
+            />
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={handleAddNote}
+                disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                data-testid="button-add-note"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                {createNoteMutation.isPending ? "Adding..." : "Add Note"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Notes List */}
+          <div className="space-y-3">
+            {notesLoading ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Loading notes...</p>
+            ) : notes.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No notes yet. Add the first note above.</p>
+            ) : (
+              notes.map((note) => (
+                <div key={note.id} className="bg-muted/30 rounded-lg p-3 space-y-2" data-testid={`note-${note.id}`}>
+                  {editingNoteId === note.id ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editNoteContent}
+                        onChange={(e) => setEditNoteContent(e.target.value)}
+                        className="min-h-[60px]"
+                        data-testid="textarea-edit-note"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingNoteId(null);
+                            setEditNoteContent("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleUpdateNote(note.id)}
+                          disabled={!editNoteContent.trim() || updateNoteMutation.isPending}
+                          data-testid="button-save-note"
+                        >
+                          {updateNoteMutation.isPending ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Avatar className="w-5 h-5">
+                            <AvatarImage src={note.createdBy?.profileImageUrl || undefined} />
+                            <AvatarFallback className="text-[10px]">
+                              {note.createdBy?.firstName?.[0]}{note.createdBy?.lastName?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{note.createdBy?.firstName} {note.createdBy?.lastName}</span>
+                          <span className="text-muted-foreground text-xs">
+                            {format(new Date(note.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="w-7 h-7"
+                            onClick={() => {
+                              setEditingNoteId(note.id);
+                              setEditNoteContent(note.content);
+                            }}
+                            data-testid={`button-edit-note-${note.id}`}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="w-7 h-7"
+                            onClick={() => deleteNoteMutation.mutate(note.id)}
+                            data-testid={`button-delete-note-${note.id}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{note.content}</p>
+                    </>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
 

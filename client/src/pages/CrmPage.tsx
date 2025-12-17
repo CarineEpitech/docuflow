@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Search, 
   Plus, 
@@ -39,7 +40,8 @@ import {
   LayoutGrid,
   List,
   GripVertical,
-  Trash2
+  Trash2,
+  StickyNote
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
@@ -430,31 +432,32 @@ export default function CrmPage() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="overflow-hidden">
+                  <table className="w-full table-fixed">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="text-left p-4 font-medium">Project</th>
-                        <th className="text-left p-4 font-medium">Client</th>
-                        <th className="text-left p-4 font-medium">Status</th>
-                        <th className="text-left p-4 font-medium">Assigned</th>
-                        <th className="text-left p-4 font-medium">Start Date</th>
-                        <th className="text-left p-4 font-medium">Due Date</th>
-                        <th className="text-left p-4 font-medium">Finished</th>
-                        <th className="text-left p-4 font-medium">Days Diff</th>
-                        <th className="text-right p-4 font-medium w-16"></th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[15%]">Project</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[12%]">Client</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[10%]">Status</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[10%]">Assigned</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[9%]">Start</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[9%]">Due</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[9%]">Finished</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[8%]">Days</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[15%]">Last Note</th>
+                        <th className="text-right px-3 py-2 font-medium w-[3%]"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {isLoading ? (
                         <tr>
-                          <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                          <td colSpan={10} className="p-8 text-center text-muted-foreground">
                             Loading projects...
                           </td>
                         </tr>
                       ) : !crmProjectsData?.data.length ? (
                         <tr>
-                          <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                          <td colSpan={10} className="p-8 text-center text-muted-foreground">
                             No projects found. Add your first project to get started.
                           </td>
                         </tr>
@@ -466,60 +469,60 @@ export default function CrmPage() {
                             onClick={() => setLocation(`/crm/project/${crmProject.id}`)}
                             data-testid={`row-crm-project-${crmProject.id}`}
                           >
-                            <td className="p-4">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{crmProject.project?.name || "Unknown"}</span>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="font-medium text-sm truncate">{crmProject.project?.name || "Unknown"}</span>
                                 {crmProject.documentationEnabled === 1 && (
                                   <Link 
                                     href={`/project/${crmProject.projectId}`} 
                                     onClick={(e) => e.stopPropagation()}
                                   >
-                                    <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                                    <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground shrink-0" />
                                   </Link>
                                 )}
                               </div>
                             </td>
-                            <td className="p-4">
+                            <td className="px-3 py-2">
                               {crmProject.client ? (
-                                <div className="flex items-center gap-2">
-                                  <User className="w-4 h-4 text-muted-foreground" />
-                                  <span>{crmProject.client.name}</span>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                  <span className="text-sm truncate">{crmProject.client.name}</span>
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground">No client</span>
+                                <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="p-4">
-                              <Badge variant={crmStatusConfig[crmProject.status as CrmProjectStatus].variant}>
+                            <td className="px-3 py-2">
+                              <Badge variant={crmStatusConfig[crmProject.status as CrmProjectStatus].variant} className="text-xs">
                                 {crmStatusConfig[crmProject.status as CrmProjectStatus].label}
                               </Badge>
                             </td>
-                            <td className="p-4">
+                            <td className="px-3 py-2">
                               {crmProject.assignee ? (
-                                <div className="flex items-center gap-2">
-                                  <Avatar className="w-6 h-6">
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <Avatar className="w-5 h-5 shrink-0">
                                     <AvatarImage src={crmProject.assignee.profileImageUrl || undefined} />
-                                    <AvatarFallback className="text-xs">
+                                    <AvatarFallback className="text-[10px]">
                                       {crmProject.assignee.firstName?.[0]}{crmProject.assignee.lastName?.[0]}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span className="text-sm">{crmProject.assignee.firstName} {crmProject.assignee.lastName}</span>
+                                  <span className="text-sm truncate">{crmProject.assignee.firstName}</span>
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground">Unassigned</span>
+                                <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="p-4">
+                            <td className="px-3 py-2">
                               {crmProject.startDate ? (
-                                <div className="flex items-center gap-1.5 text-sm">
-                                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                                <div className="flex items-center gap-1 text-sm">
+                                  <CalendarDays className="w-3 h-3 text-muted-foreground" />
                                   <span>{format(new Date(crmProject.startDate), "MMM d, yyyy")}</span>
                                 </div>
                               ) : (
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="p-4">
+                            <td className="px-3 py-2">
                               {crmProject.dueDate ? (
                                 <span className={new Date(crmProject.dueDate) < new Date() && crmProject.status !== "finished" ? "text-destructive text-sm" : "text-sm"}>
                                   {format(new Date(crmProject.dueDate), "MMM d, yyyy")}
@@ -528,10 +531,10 @@ export default function CrmPage() {
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="p-4">
+                            <td className="px-3 py-2">
                               {crmProject.actualFinishDate ? (
-                                <div className="flex items-center gap-1.5">
-                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                <div className="flex items-center gap-1">
+                                  <CheckCircle className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                                   <span className="text-sm text-green-600 dark:text-green-400">
                                     {format(new Date(crmProject.actualFinishDate), "MMM d, yyyy")}
                                   </span>
@@ -540,7 +543,7 @@ export default function CrmPage() {
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="p-4">
+                            <td className="px-3 py-2">
                               {crmProject.dueDate && crmProject.actualFinishDate ? (() => {
                                 const dueDate = new Date(crmProject.dueDate);
                                 const actualDate = new Date(crmProject.actualFinishDate);
@@ -549,13 +552,13 @@ export default function CrmPage() {
                                 if (diffDays > 0) {
                                   return (
                                     <Badge variant="default" className="text-xs">
-                                      {diffDays} days early
+                                      {diffDays}d early
                                     </Badge>
                                   );
                                 } else if (diffDays < 0) {
                                   return (
                                     <Badge variant="destructive" className="text-xs">
-                                      {Math.abs(diffDays)} days late
+                                      {Math.abs(diffDays)}d late
                                     </Badge>
                                   );
                                 } else {
@@ -569,17 +572,40 @@ export default function CrmPage() {
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="p-4 text-right">
+                            <td className="px-3 py-2 max-w-[200px]">
+                              {crmProject.latestNote ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1.5 cursor-default">
+                                      <StickyNote className="w-3 h-3 text-muted-foreground shrink-0" />
+                                      <span className="text-sm text-muted-foreground truncate">
+                                        {crmProject.latestNote.content.substring(0, 50)}{crmProject.latestNote.content.length > 50 ? "..." : ""}
+                                      </span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="left" className="max-w-[300px]">
+                                    <p className="text-sm whitespace-pre-wrap">{crmProject.latestNote.content}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      — {crmProject.latestNote.createdBy?.firstName} {crmProject.latestNote.createdBy?.lastName}, {format(new Date(crmProject.latestNote.createdAt), "MMM d")}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right">
                               <Button
                                 size="icon"
                                 variant="ghost"
+                                className="w-7 h-7"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setDeleteProjectId(crmProject.id);
                                 }}
                                 data-testid={`button-delete-project-${crmProject.id}`}
                               >
-                                <Trash2 className="w-4 h-4 text-destructive" />
+                                <Trash2 className="w-3.5 h-3.5 text-destructive" />
                               </Button>
                             </td>
                           </tr>
@@ -718,16 +744,16 @@ export default function CrmPage() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="overflow-hidden">
+                  <table className="w-full table-fixed">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="text-left p-4 font-medium">Name</th>
-                        <th className="text-left p-4 font-medium">Company</th>
-                        <th className="text-left p-4 font-medium">Email</th>
-                        <th className="text-left p-4 font-medium">Status</th>
-                        <th className="text-left p-4 font-medium">Created</th>
-                        <th className="text-right p-4 font-medium w-16"></th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[20%]">Name</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[20%]">Company</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[25%]">Email</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[12%]">Status</th>
+                        <th className="text-left px-3 py-2 font-medium text-sm w-[15%]">Created</th>
+                        <th className="text-right px-3 py-2 font-medium w-[8%]"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -753,54 +779,57 @@ export default function CrmPage() {
                             onClick={() => setLocation(`/crm/client/${client.id}`)}
                             data-testid={`row-client-table-${client.id}`}
                           >
-                            <td className="p-4">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                  <User className="w-4 h-4 text-primary" />
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                  <User className="w-2.5 h-2.5 text-primary" />
                                 </div>
-                                <span className="font-medium">{client.name}</span>
+                                <span className="font-medium text-sm truncate">{client.name}</span>
                               </div>
                             </td>
-                            <td className="p-4 text-muted-foreground">{client.company || "-"}</td>
-                            <td className="p-4 text-muted-foreground">{client.email || "-"}</td>
-                            <td className="p-4">
+                            <td className="px-3 py-2 text-muted-foreground text-sm truncate">{client.company || "-"}</td>
+                            <td className="px-3 py-2 text-muted-foreground text-sm truncate">{client.email || "-"}</td>
+                            <td className="px-3 py-2">
                               {client.status ? (
                                 <Badge 
                                   variant={contactStatusConfig[client.status]?.variant || "secondary"}
+                                  className="text-xs"
                                   data-testid={`badge-client-table-status-${client.id}`}
                                 >
                                   {contactStatusConfig[client.status]?.label || client.status}
                                 </Badge>
                               ) : (
-                                <span className="text-muted-foreground">-</span>
+                                <span className="text-muted-foreground text-sm">-</span>
                               )}
                             </td>
-                            <td className="p-4 text-muted-foreground">
+                            <td className="px-3 py-2 text-muted-foreground text-sm">
                               {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : "-"}
                             </td>
-                            <td className="p-4 text-right">
-                              <div className="flex items-center justify-end gap-1">
+                            <td className="px-3 py-2 text-right">
+                              <div className="flex items-center justify-end gap-0.5">
                                 <Button
                                   size="icon"
                                   variant="ghost"
+                                  className="w-7 h-7"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setDeleteContactId(client.id);
                                   }}
                                   data-testid={`button-delete-contact-table-${client.id}`}
                                 >
-                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
                                 </Button>
                                 <Button
                                   size="icon"
                                   variant="ghost"
+                                  className="w-7 h-7"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setLocation(`/crm/client/${client.id}`);
                                   }}
                                   data-testid={`button-view-contact-table-${client.id}`}
                                 >
-                                  <ChevronRight className="w-4 h-4" />
+                                  <ChevronRight className="w-3.5 h-3.5" />
                                 </Button>
                               </div>
                             </td>
