@@ -50,6 +50,7 @@ import type {
   CrmProjectStatus,
   CrmProjectNoteWithCreator
 } from "@shared/schema";
+import { UserMentionSelect } from "@/components/UserMentionSelect";
 
 const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   lead: { label: "Lead", variant: "secondary" },
@@ -267,22 +268,6 @@ export default function CrmProjectPage() {
         mentionedUserIds: editNoteMentions.length > 0 ? editNoteMentions : undefined
       } 
     });
-  };
-
-  const toggleUserMention = (userId: string, isEdit: boolean = false) => {
-    if (isEdit) {
-      setEditNoteMentions(prev => 
-        prev.includes(userId) 
-          ? prev.filter(id => id !== userId)
-          : [...prev, userId]
-      );
-    } else {
-      setNewNoteMentions(prev => 
-        prev.includes(userId) 
-          ? prev.filter(id => id !== userId)
-          : [...prev, userId]
-      );
-    }
   };
 
   const handleSave = () => {
@@ -685,28 +670,12 @@ export default function CrmProjectPage() {
               data-testid="textarea-new-note"
             />
             {/* User mentions */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <AtSign className="w-4 h-4" />
-                <span>Tag users:</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {users.map((user) => (
-                  <Button
-                    key={user.id}
-                    type="button"
-                    variant={newNoteMentions.includes(user.id) ? "default" : "outline"}
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => toggleUserMention(user.id, false)}
-                    data-testid={`button-mention-user-${user.id}`}
-                  >
-                    {user.firstName} {user.lastName}
-                    {newNoteMentions.includes(user.id) && <X className="w-3 h-3 ml-1" />}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            <UserMentionSelect
+              users={users}
+              selectedUserIds={newNoteMentions}
+              onSelectionChange={setNewNoteMentions}
+              testIdPrefix="new-note-mention"
+            />
             <div className="flex justify-end">
               <Button
                 size="sm"
@@ -738,27 +707,12 @@ export default function CrmProjectPage() {
                         data-testid="textarea-edit-note"
                       />
                       {/* Edit user mentions */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <AtSign className="w-4 h-4" />
-                          <span>Tag users:</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {users.map((user) => (
-                            <Button
-                              key={user.id}
-                              type="button"
-                              variant={editNoteMentions.includes(user.id) ? "default" : "outline"}
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() => toggleUserMention(user.id, true)}
-                            >
-                              {user.firstName} {user.lastName}
-                              {editNoteMentions.includes(user.id) && <X className="w-3 h-3 ml-1" />}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
+                      <UserMentionSelect
+                        users={users}
+                        selectedUserIds={editNoteMentions}
+                        onSelectionChange={setEditNoteMentions}
+                        testIdPrefix="edit-note-mention"
+                      />
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="outline"

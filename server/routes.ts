@@ -2661,7 +2661,8 @@ Instructions:
 
   app.patch("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.markNotificationRead(req.params.id);
+      const userId = getUserId(req)!;
+      await storage.markNotificationRead(req.params.id, userId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error marking notification read:", error);
