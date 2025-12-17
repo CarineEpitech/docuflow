@@ -729,11 +729,11 @@ export default function CrmPage() {
                     onClick={() => setLocation(`/crm/client/${client.id}`)}
                     data-testid={`row-client-${client.id}`}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <User className="w-5 h-5 text-primary" />
+                    <CardContent className="p-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <User className="w-4 h-4 text-primary" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
