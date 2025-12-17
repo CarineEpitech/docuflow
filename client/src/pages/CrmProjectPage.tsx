@@ -37,7 +37,9 @@ import {
   Clock,
   CheckCircle,
   Plus,
-  StickyNote
+  StickyNote,
+  AtSign,
+  X
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
@@ -187,8 +189,10 @@ export default function CrmProjectPage() {
 
   // Notes state and queries
   const [newNoteContent, setNewNoteContent] = useState("");
+  const [newNoteMentions, setNewNoteMentions] = useState<string[]>([]);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteContent, setEditNoteContent] = useState("");
+  const [editNoteMentions, setEditNoteMentions] = useState<string[]>([]);
 
   const { data: notes = [], isLoading: notesLoading } = useQuery<CrmProjectNoteWithCreator[]>({
     queryKey: ["/api/crm/projects", projectId, "notes"],
@@ -206,7 +210,9 @@ export default function CrmProjectPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId, "notes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId] });
       setNewNoteContent("");
+      setNewNoteMentions([]);
       toast({ title: "Note added" });
     },
     onError: () => {
@@ -215,13 +221,15 @@ export default function CrmProjectPage() {
   });
 
   const updateNoteMutation = useMutation({
-    mutationFn: async ({ noteId, data }: { noteId: string; data: { content: string } }) => {
+    mutationFn: async ({ noteId, data }: { noteId: string; data: { content: string; mentionedUserIds?: string[] } }) => {
       return apiRequest("PATCH", `/api/crm/projects/${projectId}/notes/${noteId}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId, "notes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId] });
       setEditingNoteId(null);
       setEditNoteContent("");
+      setEditNoteMentions([]);
       toast({ title: "Note updated" });
     },
     onError: () => {
@@ -244,12 +252,37 @@ export default function CrmProjectPage() {
 
   const handleAddNote = () => {
     if (!newNoteContent.trim()) return;
-    createNoteMutation.mutate({ content: newNoteContent.trim() });
+    createNoteMutation.mutate({ 
+      content: newNoteContent.trim(),
+      mentionedUserIds: newNoteMentions.length > 0 ? newNoteMentions : undefined
+    });
   };
 
   const handleUpdateNote = (noteId: string) => {
     if (!editNoteContent.trim()) return;
-    updateNoteMutation.mutate({ noteId, data: { content: editNoteContent.trim() } });
+    updateNoteMutation.mutate({ 
+      noteId, 
+      data: { 
+        content: editNoteContent.trim(),
+        mentionedUserIds: editNoteMentions.length > 0 ? editNoteMentions : undefined
+      } 
+    });
+  };
+
+  const toggleUserMention = (userId: string, isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditNoteMentions(prev => 
+        prev.includes(userId) 
+          ? prev.filter(id => id !== userId)
+          : [...prev, userId]
+      );
+    } else {
+      setNewNoteMentions(prev => 
+        prev.includes(userId) 
+          ? prev.filter(id => id !== userId)
+          : [...prev, userId]
+      );
+    }
   };
 
   const handleSave = () => {
@@ -643,7 +676,7 @@ export default function CrmProjectPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Add Note Form */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Textarea
               placeholder="Add a note..."
               value={newNoteContent}
@@ -651,6 +684,29 @@ export default function CrmProjectPage() {
               className="min-h-[80px]"
               data-testid="textarea-new-note"
             />
+            {/* User mentions */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <AtSign className="w-4 h-4" />
+                <span>Tag users:</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {users.map((user) => (
+                  <Button
+                    key={user.id}
+                    type="button"
+                    variant={newNoteMentions.includes(user.id) ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => toggleUserMention(user.id, false)}
+                    data-testid={`button-mention-user-${user.id}`}
+                  >
+                    {user.firstName} {user.lastName}
+                    {newNoteMentions.includes(user.id) && <X className="w-3 h-3 ml-1" />}
+                  </Button>
+                ))}
+              </div>
+            </div>
             <div className="flex justify-end">
               <Button
                 size="sm"
@@ -674,13 +730,35 @@ export default function CrmProjectPage() {
               notes.map((note) => (
                 <div key={note.id} className="bg-muted/30 rounded-lg p-3 space-y-2" data-testid={`note-${note.id}`}>
                   {editingNoteId === note.id ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Textarea
                         value={editNoteContent}
                         onChange={(e) => setEditNoteContent(e.target.value)}
                         className="min-h-[60px]"
                         data-testid="textarea-edit-note"
                       />
+                      {/* Edit user mentions */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <AtSign className="w-4 h-4" />
+                          <span>Tag users:</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {users.map((user) => (
+                            <Button
+                              key={user.id}
+                              type="button"
+                              variant={editNoteMentions.includes(user.id) ? "default" : "outline"}
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => toggleUserMention(user.id, true)}
+                            >
+                              {user.firstName} {user.lastName}
+                              {editNoteMentions.includes(user.id) && <X className="w-3 h-3 ml-1" />}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="outline"
@@ -688,6 +766,7 @@ export default function CrmProjectPage() {
                           onClick={() => {
                             setEditingNoteId(null);
                             setEditNoteContent("");
+                            setEditNoteMentions([]);
                           }}
                         >
                           Cancel
@@ -714,7 +793,7 @@ export default function CrmProjectPage() {
                           </Avatar>
                           <span className="font-medium">{note.createdBy?.firstName} {note.createdBy?.lastName}</span>
                           <span className="text-muted-foreground text-xs">
-                            {format(new Date(note.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                            {note.createdAt ? format(new Date(note.createdAt), "MMM d, yyyy 'at' h:mm a") : ""}
                           </span>
                         </div>
                         <div className="flex items-center gap-0.5">
@@ -725,6 +804,7 @@ export default function CrmProjectPage() {
                             onClick={() => {
                               setEditingNoteId(note.id);
                               setEditNoteContent(note.content);
+                              setEditNoteMentions(note.mentionedUserIds || []);
                             }}
                             data-testid={`button-edit-note-${note.id}`}
                           >
@@ -742,6 +822,22 @@ export default function CrmProjectPage() {
                         </div>
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{note.content}</p>
+                      {/* Display mentioned users */}
+                      {note.mentionedUserIds && note.mentionedUserIds.length > 0 && (
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <AtSign className="w-3 h-3 text-muted-foreground" />
+                          <div className="flex flex-wrap gap-1">
+                            {note.mentionedUserIds.map((userId) => {
+                              const mentionedUser = users.find(u => u.id === userId);
+                              return mentionedUser ? (
+                                <Badge key={userId} variant="secondary" className="text-xs h-5">
+                                  {mentionedUser.firstName} {mentionedUser.lastName}
+                                </Badge>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
