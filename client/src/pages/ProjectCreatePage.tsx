@@ -59,8 +59,7 @@ export default function ProjectCreatePage() {
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null }) => {
-      const res = await apiRequest("POST", "/api/crm/projects", data);
-      return res.json();
+      return apiRequest("POST", "/api/crm/projects", data);
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
