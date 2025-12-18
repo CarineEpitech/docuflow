@@ -62,13 +62,13 @@ export default function ProjectCreatePage() {
       const res = await apiRequest("POST", "/api/crm/projects", data);
       return res.json();
     },
-    onSuccess: (newProject) => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       toast({
         title: "Project Created",
         description: "The project has been created successfully.",
       });
-      navigate(`/crm/project/${newProject.id}`);
+      navigate(`/crm/project/${response.crmProject.id}`);
     },
     onError: (error: Error) => {
       toast({
