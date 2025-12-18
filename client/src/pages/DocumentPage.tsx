@@ -118,76 +118,71 @@ export default function DocumentPage() {
   };
 
   const handleImageUpload = useCallback(async (): Promise<string | null> => {
-    try {
-      // Get presigned upload URL
-      const response = await apiRequest("POST", "/api/objects/upload");
-      const { uploadURL } = response as { uploadURL: string };
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.style.display = "none";
+      document.body.appendChild(input);
       
-      return new Promise((resolve) => {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "image/*";
-        input.style.display = "none";
-        document.body.appendChild(input);
-        
-        const cleanup = () => {
-          try {
-            if (input.parentNode) {
-              input.parentNode.removeChild(input);
-            }
-          } catch (e) {
-            // Ignore cleanup errors
+      const cleanup = () => {
+        try {
+          if (input.parentNode) {
+            input.parentNode.removeChild(input);
           }
-        };
-        
-        input.onchange = async (e) => {
-          const file = (e.target as HTMLInputElement).files?.[0];
-          if (!file) {
-            cleanup();
-            resolve(null);
-            return;
-          }
-
-          try {
-            // Upload directly to storage
-            await fetch(uploadURL, {
-              method: "PUT",
-              body: file,
-              headers: {
-                "Content-Type": file.type,
-              },
-            });
-
-            // Register image and get final path
-            const updateResponse = await apiRequest("PUT", "/api/document-images", {
-              imageURL: uploadURL,
-            }) as { objectPath: string };
-
-            toast({ 
-              title: "Image uploaded", 
-              description: "Image added to your document",
-            });
-            cleanup();
-            resolve(updateResponse.objectPath);
-          } catch (error) {
-            toast({ title: "Failed to upload image", variant: "destructive" });
-            cleanup();
-            resolve(null);
-          }
-        };
-        
-        // Handle cancel (user closes file picker without selecting)
-        input.addEventListener("cancel", () => {
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      };
+      
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) {
           cleanup();
           resolve(null);
-        });
-        
-        input.click();
+          return;
+        }
+
+        try {
+          // Get presigned upload URL AFTER file is selected
+          const response = await apiRequest("POST", "/api/objects/upload");
+          const { uploadURL } = response as { uploadURL: string };
+          
+          // Upload directly to storage
+          await fetch(uploadURL, {
+            method: "PUT",
+            body: file,
+            headers: {
+              "Content-Type": file.type,
+            },
+          });
+
+          // Register image and get final path
+          const updateResponse = await apiRequest("PUT", "/api/document-images", {
+            imageURL: uploadURL,
+          }) as { objectPath: string };
+
+          toast({ 
+            title: "Image uploaded", 
+            description: "Image added to your document",
+          });
+          cleanup();
+          resolve(updateResponse.objectPath);
+        } catch (error) {
+          toast({ title: "Failed to upload image", variant: "destructive" });
+          cleanup();
+          resolve(null);
+        }
+      };
+      
+      // Handle cancel (user closes file picker without selecting)
+      input.addEventListener("cancel", () => {
+        cleanup();
+        resolve(null);
       });
-    } catch (error) {
-      toast({ title: "Failed to get upload URL", variant: "destructive" });
-      return null;
-    }
+      
+      input.click();
+    });
   }, [toast]);
 
   if (authLoading || documentLoading) {
