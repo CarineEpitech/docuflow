@@ -386,71 +386,75 @@ export default function CompanyDocumentsPage() {
   const folderToDelete = folders.find(f => f.id === deleteConfirmId);
 
   return (
-    <div className="h-full py-6 px-6">
+    <div className="h-full py-4 px-4 sm:py-6 sm:px-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-3" data-testid="text-page-title">
-            <Building2 className="h-6 w-6 text-primary" />
-            {currentFolder ? currentFolder.name : "Company Documents"}
-          </h1>
-          {!currentFolderId && (
-            <p className="text-sm text-muted-foreground mt-1">Company terms, policies, and important documents</p>
-          )}
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-semibold flex items-center gap-2 sm:gap-3" data-testid="text-page-title">
+              <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+              <span className="truncate">{currentFolder ? currentFolder.name : "Company Documents"}</span>
+            </h1>
+            {!currentFolderId && (
+              <p className="text-sm text-muted-foreground mt-1 hidden sm:block">Company terms, policies, and important documents</p>
+            )}
+            {currentFolderId && (
+              <nav className="flex items-center gap-1 text-sm mt-2 flex-wrap" aria-label="Breadcrumb" data-testid="nav-breadcrumb">
+                <Button 
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentFolderId(null)} 
+                  className="gap-1.5 text-muted-foreground"
+                  data-testid="link-root"
+                >
+                  <Home className="h-4 w-4" />
+                  <span className="hidden sm:inline">Company Documents</span>
+                </Button>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+                <span className="text-sm font-medium text-foreground truncate max-w-[150px] sm:max-w-none">{currentFolder?.name}</span>
+              </nav>
+            )}
+          </div>
           {currentFolderId && (
-            <nav className="flex items-center gap-1 text-sm mt-2" aria-label="Breadcrumb" data-testid="nav-breadcrumb">
-              <Button 
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentFolderId(null)} 
-                className="gap-1.5 text-muted-foreground"
-                data-testid="link-root"
-              >
-                <Home className="h-4 w-4" />
-                <span>Company Documents</span>
-              </Button>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
-              <span className="text-sm font-medium text-foreground">{currentFolder?.name}</span>
-            </nav>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {currentFolderId && (
-            <Button variant="ghost" size="icon" onClick={() => setCurrentFolderId(null)} data-testid="button-back">
+            <Button variant="ghost" size="icon" onClick={() => setCurrentFolderId(null)} className="shrink-0 sm:hidden" data-testid="button-back">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
-          <div className="relative">
+        </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="relative flex-1 sm:flex-initial sm:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-64"
+              className="pl-9 w-full"
               data-testid="input-search"
             />
           </div>
-          <Button variant="outline" size="icon" onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")} data-testid="button-view-toggle">
-            {viewMode === "grid" ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
-          </Button>
-          {!currentFolderId && !searchQuery && (
-            <Button variant="outline" onClick={() => { setFolderName(""); setEditingFolder(null); setShowFolderDialog(true); }} data-testid="button-new-folder">
-              <Folder className="h-4 w-4 mr-2" />
-              New Folder
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="icon" onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")} data-testid="button-view-toggle">
+              {viewMode === "grid" ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
             </Button>
-          )}
-          {currentFolderId && (
-            <>
-              <Button variant="outline" onClick={() => { setDocumentName(""); setDocumentDescription(""); setShowCreateDocDialog(true); }} data-testid="button-create-document">
-                <FilePlus className="h-4 w-4 mr-2" />
-                Create Document
+            {!currentFolderId && !searchQuery && (
+              <Button variant="outline" onClick={() => { setFolderName(""); setEditingFolder(null); setShowFolderDialog(true); }} data-testid="button-new-folder">
+                <Folder className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">New Folder</span>
               </Button>
-              <Button onClick={() => { setDocumentDescription(""); setSelectedFiles([]); setShowUploadDialog(true); }} data-testid="button-upload-document">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Files
-              </Button>
-            </>
-          )}
+            )}
+            {currentFolderId && (
+              <>
+                <Button variant="outline" onClick={() => { setDocumentName(""); setDocumentDescription(""); setShowCreateDocDialog(true); }} data-testid="button-create-document">
+                  <FilePlus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Create Document</span>
+                </Button>
+                <Button onClick={() => { setDocumentDescription(""); setSelectedFiles([]); setShowUploadDialog(true); }} data-testid="button-upload-document">
+                  <Upload className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Upload Files</span>
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -552,7 +556,7 @@ export default function CompanyDocumentsPage() {
 
       {/* Upload Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg sm:w-full">
           <DialogHeader>
             <DialogTitle>Upload Files</DialogTitle>
           </DialogHeader>
@@ -596,9 +600,9 @@ export default function CompanyDocumentsPage() {
               <Textarea id="description" value={documentDescription} onChange={(e) => setDocumentDescription(e.target.value)} placeholder="Brief description..." rows={2} data-testid="input-document-description" />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUploadDialog(false)} disabled={uploading} data-testid="button-cancel-upload">Cancel</Button>
-            <Button onClick={handleUpload} disabled={uploading || selectedFiles.length === 0} data-testid="button-confirm-upload">
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowUploadDialog(false)} disabled={uploading} className="w-full sm:w-auto" data-testid="button-cancel-upload">Cancel</Button>
+            <Button onClick={handleUpload} disabled={uploading || selectedFiles.length === 0} className="w-full sm:w-auto" data-testid="button-confirm-upload">
               {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="h-4 w-4 mr-2" />Upload {selectedFiles.length > 0 && `(${selectedFiles.length})`}</>}
             </Button>
           </DialogFooter>
@@ -607,7 +611,7 @@ export default function CompanyDocumentsPage() {
 
       {/* Create Document Dialog */}
       <Dialog open={showCreateDocDialog} onOpenChange={setShowCreateDocDialog}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle>Create Document</DialogTitle>
           </DialogHeader>
@@ -621,9 +625,9 @@ export default function CompanyDocumentsPage() {
               <Textarea id="doc-description" value={documentDescription} onChange={(e) => setDocumentDescription(e.target.value)} placeholder="Brief description..." rows={3} data-testid="input-create-doc-description" />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDocDialog(false)} data-testid="button-cancel-create-doc">Cancel</Button>
-            <Button onClick={handleCreateDoc} disabled={!documentName.trim() || createDocMutation.isPending} data-testid="button-confirm-create-doc">
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowCreateDocDialog(false)} className="w-full sm:w-auto" data-testid="button-cancel-create-doc">Cancel</Button>
+            <Button onClick={handleCreateDoc} disabled={!documentName.trim() || createDocMutation.isPending} className="w-full sm:w-auto" data-testid="button-confirm-create-doc">
               {createDocMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating...</> : <><FilePlus className="h-4 w-4 mr-2" />Create</>}
             </Button>
           </DialogFooter>
@@ -632,7 +636,7 @@ export default function CompanyDocumentsPage() {
 
       {/* Folder Dialog */}
       <Dialog open={showFolderDialog || !!editingFolder} onOpenChange={(open) => { if (!open) { setShowFolderDialog(false); setEditingFolder(null); setFolderDescription(""); } }}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle>{editingFolder ? "Rename Folder" : "Create Folder"}</DialogTitle>
           </DialogHeader>
@@ -648,9 +652,9 @@ export default function CompanyDocumentsPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowFolderDialog(false); setEditingFolder(null); setFolderDescription(""); }} data-testid="button-cancel-folder">Cancel</Button>
-            <Button onClick={handleFolderSubmit} disabled={!folderName.trim() || createFolderMutation.isPending || renameFolderMutation.isPending} data-testid="button-confirm-folder">
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => { setShowFolderDialog(false); setEditingFolder(null); setFolderDescription(""); }} className="w-full sm:w-auto" data-testid="button-cancel-folder">Cancel</Button>
+            <Button onClick={handleFolderSubmit} disabled={!folderName.trim() || createFolderMutation.isPending || renameFolderMutation.isPending} className="w-full sm:w-auto" data-testid="button-confirm-folder">
               {(createFolderMutation.isPending || renameFolderMutation.isPending) ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               {editingFolder ? "Rename" : "Create"}
             </Button>
@@ -680,7 +684,7 @@ export default function CompanyDocumentsPage() {
 
       {/* Rename Document Dialog */}
       <Dialog open={!!editingDocument} onOpenChange={(open) => { if (!open) { setEditingDocument(null); setNewDocumentName(""); } }}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle>Rename Document</DialogTitle>
           </DialogHeader>
@@ -690,9 +694,9 @@ export default function CompanyDocumentsPage() {
               <Input id="rename-doc-name" value={newDocumentName} onChange={(e) => setNewDocumentName(e.target.value)} placeholder="Document name" data-testid="input-rename-document" />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setEditingDocument(null); setNewDocumentName(""); }} data-testid="button-cancel-rename-doc">Cancel</Button>
-            <Button onClick={handleRenameDocument} disabled={!newDocumentName.trim() || renameDocumentMutation.isPending} data-testid="button-confirm-rename-doc">
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => { setEditingDocument(null); setNewDocumentName(""); }} className="w-full sm:w-auto" data-testid="button-cancel-rename-doc">Cancel</Button>
+            <Button onClick={handleRenameDocument} disabled={!newDocumentName.trim() || renameDocumentMutation.isPending} className="w-full sm:w-auto" data-testid="button-confirm-rename-doc">
               {renameDocumentMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Rename
             </Button>

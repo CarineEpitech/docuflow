@@ -228,8 +228,8 @@ function UserListPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Shield className="w-6 h-6 text-primary" />
           <div>
@@ -237,7 +237,7 @@ function UserListPage() {
             <p className="text-sm text-muted-foreground">Manage users and system settings</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button onClick={() => setLocation("/admin/create")} data-testid="button-create-user">
             <Plus className="w-4 h-4 mr-2" />
             Create User
@@ -267,11 +267,11 @@ function UserListPage() {
               {paginatedUsers.map((u) => (
                 <div
                   key={u.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
+                  className="flex flex-col gap-3 p-3 border rounded-lg sm:flex-row sm:items-center sm:justify-between"
                   data-testid={`row-user-${u.id}`}
                 >
                   {editingUser === u.id ? (
-                    <div className="flex-1 grid grid-cols-3 gap-4 mr-4">
+                    <div className="flex-1 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4 sm:mr-4">
                       <Input
                         value={editForm.firstName}
                         onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
@@ -312,7 +312,7 @@ function UserListPage() {
                     </div>
                   )}
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {u.isMainAdmin === 1 ? (
                       <Badge variant="default">
                         SuperAdmin
@@ -495,11 +495,11 @@ function UserListPage() {
           )}
           
           {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4 border-t mt-4">
-              <p className="text-sm text-muted-foreground">
+            <div className="flex flex-col gap-3 pt-4 border-t mt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground text-center sm:text-left">
                 Showing {((currentPage - 1) * USERS_PER_PAGE) + 1} - {Math.min(currentPage * USERS_PER_PAGE, sortedUsers.length)} of {sortedUsers.length} users
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2 flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
@@ -583,13 +583,13 @@ function CreateUserPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6 max-w-2xl mx-auto">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Plus className="w-8 h-8 text-primary" />
+          <Plus className="w-8 h-8 text-primary shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-create-user-title">Create New User</h1>
-            <p className="text-muted-foreground">Add a new user to the system</p>
+            <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-create-user-title">Create New User</h1>
+            <p className="text-sm text-muted-foreground">Add a new user to the system</p>
           </div>
         </div>
         <Button variant="ghost" onClick={() => setLocation("/admin")} data-testid="button-back-to-admin">
@@ -627,7 +627,7 @@ function CreateUserPage() {
               </div>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <Button onClick={copyCredentials} variant="outline" data-testid="button-copy-credentials">
                 {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
                 {copied ? "Copied!" : "Copy Credentials"}
@@ -654,7 +654,7 @@ function CreateUserPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
                   <Input
@@ -787,13 +787,13 @@ function UserDetailPage({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6 max-w-2xl mx-auto">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <UserIcon className="w-8 h-8 text-primary" />
+          <UserIcon className="w-8 h-8 text-primary shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-user-detail-title">User Details</h1>
-            <p className="text-muted-foreground">View and manage user information</p>
+            <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-user-detail-title">User Details</h1>
+            <p className="text-sm text-muted-foreground">View and manage user information</p>
           </div>
         </div>
         <Button variant="ghost" onClick={() => setLocation("/admin")} data-testid="button-back-to-users">
@@ -804,29 +804,29 @@ function UserDetailPage({ userId }: { userId: string }) {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <Avatar className="w-16 h-16">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <Avatar className="w-16 h-16 shrink-0">
               <AvatarImage src={userDetails.profileImageUrl || undefined} />
               <AvatarFallback className="text-lg">
                 {userDetails.firstName?.[0]}{userDetails.lastName?.[0]}
               </AvatarFallback>
             </Avatar>
-            <div>
+            <div className="flex-1 min-w-0">
               <CardTitle className="text-xl" data-testid="text-user-name">
                 {userDetails.firstName} {userDetails.lastName}
               </CardTitle>
-              <CardDescription className="flex items-center gap-1">
-                <Mail className="w-4 h-4" />
+              <CardDescription className="flex items-center gap-1 break-all">
+                <Mail className="w-4 h-4 shrink-0" />
                 {userDetails.email}
               </CardDescription>
             </div>
-            <Badge variant={userDetails.role === "admin" ? "default" : "secondary"} className="ml-auto">
+            <Badge variant={userDetails.role === "admin" ? "default" : "secondary"} className="self-start sm:self-auto">
               {userDetails.role || "user"}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-muted-foreground text-sm">First Name</Label>
               <p className="font-medium" data-testid="text-user-firstname">{userDetails.firstName || "-"}</p>

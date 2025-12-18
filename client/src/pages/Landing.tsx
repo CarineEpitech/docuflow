@@ -27,18 +27,18 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <section className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6" data-testid="text-hero-title">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-4 sm:mb-6" data-testid="text-hero-title">
               Documentation that keeps up with your team
             </h1>
-            <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto" data-testid="text-hero-description">
+            <p className="text-base sm:text-xl text-muted-foreground mb-6 sm:mb-8 max-w-2xl mx-auto px-2" data-testid="text-hero-description">
               A powerful Notion-like editor for organizing all your tech projects. 
               Create beautiful docs, nest pages, and collaborate seamlessly.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="lg" asChild data-testid="button-get-started">
-                <a href="/auth" className="px-8">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+              <Button size="default" className="w-full sm:w-auto sm:min-w-[140px]" asChild data-testid="button-get-started">
+                <a href="/auth">
                   Get Started
                 </a>
               </Button>
@@ -46,12 +46,12 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="py-16 px-4 sm:px-6 lg:px-8 bg-muted/30">
+        <section className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-muted/30">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl sm:text-3xl font-bold text-center mb-12" data-testid="text-features-title">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-center mb-8 sm:mb-12" data-testid="text-features-title">
               Everything you need for great documentation
             </h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <FeatureCard
                 icon={<Folder className="w-6 h-6" />}
                 title="Project Organization"
@@ -92,23 +92,23 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <section className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-4" data-testid="text-cta-title">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 sm:mb-4" data-testid="text-cta-title">
               Ready to streamline your documentation?
             </h2>
-            <p className="text-muted-foreground mb-8" data-testid="text-cta-description">
+            <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 px-2" data-testid="text-cta-description">
               Join your team and start creating beautiful, organized documentation today.
             </p>
-            <Button size="lg" asChild data-testid="button-cta-start">
+            <Button size="default" className="w-full sm:w-auto sm:min-w-[140px]" asChild data-testid="button-cta-start">
               <a href="/auth">Start for Free</a>
             </Button>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-border py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto text-center text-sm text-muted-foreground">
+      <footer className="border-t border-border py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto text-center text-xs sm:text-sm text-muted-foreground">
           <p data-testid="text-footer-copyright">Built with care for teams who love great documentation.</p>
         </div>
       </footer>
@@ -129,14 +129,14 @@ function FeatureCard({
 }) {
   return (
     <div
-      className="bg-card border border-card-border rounded-lg p-6"
+      className="bg-card border border-card-border rounded-lg p-4 sm:p-6"
       data-testid={testId}
     >
-      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 text-primary">
+      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3 sm:mb-4 text-primary">
         {icon}
       </div>
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-muted-foreground text-sm">{description}</p>
+      <h3 className="text-base sm:text-lg font-semibold mb-1.5 sm:mb-2">{title}</h3>
+      <p className="text-muted-foreground text-xs sm:text-sm">{description}</p>
     </div>
   );
 }
