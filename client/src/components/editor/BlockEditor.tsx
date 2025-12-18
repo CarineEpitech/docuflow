@@ -219,7 +219,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
     const slashIndex = textBefore.lastIndexOf("/");
     
     if (slashIndex >= 0) {
-      editor.chain().focus().deleteRange({
+      editor.chain().focus(undefined, { scrollIntoView: false }).deleteRange({
         from: from - (textBefore.length - slashIndex),
         to: from,
       }).run();
@@ -230,28 +230,28 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
 
     switch (command.type) {
       case "paragraph":
-        editor.chain().focus().setParagraph().run();
+        editor.chain().focus(undefined, { scrollIntoView: false }).setParagraph().run();
         break;
       case "heading":
-        editor.chain().focus().toggleHeading({ level: command.attrs?.level as 1 | 2 | 3 }).run();
+        editor.chain().focus(undefined, { scrollIntoView: false }).toggleHeading({ level: command.attrs?.level as 1 | 2 | 3 }).run();
         break;
       case "bulletList":
-        editor.chain().focus().toggleBulletList().run();
+        editor.chain().focus(undefined, { scrollIntoView: false }).toggleBulletList().run();
         break;
       case "orderedList":
-        editor.chain().focus().toggleOrderedList().run();
+        editor.chain().focus(undefined, { scrollIntoView: false }).toggleOrderedList().run();
         break;
       case "taskList":
-        editor.chain().focus().toggleTaskList().run();
+        editor.chain().focus(undefined, { scrollIntoView: false }).toggleTaskList().run();
         break;
       case "blockquote":
-        editor.chain().focus().toggleBlockquote().run();
+        editor.chain().focus(undefined, { scrollIntoView: false }).toggleBlockquote().run();
         break;
       case "codeBlock":
-        editor.chain().focus().toggleCodeBlock().run();
+        editor.chain().focus(undefined, { scrollIntoView: false }).toggleCodeBlock().run();
         break;
       case "horizontalRule":
-        editor.chain().focus().setHorizontalRule().run();
+        editor.chain().focus(undefined, { scrollIntoView: false }).setHorizontalRule().run();
         break;
       case "image":
         if (onImageUpload) {
@@ -262,16 +262,16 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           try {
             const url = await onImageUpload();
             if (url && savedSelectionRef.current) {
-              // Insert image directly at the saved position
+              // Insert image directly at the saved position without scrolling
               editor.chain()
                 .insertContentAt(savedSelectionRef.current.from, {
                   type: 'image',
                   attrs: { src: url }
                 })
-                .focus()
+                .focus(undefined, { scrollIntoView: false })
                 .run();
             } else if (url) {
-              editor.chain().focus().setImage({ src: url }).run();
+              editor.chain().focus(undefined, { scrollIntoView: false }).setImage({ src: url }).run();
             }
           } finally {
             setIsUploadingImage(false);
@@ -285,7 +285,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
         setShowVideoDialog(true);
         break;
       case "callout":
-        editor.chain().focus().insertContent({
+        editor.chain().focus(undefined, { scrollIntoView: false }).insertContent({
           type: "blockquote",
           content: [{ type: "paragraph" }],
         }).run();
@@ -316,16 +316,16 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
       url = "https://" + url;
     }
 
-    // Restore cursor position and apply link
+    // Restore cursor position and apply link without scrolling
     if (savedSelectionRef.current) {
       editor.chain()
-        .focus()
+        .focus(undefined, { scrollIntoView: false })
         .setTextSelection({ from: savedSelectionRef.current.from, to: savedSelectionRef.current.to })
         .extendMarkRange("link")
         .setLink({ href: url })
         .run();
     } else {
-      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+      editor.chain().focus(undefined, { scrollIntoView: false }).extendMarkRange("link").setLink({ href: url }).run();
     }
     setShowLinkDialog(false);
     setLinkUrl("");
@@ -334,15 +334,15 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
 
   const handleRemoveLink = useCallback(() => {
     if (!editor) return;
-    // Restore cursor position and remove link
+    // Restore cursor position and remove link without scrolling
     if (savedSelectionRef.current) {
       editor.chain()
-        .focus()
+        .focus(undefined, { scrollIntoView: false })
         .setTextSelection({ from: savedSelectionRef.current.from, to: savedSelectionRef.current.to })
         .unsetLink()
         .run();
     } else {
-      editor.chain().focus().unsetLink().run();
+      editor.chain().focus(undefined, { scrollIntoView: false }).unsetLink().run();
     }
     setShowLinkDialog(false);
     setLinkUrl("");
@@ -359,15 +359,15 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
 
     const videoInfo = extractVideoInfo(videoUrl);
     if (videoInfo) {
-      // Restore cursor position and insert video there
+      // Restore cursor position and insert video there without scrolling
       if (savedSelectionRef.current) {
         editor.chain()
-          .focus()
+          .focus(undefined, { scrollIntoView: false })
           .setTextSelection(savedSelectionRef.current.from)
           .setVideoEmbed(videoUrl)
           .run();
       } else {
-        editor.chain().focus().setVideoEmbed(videoUrl).run();
+        editor.chain().focus(undefined, { scrollIntoView: false }).setVideoEmbed(videoUrl).run();
       }
     }
     setShowVideoDialog(false);
@@ -474,7 +474,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("bold") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleBold().run()}
           data-testid="button-bold"
         >
           <Bold className="w-4 h-4" />
@@ -483,7 +484,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("italic") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleItalic().run()}
           data-testid="button-italic"
         >
           <Italic className="w-4 h-4" />
@@ -492,7 +494,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("underline") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleUnderline().run()}
           data-testid="button-underline"
         >
           <UnderlineIcon className="w-4 h-4" />
@@ -501,7 +504,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("strike") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleStrike().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleStrike().run()}
           data-testid="button-strike"
         >
           <Strikethrough className="w-4 h-4" />
@@ -510,7 +514,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("highlight") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleHighlight().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleHighlight().run()}
           data-testid="button-highlight"
         >
           <Highlighter className="w-4 h-4" />
@@ -519,7 +524,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("code") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleCode().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleCode().run()}
           data-testid="button-code"
         >
           <Code className="w-4 h-4" />
@@ -528,6 +534,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("link") && "bg-accent")}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={handleAddLink}
           data-testid="button-link"
         >
@@ -540,7 +547,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("heading", { level: 1 }) && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleHeading({ level: 1 }).run()}
           data-testid="button-h1"
         >
           <Heading1 className="w-4 h-4" />
@@ -549,7 +557,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("heading", { level: 2 }) && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleHeading({ level: 2 }).run()}
           data-testid="button-h2"
         >
           <Heading2 className="w-4 h-4" />
@@ -558,7 +567,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("heading", { level: 3 }) && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleHeading({ level: 3 }).run()}
           data-testid="button-h3"
         >
           <Heading3 className="w-4 h-4" />
@@ -570,7 +580,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("bulletList") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleBulletList().run()}
           data-testid="button-bullet-list"
         >
           <List className="w-4 h-4" />
@@ -579,7 +590,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("orderedList") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleOrderedList().run()}
           data-testid="button-ordered-list"
         >
           <ListOrdered className="w-4 h-4" />
@@ -588,7 +600,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("taskList") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleTaskList().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleTaskList().run()}
           data-testid="button-task-list"
         >
           <CheckSquare className="w-4 h-4" />
@@ -597,7 +610,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("blockquote") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleBlockquote().run()}
           data-testid="button-blockquote"
         >
           <Quote className="w-4 h-4" />
@@ -606,7 +620,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className={cn("h-8 w-8", editor.isActive("codeBlock") && "bg-accent")}
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).toggleCodeBlock().run()}
           data-testid="button-code-block"
         >
           <Code className="w-4 h-4" />
@@ -619,6 +634,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           size="icon"
           className="h-8 w-8"
           disabled={isUploadingImage}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={async () => {
             if (onImageUpload && !isUploadingImage) {
               // Save cursor position before opening file picker
@@ -628,16 +644,16 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
               try {
                 const url = await onImageUpload();
                 if (url && savedSelectionRef.current) {
-                  // Insert image directly at the saved position
+                  // Insert image directly at the saved position without scrolling
                   editor.chain()
                     .insertContentAt(savedSelectionRef.current.from, {
                       type: 'image',
                       attrs: { src: url }
                     })
-                    .focus()
+                    .focus(undefined, { scrollIntoView: false })
                     .run();
                 } else if (url) {
-                  editor.chain().focus().setImage({ src: url }).run();
+                  editor.chain().focus(undefined, { scrollIntoView: false }).setImage({ src: url }).run();
                 }
               } finally {
                 setIsUploadingImage(false);
@@ -657,6 +673,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className="h-8 w-8"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             // Save cursor position before opening dialog
             savedSelectionRef.current = { from: editor.state.selection.from, to: editor.state.selection.to };
@@ -695,6 +712,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
                       "slash-menu-item w-full",
                       globalIdx === selectedIndex && "selected"
                     )}
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleCommandSelect(cmd)}
                     data-testid={`slash-command-${cmd.type}`}
                   >
