@@ -57,7 +57,7 @@ export default function ContactCreatePage() {
 
   const createContactMutation = useMutation({
     mutationFn: async (data: ContactFormData) => {
-      return apiRequest("POST", "/api/crm/clients", {
+      const res = await apiRequest("POST", "/api/crm/clients", {
         name: data.name,
         email: data.email || null,
         company: data.company || null,
@@ -65,11 +65,11 @@ export default function ContactCreatePage() {
         status: data.status,
         notes: data.notes || null,
       });
+      return res.json();
     },
-    onSuccess: async (response) => {
+    onSuccess: (newContact) => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
       toast({ title: "Contact created successfully" });
-      const newContact = await response.json();
       navigate(`/crm/client/${newContact.id}`);
     },
     onError: () => {
