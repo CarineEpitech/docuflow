@@ -452,7 +452,21 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
       
       // Only update if the content is different from what's in the editor
       if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
+        // Save cursor position before updating content
+        const { from, to } = editor.state.selection;
+        const docSize = editor.state.doc.content.size;
+        
         editor.commands.setContent(newContent, { emitUpdate: false });
+        
+        // Restore cursor position after content update, ensuring it's within bounds
+        const newDocSize = editor.state.doc.content.size;
+        const safeFrom = Math.min(from, newDocSize);
+        const safeTo = Math.min(to, newDocSize);
+        
+        // Only restore if the document still has content and position is valid
+        if (safeFrom > 0 && newDocSize > 0) {
+          editor.commands.setTextSelection({ from: safeFrom, to: safeTo });
+        }
       }
     }, 0);
     
