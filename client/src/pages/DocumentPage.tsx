@@ -127,15 +127,29 @@ export default function DocumentPage() {
         const input = document.createElement("input");
         input.type = "file";
         input.accept = "image/*";
+        input.style.display = "none";
+        document.body.appendChild(input);
+        
+        const cleanup = () => {
+          try {
+            if (input.parentNode) {
+              input.parentNode.removeChild(input);
+            }
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        };
+        
         input.onchange = async (e) => {
           const file = (e.target as HTMLInputElement).files?.[0];
           if (!file) {
+            cleanup();
             resolve(null);
             return;
           }
 
           try {
-            // Upload directly to storage (parallel with UI feedback already showing)
+            // Upload directly to storage
             await fetch(uploadURL, {
               method: "PUT",
               body: file,
@@ -153,12 +167,21 @@ export default function DocumentPage() {
               title: "Image uploaded", 
               description: "Image added to your document",
             });
+            cleanup();
             resolve(updateResponse.objectPath);
           } catch (error) {
             toast({ title: "Failed to upload image", variant: "destructive" });
+            cleanup();
             resolve(null);
           }
         };
+        
+        // Handle cancel (user closes file picker without selecting)
+        input.addEventListener("cancel", () => {
+          cleanup();
+          resolve(null);
+        });
+        
         input.click();
       });
     } catch (error) {

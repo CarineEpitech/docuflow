@@ -89,6 +89,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
+  const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -254,18 +255,33 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
         break;
       case "image":
         if (onImageUpload) {
+          // Save cursor position before opening file picker
+          const { from, to } = editor.state.selection;
+          savedSelectionRef.current = { from, to };
           setIsUploadingImage(true);
           try {
             const url = await onImageUpload();
             if (url) {
-              editor.chain().focus().setImage({ src: url }).run();
+              // Restore cursor position and insert image there
+              if (savedSelectionRef.current) {
+                editor.chain()
+                  .focus()
+                  .setTextSelection(savedSelectionRef.current.from)
+                  .setImage({ src: url })
+                  .run();
+              } else {
+                editor.chain().focus().setImage({ src: url }).run();
+              }
             }
           } finally {
             setIsUploadingImage(false);
+            savedSelectionRef.current = null;
           }
         }
         break;
       case "video":
+        // Save cursor position before opening dialog
+        savedSelectionRef.current = { from: editor.state.selection.from, to: editor.state.selection.to };
         setShowVideoDialog(true);
         break;
       case "callout":
@@ -280,6 +296,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
   const handleAddLink = useCallback(() => {
     if (!editor) return;
     
+    // Save cursor position before opening dialog
+    savedSelectionRef.current = { from: editor.state.selection.from, to: editor.state.selection.to };
     const previousUrl = editor.getAttributes("link").href;
     setLinkUrl(previousUrl || "");
     setShowLinkDialog(true);
@@ -289,6 +307,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
     if (!editor || !linkUrl) {
       setShowLinkDialog(false);
       setLinkUrl("");
+      savedSelectionRef.current = null;
       return;
     }
 
@@ -297,31 +316,63 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
       url = "https://" + url;
     }
 
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    // Restore cursor position and apply link
+    if (savedSelectionRef.current) {
+      editor.chain()
+        .focus()
+        .setTextSelection({ from: savedSelectionRef.current.from, to: savedSelectionRef.current.to })
+        .extendMarkRange("link")
+        .setLink({ href: url })
+        .run();
+    } else {
+      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    }
     setShowLinkDialog(false);
     setLinkUrl("");
+    savedSelectionRef.current = null;
   }, [editor, linkUrl]);
 
   const handleRemoveLink = useCallback(() => {
     if (!editor) return;
-    editor.chain().focus().unsetLink().run();
+    // Restore cursor position and remove link
+    if (savedSelectionRef.current) {
+      editor.chain()
+        .focus()
+        .setTextSelection({ from: savedSelectionRef.current.from, to: savedSelectionRef.current.to })
+        .unsetLink()
+        .run();
+    } else {
+      editor.chain().focus().unsetLink().run();
+    }
     setShowLinkDialog(false);
     setLinkUrl("");
+    savedSelectionRef.current = null;
   }, [editor]);
 
   const handleVideoSubmit = useCallback(() => {
     if (!editor || !videoUrl) {
       setShowVideoDialog(false);
       setVideoUrl("");
+      savedSelectionRef.current = null;
       return;
     }
 
     const videoInfo = extractVideoInfo(videoUrl);
     if (videoInfo) {
-      editor.chain().focus().setVideoEmbed(videoUrl).run();
+      // Restore cursor position and insert video there
+      if (savedSelectionRef.current) {
+        editor.chain()
+          .focus()
+          .setTextSelection(savedSelectionRef.current.from)
+          .setVideoEmbed(videoUrl)
+          .run();
+      } else {
+        editor.chain().focus().setVideoEmbed(videoUrl).run();
+      }
     }
     setShowVideoDialog(false);
     setVideoUrl("");
+    savedSelectionRef.current = null;
   }, [editor, videoUrl]);
 
   useEffect(() => {
@@ -570,14 +621,27 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           disabled={isUploadingImage}
           onClick={async () => {
             if (onImageUpload && !isUploadingImage) {
+              // Save cursor position before opening file picker
+              const { from, to } = editor.state.selection;
+              savedSelectionRef.current = { from, to };
               setIsUploadingImage(true);
               try {
                 const url = await onImageUpload();
                 if (url) {
-                  editor.chain().focus().setImage({ src: url }).run();
+                  // Restore cursor position and insert image there
+                  if (savedSelectionRef.current) {
+                    editor.chain()
+                      .focus()
+                      .setTextSelection(savedSelectionRef.current.from)
+                      .setImage({ src: url })
+                      .run();
+                  } else {
+                    editor.chain().focus().setImage({ src: url }).run();
+                  }
                 }
               } finally {
                 setIsUploadingImage(false);
+                savedSelectionRef.current = null;
               }
             }
           }}
@@ -593,7 +657,11 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={() => setShowVideoDialog(true)}
+          onClick={() => {
+            // Save cursor position before opening dialog
+            savedSelectionRef.current = { from: editor.state.selection.from, to: editor.state.selection.to };
+            setShowVideoDialog(true);
+          }}
           data-testid="button-video"
         >
           <Video className="w-4 h-4" />

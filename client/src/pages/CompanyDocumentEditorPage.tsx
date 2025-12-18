@@ -71,9 +71,23 @@ export default function CompanyDocumentEditorPage() {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "image/*";
+      input.style.display = "none";
+      document.body.appendChild(input);
+      
+      const cleanup = () => {
+        try {
+          if (input.parentNode) {
+            input.parentNode.removeChild(input);
+          }
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      };
+      
       input.onchange = async (e) => {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (!file) {
+          cleanup();
           resolve(null);
           return;
         }
@@ -86,12 +100,21 @@ export default function CompanyDocumentEditorPage() {
             headers: { "Content-Type": file.type },
           });
           const imageUrl = uploadURL.split("?")[0];
+          cleanup();
           resolve(imageUrl);
         } catch {
           toast({ title: "Image upload failed", variant: "destructive" });
+          cleanup();
           resolve(null);
         }
       };
+      
+      // Handle cancel (user closes file picker without selecting)
+      input.addEventListener("cancel", () => {
+        cleanup();
+        resolve(null);
+      });
+      
       input.click();
     });
   }, [toast]);
