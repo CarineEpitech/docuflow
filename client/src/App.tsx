@@ -5,8 +5,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { FileText } from "lucide-react";
 import Landing from "@/pages/Landing";
 import AuthPage from "@/pages/AuthPage";
 import Home from "@/pages/Home";
@@ -35,6 +36,15 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen w-full bg-background">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0 bg-background">
+          <header className="flex md:hidden items-center gap-3 px-4 py-3 border-b bg-background sticky top-0 z-50">
+            <SidebarTrigger data-testid="button-mobile-sidebar-toggle" />
+            <div className="flex items-center gap-2">
+              <div className="rounded-lg bg-primary flex items-center justify-center w-7 h-7">
+                <FileText className="w-3.5 h-3.5 text-primary-foreground" />
+              </div>
+              <span className="font-semibold text-sm">DocuFlow</span>
+            </div>
+          </header>
           <main className="flex-1 overflow-auto bg-background">
             {children}
           </main>
