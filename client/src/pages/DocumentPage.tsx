@@ -4,13 +4,15 @@ import { useParams, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PageTree } from "@/components/PageTree";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { BlockEditor } from "@/components/editor/BlockEditor";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ImagePlus, Save, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Save, PanelLeftClose, PanelLeft, Menu } from "lucide-react";
 import type { Document, Project, DocumentWithCreator, SafeUser } from "@shared/schema";
 import { useDebouncedCallback } from "@/hooks/useDebounce";
 
@@ -20,12 +22,14 @@ export default function DocumentPage() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const isMobile = useIsMobile();
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -38,7 +42,6 @@ export default function DocumentPage() {
     }
   }, [isAuthenticated, authLoading, toast, setLocation]);
 
-  // Warn user about unsaved changes when closing browser tab
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
@@ -131,7 +134,6 @@ export default function DocumentPage() {
             input.parentNode.removeChild(input);
           }
         } catch (e) {
-          // Ignore cleanup errors
         }
       };
       
@@ -144,11 +146,9 @@ export default function DocumentPage() {
         }
 
         try {
-          // Get presigned upload URL AFTER file is selected
           const response = await apiRequest("POST", "/api/objects/upload");
           const { uploadURL } = response as { uploadURL: string };
           
-          // Upload directly to storage
           await fetch(uploadURL, {
             method: "PUT",
             body: file,
@@ -157,7 +157,6 @@ export default function DocumentPage() {
             },
           });
 
-          // Register image and get final path
           const updateResponse = await apiRequest("PUT", "/api/document-images", {
             imageURL: uploadURL,
           }) as { objectPath: string };
@@ -175,7 +174,6 @@ export default function DocumentPage() {
         }
       };
       
-      // Handle cancel (user closes file picker without selecting)
       input.addEventListener("cancel", () => {
         cleanup();
         resolve(null);
@@ -188,7 +186,7 @@ export default function DocumentPage() {
   if (authLoading || documentLoading) {
     return (
       <div className="flex h-full">
-        <div className="w-64 border-r border-sidebar-border bg-sidebar p-4">
+        <div className="hidden md:block w-64 border-r border-sidebar-border bg-sidebar p-4">
           <Skeleton className="h-6 w-24 mb-4" />
           <div className="space-y-2">
             <Skeleton className="h-8 w-full" />
@@ -196,7 +194,7 @@ export default function DocumentPage() {
             <Skeleton className="h-8 w-full" />
           </div>
         </div>
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           <Skeleton className="h-12 w-full mb-6" />
           <Skeleton className="h-96 w-full" />
         </div>
@@ -206,7 +204,7 @@ export default function DocumentPage() {
 
   if (!pageDoc) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full p-4">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">Page not found</h2>
           <p className="text-muted-foreground mb-4">
@@ -220,56 +218,83 @@ export default function DocumentPage() {
     );
   }
 
+  const sidebarContent = (
+    <div className="h-full flex flex-col bg-sidebar">
+      {!isMobile && (
+        <div className="flex items-center justify-end p-1 border-b border-sidebar-border">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSidebarCollapsed(true)}
+            className="h-7 w-7"
+            data-testid="button-collapse-sidebar"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      <div className="flex-1 overflow-hidden">
+        <PageTree projectId={pageDoc.projectId} currentDocumentId={documentId} />
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex h-full" data-testid="document-page">
-      {!isSidebarCollapsed && (
+      {isMobile && (
+        <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
+          <SheetContent side="left" className="w-[280px] p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Navigation</SheetTitle>
+            </SheetHeader>
+            {sidebarContent}
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {!isMobile && !isSidebarCollapsed && (
         <div className="w-[280px] border-r border-sidebar-border flex-shrink-0">
-          <div className="h-full flex flex-col bg-sidebar">
-            <div className="flex items-center justify-end p-1 border-b border-sidebar-border">
+          {sidebarContent}
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col overflow-hidden h-full">
+        <div className="border-b border-border px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {isMobile ? (
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsSidebarCollapsed(true)}
-                className="h-7 w-7"
-                data-testid="button-collapse-sidebar"
+                onClick={() => setIsMobileSheetOpen(true)}
+                className="h-8 w-8 flex-shrink-0"
+                data-testid="button-mobile-menu"
               >
-                <PanelLeftClose className="h-4 w-4" />
+                <Menu className="h-4 w-4" />
               </Button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <PageTree projectId={pageDoc.projectId} currentDocumentId={documentId} />
-            </div>
-          </div>
-        </div>
-      )}
-      <div className="flex-1 flex flex-col overflow-hidden h-full">
-        <div className="border-b border-border px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            {isSidebarCollapsed && (
+            ) : isSidebarCollapsed ? (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsSidebarCollapsed(false)}
-                className="h-8 w-8"
+                className="h-8 w-8 flex-shrink-0"
                 data-testid="button-expand-sidebar"
               >
                 <PanelLeft className="h-4 w-4" />
               </Button>
-            )}
-            <Breadcrumbs project={project} document={pageDoc} ancestors={ancestors} />
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <Breadcrumbs project={project} document={pageDoc} ancestors={ancestors} />
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
             {pageDoc.createdBy && (
-              <span className="text-sm text-muted-foreground" data-testid="text-page-creator">
+              <span className="hidden lg:inline text-sm text-muted-foreground" data-testid="text-page-creator">
                 Created by {pageDoc.createdBy.firstName || pageDoc.createdBy.email}
               </span>
             )}
-            {hasUnsavedChanges && !isSaving && (
-              <span className="text-sm text-muted-foreground">Unsaved changes</span>
-            )}
-            {isSaving && (
-              <span className="text-sm text-muted-foreground">Saving...</span>
-            )}
+            <span className="hidden sm:inline text-sm text-muted-foreground whitespace-nowrap">
+              {isSaving ? "Saving..." : hasUnsavedChanges ? "Unsaved" : ""}
+            </span>
             <Button
               variant="outline"
               size="sm"
@@ -277,18 +302,18 @@ export default function DocumentPage() {
               disabled={!hasUnsavedChanges || isSaving}
               data-testid="button-save"
             >
-              <Save className="w-4 h-4 mr-1" />
-              Save
+              <Save className="w-4 h-4 md:mr-1" />
+              <span className="hidden md:inline">Save</span>
             </Button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className={isSidebarCollapsed ? "max-w-4xl mx-auto px-6 py-8" : "max-w-3xl mx-auto px-6 py-8"}>
+          <div className={`mx-auto px-4 md:px-6 py-4 md:py-8 ${isMobile ? "w-full" : isSidebarCollapsed ? "max-w-4xl" : "max-w-3xl"}`}>
             <Input
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
               placeholder="Untitled"
-              className="text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 mb-2"
+              className="text-2xl md:text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 mb-2 w-full"
               data-testid="input-document-title"
             />
             <BlockEditor

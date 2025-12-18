@@ -238,7 +238,7 @@ export default function CrmPage() {
   const totalPages = crmProjectsData ? Math.ceil(crmProjectsData.total / pageSize) : 0;
 
   return (
-    <div className="p-6 space-y-6 w-full">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 w-full">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
@@ -295,7 +295,7 @@ export default function CrmPage() {
                 </div>
                 {contactViewMode === "table" && (
                   <Select value={contactStatusFilter} onValueChange={(v) => setContactStatusFilter(v)}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-contact-status-filter">
+                    <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-contact-status-filter">
                       <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -347,7 +347,7 @@ export default function CrmPage() {
                 </div>
                 {projectViewMode === "table" && (
                   <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+                    <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-status-filter">
                       <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -489,7 +489,7 @@ export default function CrmPage() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <div className="scrollbar-hidden">
+                <div className="overflow-x-auto scrollbar-hidden">
                   <table className="w-full min-w-[900px]">
                     <thead>
                       <tr className="border-b bg-muted/50 whitespace-nowrap">
@@ -804,7 +804,7 @@ export default function CrmPage() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <div className="scrollbar-hidden">
+                <div className="overflow-x-auto scrollbar-hidden">
                   <table className="w-full min-w-[700px]">
                     <thead>
                       <tr className="border-b bg-muted/50 whitespace-nowrap">
@@ -907,18 +907,18 @@ export default function CrmPage() {
 
       {/* Delete Contact Confirmation */}
       <AlertDialog open={!!deleteContactId} onOpenChange={(open) => !open && setDeleteContactId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Contact</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete this contact? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
+            <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteContactId && deleteContactMutation.mutate(deleteContactId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>
@@ -928,18 +928,18 @@ export default function CrmPage() {
 
       {/* Delete Project Confirmation */}
       <AlertDialog open={!!deleteProjectId} onOpenChange={(open) => !open && setDeleteProjectId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Project</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete this project? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
+            <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteProjectId && deleteProjectMutation.mutate(deleteProjectId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>

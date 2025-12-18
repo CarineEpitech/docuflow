@@ -79,14 +79,14 @@ export function ChatBotInline() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <Bot className="h-5 w-5 text-primary" />
+      <div className="flex items-center justify-between flex-wrap gap-2 px-3 sm:px-4 py-3 border-b">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           </div>
-          <div>
-            <h2 className="font-semibold">DocuFlow Assistant</h2>
-            <p className="text-sm text-muted-foreground">Powered by GPT-4.1-nano</p>
+          <div className="min-w-0">
+            <h2 className="font-semibold text-sm sm:text-base truncate">DocuFlow Assistant</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">Powered by GPT-4.1-nano</p>
           </div>
         </div>
         {messages.length > 0 && (
@@ -95,36 +95,38 @@ export function ChatBotInline() {
             size="sm"
             onClick={handleClearChat}
             data-testid="button-clear-chat"
+            className="shrink-0"
           >
-            <Trash2 className="w-4 h-4 mr-1" />
-            Clear
+            <Trash2 className="w-4 h-4 sm:mr-1" />
+            <span className="hidden sm:inline">Clear</span>
           </Button>
         )}
       </div>
 
-      <div className="px-4 py-3 border-b bg-muted/30">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Search scope:</span>
-            <span className="text-sm font-medium">{getModeLabel()}</span>
+      <div className="px-3 sm:px-4 py-2 sm:py-3 border-b bg-muted/30">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs sm:text-sm text-muted-foreground">Scope:</span>
+            <span className="text-xs sm:text-sm font-medium">{getModeLabel()}</span>
           </div>
           <ToggleGroup 
             type="single" 
             value={mode} 
             onValueChange={(v) => v && setMode(v as ChatMode)} 
-            className="gap-1"
+            className="gap-0.5 sm:gap-1 w-full sm:w-auto"
           >
             <Tooltip>
               <TooltipTrigger asChild>
                 <ToggleGroupItem 
                   value="projects" 
                   size="sm" 
-                  className="gap-1.5 px-3"
+                  className="gap-1 px-2 sm:px-3 text-xs sm:text-sm flex-1 sm:flex-none"
                   data-testid="toggle-mode-projects"
                   aria-label="Search project documentation only"
                 >
-                  <FileText className="h-3.5 w-3.5" />
-                  Projects
+                  <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">Projects</span>
+                  <span className="sm:hidden">Proj</span>
                 </ToggleGroupItem>
               </TooltipTrigger>
               <TooltipContent side="bottom">
@@ -136,12 +138,13 @@ export function ChatBotInline() {
                 <ToggleGroupItem 
                   value="company" 
                   size="sm" 
-                  className="gap-1.5 px-3"
+                  className="gap-1 px-2 sm:px-3 text-xs sm:text-sm flex-1 sm:flex-none"
                   data-testid="toggle-mode-company"
                   aria-label="Search company documents only"
                 >
-                  <Building2 className="h-3.5 w-3.5" />
-                  Company
+                  <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">Company</span>
+                  <span className="sm:hidden">Co</span>
                 </ToggleGroupItem>
               </TooltipTrigger>
               <TooltipContent side="bottom">
@@ -153,11 +156,11 @@ export function ChatBotInline() {
                 <ToggleGroupItem 
                   value="both" 
                   size="sm" 
-                  className="gap-1.5 px-3"
+                  className="gap-1 px-2 sm:px-3 text-xs sm:text-sm flex-1 sm:flex-none"
                   data-testid="toggle-mode-both"
                   aria-label="Search all documentation sources"
                 >
-                  <Layers className="h-3.5 w-3.5" />
+                  <Layers className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   All
                 </ToggleGroupItem>
               </TooltipTrigger>
@@ -169,18 +172,18 @@ export function ChatBotInline() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 px-4" ref={scrollRef}>
-        <div className="py-4 space-y-4">
+      <ScrollArea className="flex-1 px-3 sm:px-4" ref={scrollRef}>
+        <div className="py-3 sm:py-4 space-y-3 sm:space-y-4">
           {messages.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Bot className="h-8 w-8 text-primary" />
+            <div className="text-center py-8 sm:py-12">
+              <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <Bot className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
               </div>
-              <h3 className="font-medium text-lg mb-2">How can I help?</h3>
-              <p className="text-muted-foreground max-w-md mx-auto mb-6">
+              <h3 className="font-medium text-base sm:text-lg mb-2">How can I help?</h3>
+              <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto mb-4 sm:mb-6 px-2">
                 I have access to all your projects and documentation. Ask me anything about your docs!
               </p>
-              <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
+              <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto px-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -245,19 +248,20 @@ export function ChatBotInline() {
         </div>
       </ScrollArea>
 
-      <form onSubmit={handleSubmit} className="p-4 border-t">
+      <form onSubmit={handleSubmit} className="p-3 sm:p-4 border-t">
         <div className="flex gap-2">
           <Input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your documentation..."
+            placeholder="Ask about your docs..."
             disabled={chatMutation.isPending}
-            className="flex-1"
+            className="flex-1 text-sm sm:text-base"
             data-testid="input-chat-message"
           />
           <Button
             type="submit"
+            size="icon"
             disabled={!input.trim() || chatMutation.isPending}
             data-testid="button-send-message"
           >
