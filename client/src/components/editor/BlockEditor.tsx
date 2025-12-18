@@ -261,17 +261,17 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
           setIsUploadingImage(true);
           try {
             const url = await onImageUpload();
-            if (url) {
-              // Restore cursor position and insert image there
-              if (savedSelectionRef.current) {
-                editor.chain()
-                  .focus()
-                  .setTextSelection(savedSelectionRef.current.from)
-                  .setImage({ src: url })
-                  .run();
-              } else {
-                editor.chain().focus().setImage({ src: url }).run();
-              }
+            if (url && savedSelectionRef.current) {
+              // Insert image directly at the saved position
+              editor.chain()
+                .insertContentAt(savedSelectionRef.current.from, {
+                  type: 'image',
+                  attrs: { src: url }
+                })
+                .focus()
+                .run();
+            } else if (url) {
+              editor.chain().focus().setImage({ src: url }).run();
             }
           } finally {
             setIsUploadingImage(false);
@@ -627,17 +627,17 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
               setIsUploadingImage(true);
               try {
                 const url = await onImageUpload();
-                if (url) {
-                  // Restore cursor position and insert image there
-                  if (savedSelectionRef.current) {
-                    editor.chain()
-                      .focus()
-                      .setTextSelection(savedSelectionRef.current.from)
-                      .setImage({ src: url })
-                      .run();
-                  } else {
-                    editor.chain().focus().setImage({ src: url }).run();
-                  }
+                if (url && savedSelectionRef.current) {
+                  // Insert image directly at the saved position
+                  editor.chain()
+                    .insertContentAt(savedSelectionRef.current.from, {
+                      type: 'image',
+                      attrs: { src: url }
+                    })
+                    .focus()
+                    .run();
+                } else if (url) {
+                  editor.chain().focus().setImage({ src: url }).run();
                 }
               } finally {
                 setIsUploadingImage(false);
