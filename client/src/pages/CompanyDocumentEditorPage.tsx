@@ -140,32 +140,34 @@ export default function CompanyDocumentEditorPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="sticky top-0 z-20 bg-background border-b px-6 pt-3 flex items-center gap-4">
+      <div className="sticky top-0 z-20 bg-background border-b px-4 sm:px-6 py-2 sm:pt-3 flex flex-wrap items-center gap-2 sm:gap-4">
         <Input
           value={title}
           onChange={handleTitleChange}
-          className="text-xl font-semibold border-none shadow-none focus-visible:ring-0 px-0 max-w-lg"
+          className="text-lg sm:text-xl font-semibold border-none shadow-none focus-visible:ring-0 px-0 flex-1 min-w-0 max-w-full sm:max-w-lg"
           placeholder="Untitled"
           data-testid="input-document-title"
         />
-        <div className="flex-1" />
-        <Button
-          onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending || !hasUnsavedChanges}
-          data-testid="button-save-document"
-        >
-          {saveMutation.isPending ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4 mr-2" />
-          )}
-          {hasUnsavedChanges ? "Save" : "Saved"}
-        </Button>
-        <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-to-docs">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center gap-2 ml-auto">
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending || !hasUnsavedChanges}
+            size="sm"
+            data-testid="button-save-document"
+          >
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 sm:mr-2" />
+            )}
+            <span className="hidden sm:inline">{hasUnsavedChanges ? "Save" : "Saved"}</span>
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-to-docs">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
-      <div className="flex-1 overflow-auto px-6 py-6">
+      <div className="flex-1 overflow-auto px-4 sm:px-6 py-4 sm:py-6">
         <div className="max-w-3xl mx-auto">
           <BlockEditor
             content={content}

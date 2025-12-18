@@ -294,7 +294,7 @@ export default function CrmProjectPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 w-[80%] mx-auto">
+      <div className="p-4 md:p-6 w-full md:w-[80%] mx-auto">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-muted rounded w-1/3"></div>
           <div className="h-64 bg-muted rounded"></div>
@@ -305,7 +305,7 @@ export default function CrmProjectPage() {
 
   if (!project) {
     return (
-      <div className="p-6 w-[80%] mx-auto">
+      <div className="p-4 md:p-6 w-full md:w-[80%] mx-auto">
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">Project not found</p>
@@ -322,19 +322,21 @@ export default function CrmProjectPage() {
   const selectedAssignee = users.find(u => u.id === formData?.assigneeId);
 
   return (
-    <div className="p-6 w-[80%] mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-project-title">{project.project?.name}</h1>
-          <p className="text-sm text-muted-foreground">Project Details</p>
-        </div>
+    <div className="p-4 md:p-6 w-full md:w-[80%] mx-auto space-y-4 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => setLocation("/crm?tab=projects")} data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
           </Button>
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold" data-testid="text-project-title">{project.project?.name}</h1>
+            <p className="text-sm text-muted-foreground">Project Details</p>
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           {formData?.documentationEnabled && (
             <Link href={`/project/${project.projectId}`}>
-              <Button variant="outline" data-testid="button-view-docs">
+              <Button variant="outline" className="w-full sm:w-auto" data-testid="button-view-docs">
                 <FileText className="w-4 h-4 mr-2" />
                 View Documentation
               </Button>
@@ -344,6 +346,7 @@ export default function CrmProjectPage() {
             <Button 
               onClick={handleSave} 
               disabled={updateCrmProjectMutation.isPending}
+              className="w-full sm:w-auto"
               data-testid="button-save-changes"
             >
               <Save className="w-4 h-4 mr-2" />
@@ -611,35 +614,37 @@ export default function CrmProjectPage() {
                   </div>
                   <div className="grid gap-2">
                     {project.client.contacts.map((contact) => (
-                      <div key={contact.id} className="flex items-center justify-between bg-muted/30 rounded p-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="w-8 h-8">
+                      <div key={contact.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-muted/30 rounded p-3">
+                        <div className="flex items-start sm:items-center gap-3">
+                          <Avatar className="w-8 h-8 shrink-0">
                             <AvatarFallback className="text-xs">
                               {contact.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                             </AvatarFallback>
                           </Avatar>
-                          <div>
-                            <p className="font-medium text-sm">{contact.name}</p>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-sm">{contact.name}</p>
+                              {contact.isPrimary && (
+                                <Badge variant="outline" className="text-xs">Primary</Badge>
+                              )}
+                            </div>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-muted-foreground mt-1">
                               {contact.role && <span>{contact.role}</span>}
                               {contact.email && (
-                                <a href={`mailto:${contact.email}`} className="hover:underline flex items-center gap-1">
-                                  <Mail className="w-3 h-3" />
+                                <a href={`mailto:${contact.email}`} className="hover:underline flex items-center gap-1 break-all">
+                                  <Mail className="w-3 h-3 shrink-0" />
                                   {contact.email}
                                 </a>
                               )}
                               {contact.phone && (
                                 <span className="flex items-center gap-1">
-                                  <Phone className="w-3 h-3" />
+                                  <Phone className="w-3 h-3 shrink-0" />
                                   {contact.phone}
                                 </span>
                               )}
                             </div>
                           </div>
                         </div>
-                        {contact.isPrimary && (
-                          <Badge variant="outline" className="text-xs">Primary</Badge>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -738,9 +743,9 @@ export default function CrmProjectPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Avatar className="w-5 h-5">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 text-sm flex-wrap min-w-0">
+                          <Avatar className="w-5 h-5 shrink-0">
                             <AvatarImage src={note.createdBy?.profileImageUrl || undefined} />
                             <AvatarFallback className="text-[10px]">
                               {note.createdBy?.firstName?.[0]}{note.createdBy?.lastName?.[0]}
@@ -751,11 +756,10 @@ export default function CrmProjectPage() {
                             {note.createdAt ? format(new Date(note.createdAt), "MMM d, yyyy 'at' h:mm a") : ""}
                           </span>
                         </div>
-                        <div className="flex items-center gap-0.5">
+                        <div className="flex items-center gap-0.5 shrink-0">
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="w-7 h-7"
                             onClick={() => {
                               setEditingNoteId(note.id);
                               setEditNoteContent(note.content);
@@ -768,7 +772,6 @@ export default function CrmProjectPage() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="w-7 h-7"
                             onClick={() => deleteNoteMutation.mutate(note.id)}
                             data-testid={`button-delete-note-${note.id}`}
                           >
@@ -917,7 +920,7 @@ function EditClientDialog({ client, onClose, onSubmit, isLoading }: EditClientDi
 
   return (
     <Dialog open={!!client} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Client</DialogTitle>
           <DialogDescription>Update client information</DialogDescription>
@@ -989,9 +992,9 @@ function EditClientDialog({ client, onClose, onSubmit, isLoading }: EditClientDi
                 </FormItem>
               )}
             />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-              <Button type="submit" disabled={isLoading} data-testid="button-update-client">
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancel</Button>
+              <Button type="submit" disabled={isLoading} className="w-full sm:w-auto" data-testid="button-update-client">
                 {isLoading ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
@@ -1038,7 +1041,7 @@ function AddContactDialog({ open, onClose, clientId, onSubmit, isLoading }: AddC
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md">
         <DialogHeader>
           <DialogTitle>Add Contact</DialogTitle>
           <DialogDescription>Add a new contact for this client</DialogDescription>
@@ -1097,9 +1100,9 @@ function AddContactDialog({ open, onClose, clientId, onSubmit, isLoading }: AddC
                 </FormItem>
               )}
             />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-              <Button type="submit" disabled={isLoading || !clientId} data-testid="button-submit-contact">
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancel</Button>
+              <Button type="submit" disabled={isLoading || !clientId} className="w-full sm:w-auto" data-testid="button-submit-contact">
                 {isLoading ? "Adding..." : "Add Contact"}
               </Button>
             </DialogFooter>

@@ -98,27 +98,27 @@ export default function FileViewerPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b bg-background gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 flex-shrink-0">
             <FileIcon className="h-5 w-5 text-primary" />
           </div>
-          <div>
-            <h1 className="text-lg font-semibold" data-testid="text-file-name">{document.name}</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {document.fileName && <span>{document.fileName}</span>}
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-semibold truncate" data-testid="text-file-name">{document.name}</h1>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-muted-foreground">
+              {document.fileName && <span className="truncate max-w-[150px] sm:max-w-none">{document.fileName}</span>}
               {document.fileSize && <span>{formatFileSize(document.fileSize)}</span>}
               {document.createdAt && (
-                <span>Uploaded {format(new Date(document.createdAt), "MMM d, yyyy")}</span>
+                <span className="hidden sm:inline">Uploaded {format(new Date(document.createdAt), "MMM d, yyyy")}</span>
               )}
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
           {!isWordDoc && (
-            <Button onClick={handleDownload} data-testid="button-download">
-              <Download className="h-4 w-4 mr-2" />
-              Download
+            <Button onClick={handleDownload} size="sm" data-testid="button-download">
+              <Download className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Download</span>
             </Button>
           )}
           <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back">
@@ -460,7 +460,7 @@ function WordDocEditor({ documentId, document }: {
       input.type = "file";
       input.accept = "image/*";
       input.style.display = "none";
-      document.body.appendChild(input);
+      window.document.body.appendChild(input);
       
       const cleanup = () => {
         try {

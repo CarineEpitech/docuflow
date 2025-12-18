@@ -238,16 +238,16 @@ export default function ClientDetailPage() {
 
   if (clientLoading) {
     return (
-      <div className="p-6 space-y-6 w-full">
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6 w-full md:w-[80%] mx-auto">
         <div className="flex items-center gap-4">
-          <Skeleton className="h-10 w-10" />
-          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-9 w-9" />
+          <Skeleton className="h-7 md:h-8 w-32 md:w-48" />
         </div>
         <Card>
-          <CardContent className="p-6 space-y-4">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-4 w-64" />
-            <Skeleton className="h-4 w-48" />
+          <CardContent className="p-4 md:p-6 space-y-4">
+            <Skeleton className="h-5 md:h-6 w-24 md:w-32" />
+            <Skeleton className="h-4 w-full md:w-64" />
+            <Skeleton className="h-4 w-3/4 md:w-48" />
           </CardContent>
         </Card>
       </div>
@@ -256,7 +256,7 @@ export default function ClientDetailPage() {
 
   if (!client) {
     return (
-      <div className="p-6 w-full">
+      <div className="p-4 md:p-6 w-full">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Contact not found</p>
           <Button variant="outline" className="mt-4" onClick={() => navigate("/crm")}>
@@ -268,21 +268,20 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 w-[80%] mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6 w-full md:w-[80%] mx-auto">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex-1 min-w-0">
           {isEditing ? (
             <Input
               value={editForm.name}
               onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
               placeholder="Contact name"
-              className="text-2xl font-bold h-auto py-1"
+              className="text-xl md:text-2xl font-bold h-auto py-1"
               data-testid="input-edit-name"
             />
           ) : (
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold" data-testid="text-contact-name">{client.name}</h1>
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+              <h1 className="text-xl md:text-2xl font-bold truncate" data-testid="text-contact-name">{client.name}</h1>
               {client.status && (
                 <Badge 
                   variant={contactStatusConfig[client.status]?.variant || "secondary"}
@@ -294,10 +293,10 @@ export default function ClientDetailPage() {
             </div>
           )}
           {!isEditing && client.company && (
-            <p className="text-muted-foreground" data-testid="text-client-company">{client.company}</p>
+            <p className="text-muted-foreground text-sm md:text-base truncate" data-testid="text-client-company">{client.company}</p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Button
             variant="outline"
             size="icon"
@@ -310,19 +309,21 @@ export default function ClientDetailPage() {
             <>
               <Button
                 variant="outline"
+                size="sm"
                 onClick={cancelEditing}
                 data-testid="button-cancel-edit"
               >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
+                <X className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Cancel</span>
               </Button>
               <Button
+                size="sm"
                 onClick={handleSave}
                 disabled={!editForm.name.trim() || updateClientMutation.isPending}
                 data-testid="button-save-edit"
               >
-                <Save className="h-4 w-4 mr-2" />
-                {updateClientMutation.isPending ? "Saving..." : "Save"}
+                <Save className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{updateClientMutation.isPending ? "Saving..." : "Save"}</span>
               </Button>
             </>
           ) : (
@@ -348,14 +349,13 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      {/* Contact Details Card */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Contact Information</CardTitle>
+        <CardHeader className="p-4 md:p-6">
+          <CardTitle className="text-base md:text-lg">Contact Information</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-4">
           {isEditing ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-2">
                 <Label htmlFor="edit-company" className="flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -435,25 +435,25 @@ export default function ClientDetailPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="flex items-start gap-3">
-                  <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
+                  <Building2 className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">Company</p>
-                    <p className={`font-medium ${!client.company ? 'text-muted-foreground italic' : ''}`} data-testid="text-detail-company">
+                    <p className={`font-medium truncate ${!client.company ? 'text-muted-foreground italic' : ''}`} data-testid="text-detail-company">
                       {client.company || "Not provided"}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
+                  <Mail className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">Email</p>
                     {client.email ? (
                       <a 
                         href={`mailto:${client.email}`} 
-                        className="font-medium text-primary hover:underline"
+                        className="font-medium text-primary hover:underline break-all"
                         data-testid="link-client-email"
                       >
                         {client.email}
@@ -465,8 +465,8 @@ export default function ClientDetailPage() {
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
+                  <Phone className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">Phone</p>
                     {client.phone ? (
                       <a 
@@ -483,8 +483,8 @@ export default function ClientDetailPage() {
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
+                  <FileText className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">Created</p>
                     <p className="font-medium" data-testid="text-created-date">
                       {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : "Unknown"}
@@ -508,27 +508,27 @@ export default function ClientDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Projects Card */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle className="text-lg flex items-center gap-2">
+        <CardHeader className="p-4 md:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-base md:text-lg flex items-center gap-2">
             <FolderOpen className="h-5 w-5" />
-            Linked Projects
+            <span>Linked Projects</span>
             {totalProjects > 0 && (
-              <Badge variant="secondary" className="ml-2">{totalProjects}</Badge>
+              <Badge variant="secondary">{totalProjects}</Badge>
             )}
           </CardTitle>
           <Button
             size="sm"
             onClick={() => setShowLinkProjectDialog(true)}
             disabled={availableProjects.length === 0}
+            className="w-full sm:w-auto"
             data-testid="button-link-project"
           >
             <Plus className="h-4 w-4 mr-2" />
             Link Project
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
           {clientProjects.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -539,19 +539,19 @@ export default function ClientDetailPage() {
               {paginatedProjects.map((crmProject) => (
                 <div
                   key={crmProject.id}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+                  className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/30 sm:flex-row sm:items-center sm:justify-between"
                   data-testid={`card-project-${crmProject.id}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <FolderOpen className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">{crmProject.project.name}</p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FolderOpen className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{crmProject.project.name}</p>
                       {crmProject.project.description && (
                         <p className="text-sm text-muted-foreground line-clamp-1">{crmProject.project.description}</p>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 justify-between sm:justify-end flex-shrink-0">
                     <Badge variant="secondary">{crmProject.status}</Badge>
                     <Button
                       variant="ghost"
@@ -567,26 +567,26 @@ export default function ClientDetailPage() {
               ))}
               
               {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {(validPage - 1) * PROJECTS_PER_PAGE + 1} to {Math.min(validPage * PROJECTS_PER_PAGE, totalProjects)} of {totalProjects} projects
+                <div className="flex flex-col gap-3 pt-4 border-t sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground text-center sm:text-left">
+                    Showing {(validPage - 1) * PROJECTS_PER_PAGE + 1} to {Math.min(validPage * PROJECTS_PER_PAGE, totalProjects)} of {totalProjects}
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center gap-2">
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="icon"
                       onClick={() => setProjectsPage(p => Math.max(1, p - 1))}
                       disabled={validPage === 1}
                       data-testid="button-prev-page"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <span className="text-sm text-muted-foreground">
-                      Page {validPage} of {totalPages}
+                    <span className="text-sm text-muted-foreground min-w-[80px] text-center">
+                      {validPage} / {totalPages}
                     </span>
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="icon"
                       onClick={() => setProjectsPage(p => Math.min(totalPages, p + 1))}
                       disabled={validPage === totalPages}
                       data-testid="button-next-page"
@@ -601,9 +601,8 @@ export default function ClientDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Contact</AlertDialogTitle>
             <AlertDialogDescription>
@@ -611,11 +610,11 @@ export default function ClientDetailPage() {
               Any projects linked to this contact will be unlinked.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
+            <AlertDialogCancel className="w-full sm:w-auto" data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteClientMutation.mutate()}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-delete"
             >
               Delete
@@ -624,9 +623,8 @@ export default function ClientDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Link Project Dialog */}
       <Dialog open={showLinkProjectDialog} onOpenChange={setShowLinkProjectDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Link Project to Contact</DialogTitle>
           </DialogHeader>
@@ -652,9 +650,10 @@ export default function ClientDetailPage() {
               </p>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
             <Button
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => {
                 setShowLinkProjectDialog(false);
                 setSelectedProjectToLink("");
@@ -664,6 +663,7 @@ export default function ClientDetailPage() {
               Cancel
             </Button>
             <Button
+              className="w-full sm:w-auto"
               onClick={() => linkProjectMutation.mutate(selectedProjectToLink)}
               disabled={!selectedProjectToLink || linkProjectMutation.isPending}
               data-testid="button-confirm-link"

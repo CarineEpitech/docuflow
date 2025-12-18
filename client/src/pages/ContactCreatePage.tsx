@@ -81,7 +81,7 @@ export default function ContactCreatePage() {
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">New Contact</h1>
@@ -206,11 +206,12 @@ export default function ContactCreatePage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => navigate("/crm")}
+                className="w-full sm:w-auto"
                 data-testid="button-cancel-create"
               >
                 Cancel
@@ -218,6 +219,7 @@ export default function ContactCreatePage() {
               <Button
                 type="submit"
                 disabled={createContactMutation.isPending}
+                className="w-full sm:w-auto"
                 data-testid="button-create-contact"
               >
                 {createContactMutation.isPending ? "Creating..." : "Create Contact"}

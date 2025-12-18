@@ -97,7 +97,7 @@ export default function ProjectCreatePage() {
   };
 
   return (
-    <div className="container max-w-2xl mx-auto p-6 space-y-6">
+    <div className="container max-w-2xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">New Project</h1>
@@ -185,15 +185,16 @@ export default function ProjectCreatePage() {
               </Select>
             </div>
 
-            <div className="flex gap-3 pt-4">
-              <Link href="/crm">
-                <Button type="button" variant="outline" data-testid="button-cancel-project">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+              <Link href="/crm" className="w-full sm:w-auto">
+                <Button type="button" variant="outline" className="w-full" data-testid="button-cancel-project">
                   Cancel
                 </Button>
               </Link>
               <Button 
                 type="submit" 
                 disabled={createProjectMutation.isPending}
+                className="w-full sm:w-auto"
                 data-testid="button-submit-project"
               >
                 <Save className="h-4 w-4 mr-2" />

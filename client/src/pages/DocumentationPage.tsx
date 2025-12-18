@@ -38,7 +38,7 @@ export default function DocumentationPage() {
   const paginatedProjects = filteredProjects.slice(startIndex, startIndex + PAGE_SIZE);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-6">
       <div>
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Documentation</h1>
         <p className="text-muted-foreground">Access your project documentation</p>
@@ -97,9 +97,9 @@ export default function DocumentationPage() {
           )}
 
           {totalPages > 1 && (
-            <div className="p-4 border-t">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
+            <div className="p-3 sm:p-4 border-t">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-sm text-muted-foreground text-center sm:text-left">
                   Showing {startIndex + 1}-{Math.min(startIndex + PAGE_SIZE, filteredProjects.length)} of {filteredProjects.length} projects
                 </span>
                 <div className="flex items-center gap-2">
