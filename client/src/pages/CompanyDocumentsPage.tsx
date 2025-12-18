@@ -55,6 +55,7 @@ import {
   FilePlus,
   Home,
   ArrowLeft,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { CompanyDocumentWithUploader, CompanyDocumentFolderWithCreator } from "@shared/schema";
@@ -93,8 +94,9 @@ export default function CompanyDocumentsPage() {
   
   const [documentName, setDocumentName] = useState("");
   const [documentDescription, setDocumentDescription] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   
   const [folderName, setFolderName] = useState("");
   const [folderDescription, setFolderDescription] = useState("");
@@ -202,42 +204,56 @@ export default function CompanyDocumentsPage() {
 
   // Document mutations
   const uploadMutation = useMutation({
-    mutationFn: async (data: { file: File; name: string; description: string }) => {
+    mutationFn: async (data: { files: File[]; description: string }) => {
       setUploading(true);
-      const urlResponse = await apiRequest("POST", "/api/company-documents/upload-url");
-      const { uploadURL } = urlResponse;
+      setUploadProgress(0);
       
-      const uploadResponse = await fetch(uploadURL, {
-        method: "PUT",
-        body: data.file,
-        headers: { "Content-Type": data.file.type },
-      });
+      const totalFiles = data.files.length;
+      let completed = 0;
       
-      if (!uploadResponse.ok) throw new Error("Failed to upload file");
+      for (const file of data.files) {
+        const urlResponse = await apiRequest("POST", "/api/company-documents/upload-url");
+        const { uploadURL } = urlResponse;
+        
+        const uploadResponse = await fetch(uploadURL, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type },
+        });
+        
+        if (!uploadResponse.ok) throw new Error(`Failed to upload ${file.name}`);
+        
+        const storagePath = uploadURL.split("?")[0];
+        const documentName = file.name.replace(/\.[^/.]+$/, "");
+        
+        await apiRequest("POST", "/api/company-documents", {
+          name: documentName,
+          description: data.description || undefined,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type || "application/octet-stream",
+          storagePath,
+          folderId: currentFolderId,
+        });
+        
+        completed++;
+        setUploadProgress(Math.round((completed / totalFiles) * 100));
+      }
       
-      const storagePath = uploadURL.split("?")[0];
-      
-      return apiRequest("POST", "/api/company-documents", {
-        name: data.name,
-        description: data.description || undefined,
-        fileName: data.file.name,
-        fileSize: data.file.size,
-        mimeType: data.file.type || "application/octet-stream",
-        storagePath,
-        folderId: currentFolderId,
-      });
+      return { count: totalFiles };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
       setShowUploadDialog(false);
-      setDocumentName("");
       setDocumentDescription("");
-      setSelectedFile(null);
+      setSelectedFiles([]);
       setUploading(false);
-      toast({ title: "Document uploaded" });
+      setUploadProgress(0);
+      toast({ title: result.count > 1 ? `${result.count} documents uploaded` : "Document uploaded" });
     },
     onError: (error: Error) => {
       setUploading(false);
+      setUploadProgress(0);
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
     },
   });
@@ -293,21 +309,22 @@ export default function CompanyDocumentsPage() {
   });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      if (!documentName) {
-        setDocumentName(file.name.replace(/\.[^/.]+$/, ""));
-      }
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      setSelectedFiles(Array.from(files));
     }
   };
 
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleUpload = () => {
-    if (!selectedFile || !documentName.trim()) {
-      toast({ title: "Missing information", description: "Please select a file and enter a document name.", variant: "destructive" });
+    if (selectedFiles.length === 0) {
+      toast({ title: "Missing information", description: "Please select at least one file.", variant: "destructive" });
       return;
     }
-    uploadMutation.mutate({ file: selectedFile, name: documentName.trim(), description: documentDescription.trim() });
+    uploadMutation.mutate({ files: selectedFiles, description: documentDescription.trim() });
   };
 
   const handleCreateDoc = () => {
@@ -428,9 +445,9 @@ export default function CompanyDocumentsPage() {
                 <FilePlus className="h-4 w-4 mr-2" />
                 Create Document
               </Button>
-              <Button onClick={() => { setDocumentName(""); setDocumentDescription(""); setSelectedFile(null); setShowUploadDialog(true); }} data-testid="button-upload-document">
+              <Button onClick={() => { setDocumentDescription(""); setSelectedFiles([]); setShowUploadDialog(true); }} data-testid="button-upload-document">
                 <Upload className="h-4 w-4 mr-2" />
-                Upload File
+                Upload Files
               </Button>
             </>
           )}
@@ -517,9 +534,9 @@ export default function CompanyDocumentsPage() {
                   <FilePlus className="h-4 w-4 mr-2" />
                   Create Document
                 </Button>
-                <Button onClick={() => { setDocumentName(""); setDocumentDescription(""); setSelectedFile(null); setShowUploadDialog(true); }} data-testid="button-upload-first">
+                <Button onClick={() => { setDocumentDescription(""); setSelectedFiles([]); setShowUploadDialog(true); }} data-testid="button-upload-first">
                   <Upload className="h-4 w-4 mr-2" />
-                  Upload File
+                  Upload Files
                 </Button>
               </div>
             </CardContent>
@@ -535,29 +552,54 @@ export default function CompanyDocumentsPage() {
 
       {/* Upload Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Upload File</DialogTitle>
+            <DialogTitle>Upload Files</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="file">File</Label>
-              <Input ref={fileInputRef} id="file" type="file" onChange={handleFileSelect} data-testid="input-file" />
-              {selectedFile && <p className="text-xs text-muted-foreground">Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})</p>}
+              <Label htmlFor="file">Select Files</Label>
+              <Input ref={fileInputRef} id="file" type="file" multiple onChange={handleFileSelect} data-testid="input-file" />
             </div>
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <Label>Selected Files ({selectedFiles.length})</Label>
+                <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border p-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between gap-2 rounded px-2 py-1 text-sm hover-elevate" data-testid={`file-item-${index}`}>
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <File className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{file.name}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">({formatFileSize(file.size)})</span>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeSelectedFile(index)} disabled={uploading} data-testid={`button-remove-file-${index}`}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {uploading && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Uploading...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                  <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="name">Document Name</Label>
-              <Input id="name" value={documentName} onChange={(e) => setDocumentName(e.target.value)} placeholder="e.g., Terms and Conditions" data-testid="input-document-name" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (optional)</Label>
-              <Textarea id="description" value={documentDescription} onChange={(e) => setDocumentDescription(e.target.value)} placeholder="Brief description..." rows={3} data-testid="input-document-description" />
+              <Label htmlFor="description">Description for all files (optional)</Label>
+              <Textarea id="description" value={documentDescription} onChange={(e) => setDocumentDescription(e.target.value)} placeholder="Brief description..." rows={2} data-testid="input-document-description" />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowUploadDialog(false)} disabled={uploading} data-testid="button-cancel-upload">Cancel</Button>
-            <Button onClick={handleUpload} disabled={uploading || !selectedFile || !documentName.trim()} data-testid="button-confirm-upload">
-              {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="h-4 w-4 mr-2" />Upload</>}
+            <Button onClick={handleUpload} disabled={uploading || selectedFiles.length === 0} data-testid="button-confirm-upload">
+              {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="h-4 w-4 mr-2" />Upload {selectedFiles.length > 0 && `(${selectedFiles.length})`}</>}
             </Button>
           </DialogFooter>
         </DialogContent>
