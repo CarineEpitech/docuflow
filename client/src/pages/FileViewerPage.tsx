@@ -116,9 +116,8 @@ export default function FileViewerPage() {
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
           {!isWordDoc && (
-            <Button onClick={handleDownload} size="sm" data-testid="button-download">
-              <Download className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Download</span>
+            <Button onClick={handleDownload} size="icon" variant="outline" data-testid="button-download">
+              <Download className="h-4 w-4" />
             </Button>
           )}
           <Button variant="outline" size="icon" onClick={handleBack} data-testid="button-back">
