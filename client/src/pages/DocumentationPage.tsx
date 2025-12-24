@@ -39,28 +39,25 @@ export default function DocumentationPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Documentation</h1>
-        <p className="text-muted-foreground">Access your project documentation</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">Documentation</h1>
+          <p className="text-muted-foreground">Access your project documentation</p>
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search projects..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="pl-9"
+            data-testid="input-search-docs"
+          />
+        </div>
       </div>
-
-      <Card>
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search projects..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pl-9"
-              data-testid="input-search-docs"
-            />
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardContent className="p-0">
