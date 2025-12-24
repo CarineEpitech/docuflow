@@ -399,7 +399,7 @@ export default function CrmPage() {
                         className="w-72 flex-shrink-0"
                         data-testid={`kanban-column-${status}`}
                       >
-                        <div className="bg-muted/50 rounded-lg p-3">
+                        <div className="bg-muted rounded-lg p-3">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
                               <Badge variant={crmStatusConfig[status].variant}>
