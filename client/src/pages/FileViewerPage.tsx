@@ -121,7 +121,7 @@ export default function FileViewerPage() {
               <span className="hidden sm:inline">Download</span>
             </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back">
+          <Button variant="outline" size="icon" onClick={handleBack} data-testid="button-back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </div>
