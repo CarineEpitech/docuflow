@@ -15,11 +15,6 @@ import type { Project } from "@shared/schema";
 
 const PAGE_SIZE = 15;
 
-function getProjectIcon(icon: string | null) {
-  if (!icon || icon === "folder") return <FolderOpen className="w-5 h-5 text-muted-foreground" />;
-  return <span className="text-lg">{icon}</span>;
-}
-
 export default function DocumentationPage() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
@@ -59,7 +54,7 @@ export default function DocumentationPage() {
         </div>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">
@@ -67,27 +62,35 @@ export default function DocumentationPage() {
             </div>
           ) : paginatedProjects.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              {search ? "No projects match your search." : "No documented projects found."}
+              <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>{search ? "No projects match your search." : "No documented projects found."}</p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-border">
               {paginatedProjects.map((project) => (
                 <div
                   key={project.id}
-                  className="flex items-center gap-4 p-4 hover-elevate cursor-pointer"
+                  className="flex items-center gap-4 p-4 hover:bg-muted/50 cursor-pointer transition-colors group"
                   onClick={() => setLocation(`/project/${project.id}`)}
                   data-testid={`row-doc-project-${project.id}`}
                 >
-                  <div className="flex-shrink-0">
-                    {getProjectIcon(project.icon)}
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    {project.icon && project.icon !== "folder" ? (
+                      <span className="text-lg">{project.icon}</span>
+                    ) : (
+                      <FolderOpen className="w-5 h-5 text-primary" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium truncate">{project.name}</h3>
+                    <h3 className="font-medium truncate group-hover:text-primary transition-colors">{project.name}</h3>
                     {project.description && (
                       <p className="text-sm text-muted-foreground truncate">{project.description}</p>
                     )}
                   </div>
-                  <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
               ))}
             </div>
