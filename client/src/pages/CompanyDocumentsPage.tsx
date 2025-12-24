@@ -389,73 +389,73 @@ export default function CompanyDocumentsPage() {
     <div className="h-full py-4 px-4 sm:py-6 sm:px-6">
       {/* Header */}
       <div className="flex flex-col gap-4 mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-semibold flex items-center gap-2 sm:gap-3" data-testid="text-page-title">
               <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
               <span className="truncate">{currentFolder ? currentFolder.name : "Company Documents"}</span>
+              {currentFolderId && (
+                <Button variant="ghost" size="icon" onClick={() => setCurrentFolderId(null)} className="shrink-0 sm:hidden" data-testid="button-back">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              )}
             </h1>
             {!currentFolderId && (
               <p className="text-sm text-muted-foreground mt-1 hidden sm:block">Company terms, policies, and important documents</p>
             )}
-            {currentFolderId && (
-              <nav className="flex items-center gap-1 text-sm mt-2 flex-wrap" aria-label="Breadcrumb" data-testid="nav-breadcrumb">
-                <Button 
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentFolderId(null)} 
-                  className="gap-1.5 text-muted-foreground"
-                  data-testid="link-root"
-                >
-                  <Home className="h-4 w-4" />
-                  <span className="hidden sm:inline">Company Documents</span>
-                </Button>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
-                <span className="text-sm font-medium text-foreground truncate max-w-[150px] sm:max-w-none">{currentFolder?.name}</span>
-              </nav>
-            )}
           </div>
-          {currentFolderId && (
-            <Button variant="ghost" size="icon" onClick={() => setCurrentFolderId(null)} className="shrink-0 sm:hidden" data-testid="button-back">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <div className="relative flex-1 sm:flex-initial sm:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search documents..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-full"
-              data-testid="input-search"
-            />
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" size="icon" onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")} data-testid="button-view-toggle">
-              {viewMode === "grid" ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
-            </Button>
-            {!currentFolderId && !searchQuery && (
-              <Button variant="outline" onClick={() => { setFolderName(""); setEditingFolder(null); setShowFolderDialog(true); }} data-testid="button-new-folder">
-                <Folder className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">New Folder</span>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative flex-1 sm:flex-initial sm:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search documents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-full"
+                data-testid="input-search"
+              />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="outline" size="icon" onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")} data-testid="button-view-toggle">
+                {viewMode === "grid" ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
               </Button>
-            )}
-            {currentFolderId && (
-              <>
-                <Button variant="outline" onClick={() => { setDocumentName(""); setDocumentDescription(""); setShowCreateDocDialog(true); }} data-testid="button-create-document">
-                  <FilePlus className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Create Document</span>
+              {!currentFolderId && !searchQuery && (
+                <Button variant="outline" onClick={() => { setFolderName(""); setEditingFolder(null); setShowFolderDialog(true); }} data-testid="button-new-folder">
+                  <Folder className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">New Folder</span>
                 </Button>
-                <Button onClick={() => { setDocumentDescription(""); setSelectedFiles([]); setShowUploadDialog(true); }} data-testid="button-upload-document">
-                  <Upload className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Upload Files</span>
-                </Button>
-              </>
-            )}
+              )}
+              {currentFolderId && (
+                <>
+                  <Button variant="outline" onClick={() => { setDocumentName(""); setDocumentDescription(""); setShowCreateDocDialog(true); }} data-testid="button-create-document">
+                    <FilePlus className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Create Document</span>
+                  </Button>
+                  <Button onClick={() => { setDocumentDescription(""); setSelectedFiles([]); setShowUploadDialog(true); }} data-testid="button-upload-document">
+                    <Upload className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Upload Files</span>
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
+        {currentFolderId && (
+          <nav className="flex items-center gap-1 text-sm flex-wrap" aria-label="Breadcrumb" data-testid="nav-breadcrumb">
+            <Button 
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentFolderId(null)} 
+              className="gap-1.5 text-muted-foreground"
+              data-testid="link-root"
+            >
+              <Home className="h-4 w-4" />
+              <span className="hidden sm:inline">Company Documents</span>
+            </Button>
+            <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+            <span className="text-sm font-medium text-foreground truncate max-w-[150px] sm:max-w-none">{currentFolder?.name}</span>
+          </nav>
+        )}
       </div>
 
       {isLoading ? (
