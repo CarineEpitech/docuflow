@@ -485,25 +485,25 @@ export default function CrmPage() {
               </div>
             </DragDropContext>
           ) : (
-            <Card>
+            <Card className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="overflow-x-auto scrollbar-hidden">
                   <table className="w-full min-w-[900px]">
                     <thead>
-                      <tr className="border-b bg-muted/50 whitespace-nowrap">
-                        <th className="text-left px-3 py-2 font-medium text-sm">Project</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Client</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Status</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Assigned</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Start</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Due</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Finished</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Days</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Last Note</th>
-                        <th className="text-right px-3 py-2 font-medium w-10"></th>
+                      <tr className="bg-muted whitespace-nowrap">
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Project</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Client</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Assigned</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Start</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Due</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Finished</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Days</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Last Note</th>
+                        <th className="text-right px-4 py-3 w-10"></th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-border">
                       {isLoading ? (
                         <tr>
                           <td colSpan={10} className="p-8 text-center text-muted-foreground">
@@ -520,42 +520,50 @@ export default function CrmPage() {
                         crmProjectsData?.data.map((crmProject) => (
                           <tr 
                             key={crmProject.id} 
-                            className="border-b hover-elevate cursor-pointer whitespace-nowrap"
+                            className="hover:bg-muted/50 cursor-pointer whitespace-nowrap transition-colors"
                             onClick={() => setLocation(`/crm/project/${crmProject.id}`)}
                             data-testid={`row-crm-project-${crmProject.id}`}
                           >
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-medium text-sm">{crmProject.project?.name || "Unknown"}</span>
-                                {crmProject.documentationEnabled === 1 && (
-                                  <Link 
-                                    href={`/project/${crmProject.projectId}`} 
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-                                  </Link>
-                                )}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                  <FolderKanban className="w-4 h-4 text-primary" />
+                                </div>
+                                <div>
+                                  <span className="font-medium text-sm">{crmProject.project?.name || "Unknown"}</span>
+                                  {crmProject.documentationEnabled === 1 && (
+                                    <Link 
+                                      href={`/project/${crmProject.projectId}`} 
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="ml-1.5"
+                                    >
+                                      <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground inline" />
+                                    </Link>
+                                  )}
+                                </div>
                               </div>
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-4 py-3">
                               {crmProject.client ? (
-                                <div className="flex items-center gap-1">
-                                  <User className="w-3.5 h-3.5 text-muted-foreground" />
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                                    <User className="w-3 h-3 text-muted-foreground" />
+                                  </div>
                                   <span className="text-sm">{crmProject.client.name}</span>
                                 </div>
                               ) : (
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-4 py-3">
                               <Badge variant={crmStatusConfig[crmProject.status as CrmProjectStatus].variant} className="text-xs">
                                 {crmStatusConfig[crmProject.status as CrmProjectStatus].label}
                               </Badge>
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-4 py-3">
                               {crmProject.assignee ? (
-                                <div className="flex items-center gap-1">
-                                  <Avatar className="w-5 h-5">
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="w-6 h-6">
                                     <AvatarImage src={crmProject.assignee.profileImageUrl || undefined} />
                                     <AvatarFallback className="text-[10px]">
                                       {crmProject.assignee.firstName?.[0]}{crmProject.assignee.lastName?.[0]}
@@ -567,29 +575,28 @@ export default function CrmPage() {
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-4 py-3">
                               {crmProject.startDate ? (
-                                <div className="flex items-center gap-1 text-sm">
-                                  <CalendarDays className="w-3 h-3 text-muted-foreground" />
-                                  <span>{format(new Date(crmProject.startDate), "MMM d, yyyy")}</span>
-                                </div>
+                                <span className="text-sm text-muted-foreground">
+                                  {format(new Date(crmProject.startDate), "MMM d, yyyy")}
+                                </span>
                               ) : (
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-4 py-3">
                               {crmProject.dueDate ? (
-                                <span className={new Date(crmProject.dueDate) < new Date() && crmProject.status !== "finished" ? "text-destructive text-sm" : "text-sm"}>
+                                <span className={new Date(crmProject.dueDate) < new Date() && crmProject.status !== "finished" ? "text-destructive text-sm font-medium" : "text-sm"}>
                                   {format(new Date(crmProject.dueDate), "MMM d, yyyy")}
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-4 py-3">
                               {crmProject.actualFinishDate ? (
-                                <div className="flex items-center gap-1">
-                                  <CheckCircle className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                                <div className="flex items-center gap-1.5">
+                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                                   <span className="text-sm text-green-600 dark:text-green-400">
                                     {format(new Date(crmProject.actualFinishDate), "MMM d, yyyy")}
                                   </span>
@@ -598,7 +605,7 @@ export default function CrmPage() {
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-4 py-3">
                               {crmProject.dueDate && crmProject.actualFinishDate ? (() => {
                                 const dueDate = new Date(crmProject.dueDate);
                                 const actualDate = new Date(crmProject.actualFinishDate);
@@ -627,14 +634,14 @@ export default function CrmPage() {
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-2 max-w-[200px]">
+                            <td className="px-4 py-3 max-w-[200px]">
                               {crmProject.latestNote ? (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div className="flex items-center gap-1.5 cursor-default">
-                                      <StickyNote className="w-3 h-3 text-muted-foreground shrink-0" />
+                                      <StickyNote className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                                       <span className="text-sm text-muted-foreground truncate">
-                                        {crmProject.latestNote.content.substring(0, 50)}{crmProject.latestNote.content.length > 50 ? "..." : ""}
+                                        {crmProject.latestNote.content.substring(0, 40)}{crmProject.latestNote.content.length > 40 ? "..." : ""}
                                       </span>
                                     </div>
                                   </TooltipTrigger>
@@ -649,7 +656,7 @@ export default function CrmPage() {
                                 <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-right">
+                            <td className="px-4 py-3 text-right">
                               <Button
                                 size="icon"
                                 variant="ghost"
