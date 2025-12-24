@@ -262,15 +262,15 @@ export default function CrmPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList>
-            <TabsTrigger value="clients" className="gap-2" data-testid="tab-clients">
+          <TabsList className="bg-muted/80 p-1 h-auto">
+            <TabsTrigger value="clients" className="gap-2 px-4 py-2" data-testid="tab-clients">
               <Users className="w-4 h-4" />
               Contacts
               {clients.length > 0 && (
                 <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="projects" className="gap-2" data-testid="tab-projects">
+            <TabsTrigger value="projects" className="gap-2 px-4 py-2" data-testid="tab-projects">
               <FolderKanban className="w-4 h-4" />
               Projects
               {(allProjectsData?.total ?? crmProjectsData?.total) !== undefined && (
