@@ -246,16 +246,14 @@ export default function CrmPage() {
         </div>
         <div className="flex gap-2">
           {activeTab === "clients" && (
-            <Button onClick={() => navigate("/crm/client/new")} data-testid="button-add-contact">
-              <Plus className="w-4 h-4 mr-2" />
-              New Contact
+            <Button onClick={() => navigate("/crm/client/new")} size="icon" data-testid="button-add-contact">
+              <Plus className="w-4 h-4" />
             </Button>
           )}
           {activeTab === "projects" && (
             <Link href="/crm/project/new">
-              <Button data-testid="button-new-project">
-                <Plus className="w-4 h-4 mr-2" />
-                New Project
+              <Button size="icon" data-testid="button-new-project">
+                <Plus className="w-4 h-4" />
               </Button>
             </Link>
           )}
