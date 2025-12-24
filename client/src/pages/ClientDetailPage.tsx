@@ -45,6 +45,19 @@ const contactStatusConfig: Record<string, { label: string; variant: "default" | 
   client_recurrent: { label: "Client Récurrent", variant: "default" },
 };
 
+const projectStatusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  lead: { label: "Lead", variant: "secondary" },
+  discovering_call_completed: { label: "Discovery Call Completed", variant: "outline" },
+  proposal_sent: { label: "Proposal Sent", variant: "outline" },
+  won: { label: "Won", variant: "default" },
+  won_not_started: { label: "Won - Not Started", variant: "default" },
+  won_in_progress: { label: "Won - In Progress", variant: "default" },
+  won_in_review: { label: "Won - In Review", variant: "outline" },
+  won_completed: { label: "Won - Completed", variant: "default" },
+  lost: { label: "Lost", variant: "destructive" },
+  won_cancelled: { label: "Won - Cancelled", variant: "destructive" },
+};
+
 const contactStatusOptions = ["lead", "prospect", "client", "client_recurrent"];
 
 interface CrmClient {
@@ -552,7 +565,9 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 justify-between sm:justify-end flex-shrink-0">
-                    <Badge variant="secondary">{crmProject.status}</Badge>
+                    <Badge variant={projectStatusConfig[crmProject.status]?.variant || "secondary"}>
+                      {projectStatusConfig[crmProject.status]?.label || crmProject.status}
+                    </Badge>
                     <Button
                       variant="ghost"
                       size="icon"
