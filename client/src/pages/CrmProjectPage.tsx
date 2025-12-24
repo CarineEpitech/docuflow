@@ -595,107 +595,106 @@ export default function CrmProjectPage() {
               <p className="text-sm text-muted-foreground text-center py-4">No notes yet. Add the first note above.</p>
             ) : (
               notes.map((note) => (
-                <div key={note.id} className="border rounded-lg overflow-hidden" data-testid={`note-${note.id}`}>
-                  {editingNoteId === note.id ? (
-                    <div className="p-4 space-y-3">
-                      <Textarea
-                        value={editNoteContent}
-                        onChange={(e) => setEditNoteContent(e.target.value)}
-                        className="min-h-[60px]"
-                        data-testid="textarea-edit-note"
-                      />
-                      {/* Edit user mentions */}
-                      <UserMentionSelect
-                        users={users}
-                        selectedUserIds={editNoteMentions}
-                        onSelectionChange={setEditNoteMentions}
-                        testIdPrefix="edit-note-mention"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setEditingNoteId(null);
-                            setEditNoteContent("");
-                            setEditNoteMentions([]);
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleUpdateNote(note.id)}
-                          disabled={!editNoteContent.trim() || updateNoteMutation.isPending}
-                          data-testid="button-save-note"
-                        >
-                          {updateNoteMutation.isPending ? "Saving..." : "Save"}
-                        </Button>
+                <div key={note.id} className="flex gap-3 group" data-testid={`note-${note.id}`}>
+                  <div className="flex flex-col items-center">
+                    <Avatar className="w-8 h-8 border-2 border-background shadow-sm">
+                      <AvatarImage src={note.createdBy?.profileImageUrl || undefined} />
+                      <AvatarFallback className="text-xs bg-primary/10">
+                        {note.createdBy?.firstName?.[0]}{note.createdBy?.lastName?.[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="w-px flex-1 bg-border mt-2" />
+                  </div>
+                  <div className="flex-1 pb-4">
+                    {editingNoteId === note.id ? (
+                      <div className="space-y-3">
+                        <Textarea
+                          value={editNoteContent}
+                          onChange={(e) => setEditNoteContent(e.target.value)}
+                          className="min-h-[60px]"
+                          data-testid="textarea-edit-note"
+                        />
+                        <UserMentionSelect
+                          users={users}
+                          selectedUserIds={editNoteMentions}
+                          onSelectionChange={setEditNoteMentions}
+                          testIdPrefix="edit-note-mention"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditingNoteId(null);
+                              setEditNoteContent("");
+                              setEditNoteMentions([]);
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleUpdateNote(note.id)}
+                            disabled={!editNoteContent.trim() || updateNoteMutation.isPending}
+                            data-testid="button-save-note"
+                          >
+                            {updateNoteMutation.isPending ? "Saving..." : "Save"}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-6 h-6">
-                            <AvatarImage src={note.createdBy?.profileImageUrl || undefined} />
-                            <AvatarFallback className="text-[10px]">
-                              {note.createdBy?.firstName?.[0]}{note.createdBy?.lastName?.[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
                             <span className="font-medium text-sm">{note.createdBy?.firstName} {note.createdBy?.lastName}</span>
-                            <span className="text-muted-foreground text-xs">
+                            <span className="text-muted-foreground text-xs ml-2">
                               {note.createdAt ? format(new Date(note.createdAt), "MMM d, yyyy 'at' h:mm a") : ""}
                             </span>
                           </div>
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={() => {
+                                setEditingNoteId(note.id);
+                                setEditNoteContent(note.content);
+                                setEditNoteMentions(note.mentionedUserIds || []);
+                              }}
+                              data-testid={`button-edit-note-${note.id}`}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={() => deleteNoteMutation.mutate(note.id)}
+                              data-testid={`button-delete-note-${note.id}`}
+                            >
+                              <Trash2 className="w-3 h-3 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => {
-                              setEditingNoteId(note.id);
-                              setEditNoteContent(note.content);
-                              setEditNoteMentions(note.mentionedUserIds || []);
-                            }}
-                            data-testid={`button-edit-note-${note.id}`}
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => deleteNoteMutation.mutate(note.id)}
-                            data-testid={`button-delete-note-${note.id}`}
-                          >
-                            <Trash2 className="w-3 h-3 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="p-4 space-y-3">
-                        <p className="text-sm whitespace-pre-wrap">{note.content}</p>
-                        {/* Display mentioned users */}
+                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">{note.content}</p>
                         {note.mentionedUserIds && note.mentionedUserIds.length > 0 && (
-                          <div className="flex items-center gap-2 pt-2 border-t">
-                            <AtSign className="w-3.5 h-3.5 text-muted-foreground" />
-                            <div className="flex flex-wrap gap-1.5">
+                          <div className="flex items-center gap-2 pt-1">
+                            <AtSign className="w-3 h-3 text-muted-foreground" />
+                            <div className="flex flex-wrap gap-1">
                               {note.mentionedUserIds.map((userId) => {
                                 const mentionedUser = users.find(u => u.id === userId);
                                 return mentionedUser ? (
-                                  <Badge key={userId} variant="outline" className="text-xs">
+                                  <span key={userId} className="text-xs text-primary font-medium">
                                     {mentionedUser.firstName} {mentionedUser.lastName}
-                                  </Badge>
+                                  </span>
                                 ) : null;
                               })}
                             </div>
                           </div>
                         )}
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))
             )}
