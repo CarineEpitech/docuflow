@@ -238,7 +238,7 @@ export default function ClientDetailPage() {
 
   if (clientLoading) {
     return (
-      <div className="p-4 md:p-6 space-y-4 md:space-y-6 w-full md:w-[80%] mx-auto">
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6 w-full">
         <div className="flex items-center gap-4">
           <Skeleton className="h-9 w-9" />
           <Skeleton className="h-7 md:h-8 w-32 md:w-48" />
@@ -268,7 +268,7 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-6 w-full md:w-[80%] mx-auto">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6 w-full">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1 min-w-0">
           {isEditing ? (
