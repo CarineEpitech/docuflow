@@ -162,7 +162,7 @@ export default function CompanyDocumentEditorPage() {
             )}
             <span className="hidden sm:inline">{hasUnsavedChanges ? "Save" : "Saved"}</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-to-docs">
+          <Button variant="outline" size="icon" onClick={handleBack} data-testid="button-back-to-docs">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </div>
