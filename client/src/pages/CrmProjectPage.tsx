@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { format, addDays } from "date-fns";
+import { format, addDays, differenceInHours, differenceInDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -467,6 +467,32 @@ export default function CrmProjectPage() {
               <CalendarDays className="w-5 h-5" />
               Timeline
             </CardTitle>
+            {formData?.dueDate && !formData?.actualFinishDate && (
+              <div className="mt-2">
+                {(() => {
+                  const now = new Date();
+                  const dueDate = new Date(formData.dueDate);
+                  const hoursLate = differenceInHours(now, dueDate);
+                  const daysLate = differenceInDays(now, dueDate);
+                  
+                  if (hoursLate > 0) {
+                    return (
+                      <Badge variant="destructive" className="text-xs">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Late by {daysLate > 0 ? `${daysLate} day${daysLate > 1 ? 's' : ''}` : `${hoursLate} hour${hoursLate > 1 ? 's' : ''}`}
+                      </Badge>
+                    );
+                  } else {
+                    return (
+                      <Badge variant="default" className="text-xs bg-green-600">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        On time
+                      </Badge>
+                    );
+                  }
+                })()}
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <DatePickerField
