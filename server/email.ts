@@ -91,6 +91,54 @@ export async function sendWelcomeEmail(
   }
 }
 
+// Send project assignment notification email
+export async function sendProjectAssignmentEmail(
+  toEmail: string, 
+  assigneeName: string, 
+  projectName: string,
+  assignerName: string,
+  appUrl: string,
+  projectId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { client, fromEmail } = await getResendClient();
+    
+    const result = await client.emails.send({
+      from: fromEmail || 'DocuFlow <noreply@resend.dev>',
+      to: toEmail,
+      subject: `DocuFlow - You've been assigned to "${projectName}"`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #333;">New Project Assignment</h1>
+          <p>Hello ${assigneeName},</p>
+          <p><strong>${assignerName}</strong> has assigned you to the project:</p>
+          <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h2 style="margin: 0; color: #0070f3;">${projectName}</h2>
+          </div>
+          <p>Click the button below to view the project details:</p>
+          <p>
+            <a href="${appUrl}/crm/project/${projectId}" style="display: inline-block; background-color: #0070f3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+              View Project
+            </a>
+          </p>
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            This is an automated notification from DocuFlow.
+          </p>
+        </div>
+      `
+    });
+
+    if (result.error) {
+      return { success: false, error: result.error.message };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Failed to send assignment email:', error);
+    return { success: false, error: error.message || 'Failed to send email' };
+  }
+}
+
 // Send password reset/update email
 export async function sendPasswordUpdateEmail(
   toEmail: string, 

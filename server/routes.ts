@@ -33,7 +33,7 @@ import {
   getTranscriptStatus,
   retryTranscript,
 } from "./transcripts";
-import { sendWelcomeEmail, sendPasswordUpdateEmail } from "./email";
+import { sendWelcomeEmail, sendPasswordUpdateEmail, sendProjectAssignmentEmail } from "./email";
 import { extractTextFromFile, isSupportedForExtraction, isVideoFile } from "./contentExtraction";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
@@ -1396,7 +1396,48 @@ Instructions:
         updateData.actualFinishDate = parsed.data.actualFinishDate ? new Date(parsed.data.actualFinishDate) : null;
       }
       
+      // Check if assignee is changing to a new person
+      const oldAssigneeId = crmProject.assigneeId;
+      const newAssigneeId = parsed.data.assigneeId;
+      const isNewAssignment = newAssigneeId && newAssigneeId !== oldAssigneeId && newAssigneeId !== userId;
+      
       const updated = await storage.updateCrmProject(req.params.id, updateData);
+      
+      // Send notification and email if assignee changed
+      if (isNewAssignment && updated) {
+        try {
+          // Get assignee and assigner info
+          const assignee = await storage.getUser(newAssigneeId);
+          const assigner = await storage.getUser(userId);
+          const projectName = crmProject.project?.name || "Untitled Project";
+          
+          if (assignee && assigner) {
+            // Create in-app notification
+            await storage.createNotification({
+              userId: newAssigneeId,
+              type: "assignment",
+              crmProjectId: req.params.id,
+              fromUserId: userId,
+              message: `${assigner.firstName || 'Someone'} assigned you to "${projectName}"`,
+            });
+            
+            // Send email notification
+            const appUrl = `${req.protocol}://${req.get('host')}`;
+            await sendProjectAssignmentEmail(
+              assignee.email,
+              assignee.firstName || 'Team Member',
+              projectName,
+              `${assigner.firstName || ''} ${assigner.lastName || ''}`.trim() || 'A team member',
+              appUrl,
+              req.params.id
+            );
+          }
+        } catch (notifError) {
+          console.error("Error sending assignment notification:", notifError);
+          // Don't fail the update if notification fails
+        }
+      }
+      
       res.json(updated);
     } catch (error) {
       console.error("Error updating CRM project:", error);
