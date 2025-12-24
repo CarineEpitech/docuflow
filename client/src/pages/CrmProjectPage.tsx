@@ -429,6 +429,26 @@ export default function CrmProjectPage() {
             </div>
 
             <div className="space-y-2">
+              <label className="text-sm font-medium">Client</label>
+              <Select 
+                value={formData?.clientId || "_none"} 
+                onValueChange={(v) => updateFormField("clientId", v === "_none" ? null : v)}
+              >
+                <SelectTrigger data-testid="select-client">
+                  <SelectValue placeholder="Select client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">No client</SelectItem>
+                  {clients.map(client => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name} {client.company ? `(${client.company})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <label className="text-sm font-medium">Comments</label>
               <Textarea
                 value={formData?.comments || ""}
@@ -511,29 +531,8 @@ export default function CrmProjectPage() {
           <CardDescription>Associated client and contacts</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Client</label>
-            <Select 
-              value={formData?.clientId || "_none"} 
-              onValueChange={(v) => updateFormField("clientId", v === "_none" ? null : v)}
-            >
-              <SelectTrigger data-testid="select-client">
-                <SelectValue placeholder="Select client" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">No client</SelectItem>
-                {clients.map(client => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name} {client.company ? `(${client.company})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {selectedClient && (
+          {selectedClient ? (
             <>
-              <Separator />
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -638,6 +637,11 @@ export default function CrmProjectPage() {
               )}
 
             </>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              <p>No client selected</p>
+              <p className="text-sm">Select a client in the Project Status section above</p>
+            </div>
           )}
         </CardContent>
       </Card>
