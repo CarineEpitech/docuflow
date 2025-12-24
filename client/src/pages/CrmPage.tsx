@@ -239,73 +239,40 @@ export default function CrmPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 w-full">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Project Management</h1>
-          <p className="text-sm text-muted-foreground">Manage your projects and contact relationships</p>
+          <p className="text-sm text-muted-foreground hidden sm:block">Manage your projects and contact relationships</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full sm:w-auto">
           {activeTab === "clients" && (
-            <Button onClick={() => navigate("/crm/client/new")} size="icon" data-testid="button-add-contact">
-              <Plus className="w-4 h-4" />
-            </Button>
-          )}
-          {activeTab === "projects" && (
-            <Link href="/crm/project/new">
-              <Button size="icon" data-testid="button-new-project">
-                <Plus className="w-4 h-4" />
-              </Button>
-            </Link>
-          )}
-        </div>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList className="bg-muted/80 p-1 h-auto">
-            <TabsTrigger value="clients" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-clients">
-              <Users className="w-4 h-4" />
-              Contacts
-              {clients.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
+            <>
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search contacts..."
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-client-search"
+                />
+              </div>
+              {contactViewMode === "table" && (
+                <Select value={contactStatusFilter} onValueChange={(v) => setContactStatusFilter(v)}>
+                  <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-contact-status-filter">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {contactStatusOptions.map(status => (
+                      <SelectItem key={status} value={status}>
+                        {contactStatusConfig[status].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="projects" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-projects">
-              <FolderKanban className="w-4 h-4" />
-              Projects
-              {(allProjectsData?.total ?? crmProjectsData?.total) !== undefined && (
-                <Badge variant="secondary" className="ml-1">{allProjectsData?.total ?? crmProjectsData?.total}</Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full sm:w-auto">
-            {activeTab === "clients" && (
-              <>
-                <div className="relative flex-1 sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search contacts..."
-                    value={clientSearch}
-                    onChange={(e) => setClientSearch(e.target.value)}
-                    className="pl-9"
-                    data-testid="input-client-search"
-                  />
-                </div>
-                {contactViewMode === "table" && (
-                  <Select value={contactStatusFilter} onValueChange={(v) => setContactStatusFilter(v)}>
-                    <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-contact-status-filter">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      {contactStatusOptions.map(status => (
-                        <SelectItem key={status} value={status}>
-                          {contactStatusConfig[status].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+              <div className="flex items-center gap-2">
                 <div className="flex border rounded-md">
                   <Button
                     variant={contactViewMode === "cards" ? "secondary" : "ghost"}
@@ -326,38 +293,43 @@ export default function CrmPage() {
                     <List className="w-4 h-4" />
                   </Button>
                 </div>
-              </>
-            )}
-            {activeTab === "projects" && (
-              <>
-                <div className="relative flex-1 sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search projects..."
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setPage(1);
-                    }}
-                    className="pl-9"
-                    data-testid="input-search"
-                  />
-                </div>
-                {projectViewMode === "table" && (
-                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-                    <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-status-filter">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      {statusOptions.map(status => (
-                        <SelectItem key={status} value={status}>
-                          {crmStatusConfig[status].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                <Button onClick={() => navigate("/crm/client/new")} size="icon" data-testid="button-add-contact">
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            </>
+          )}
+          {activeTab === "projects" && (
+            <>
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search projects..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-9"
+                  data-testid="input-search"
+                />
+              </div>
+              {projectViewMode === "table" && (
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+                  <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-status-filter">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {statusOptions.map(status => (
+                      <SelectItem key={status} value={status}>
+                        {crmStatusConfig[status].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="flex items-center gap-2">
                 <div className="flex border rounded-md">
                   <Button
                     variant={projectViewMode === "kanban" ? "secondary" : "ghost"}
@@ -378,10 +350,34 @@ export default function CrmPage() {
                     <List className="w-4 h-4" />
                   </Button>
                 </div>
-              </>
-            )}
-          </div>
+                <Link href="/crm/project/new">
+                  <Button size="icon" data-testid="button-new-project">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            </>
+          )}
         </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="bg-muted/80 p-1 h-auto">
+          <TabsTrigger value="clients" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-clients">
+            <Users className="w-4 h-4" />
+            Contacts
+            {clients.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="projects" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-projects">
+            <FolderKanban className="w-4 h-4" />
+            Projects
+            {(allProjectsData?.total ?? crmProjectsData?.total) !== undefined && (
+              <Badge variant="secondary" className="ml-1">{allProjectsData?.total ?? crmProjectsData?.total}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="projects" className="space-y-4 mt-0">
           {projectViewMode === "kanban" ? (
