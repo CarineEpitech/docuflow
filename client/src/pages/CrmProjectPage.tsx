@@ -356,34 +356,20 @@ export default function CrmProjectPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5" />
-            Documentation
-          </CardTitle>
-          <CardDescription>Enable to add this project to the Documentation section</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm">
-                {formData?.documentationEnabled ? "Documentation is enabled" : "Documentation is disabled"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {formData?.documentationEnabled 
-                  ? "This project appears in the Documentation sidebar" 
-                  : "Enable to start documenting this project"}
-              </p>
-            </div>
-            <Switch
-              checked={formData?.documentationEnabled || false}
-              onCheckedChange={handleDocumentationToggle}
-              data-testid="switch-documentation"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+        <div className="flex items-center gap-3">
+          <FileText className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Documentation</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            {formData?.documentationEnabled ? "Enabled" : "Disabled"}
+          </span>
+        </div>
+        <Switch
+          checked={formData?.documentationEnabled || false}
+          onCheckedChange={handleDocumentationToggle}
+          data-testid="switch-documentation"
+        />
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
