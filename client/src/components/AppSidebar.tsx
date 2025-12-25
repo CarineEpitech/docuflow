@@ -152,7 +152,7 @@ export function AppSidebar() {
                   >
                     <Link
                       href="/company-documents"
-                      className="flex items-center gap-3 w-full"
+                      className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'gap-3'}`}
                       data-testid="link-company-documents"
                     >
                       <Building2 className="w-4 h-4 shrink-0" />
@@ -168,7 +168,7 @@ export function AppSidebar() {
                   >
                     <Link
                       href="/crm"
-                      className="flex items-center gap-3 w-full"
+                      className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'gap-3'}`}
                       data-testid="link-crm"
                     >
                       <Briefcase className="w-4 h-4 shrink-0" />
@@ -184,7 +184,7 @@ export function AppSidebar() {
                   >
                     <Link
                       href="/documentation"
-                      className="flex items-center gap-3 w-full"
+                      className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'gap-3'}`}
                       data-testid="link-documentation"
                     >
                       <FileText className="w-4 h-4 shrink-0" />
@@ -201,7 +201,7 @@ export function AppSidebar() {
                     >
                       <Link
                         href="/admin"
-                        className="flex items-center gap-3 w-full"
+                        className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'gap-3'}`}
                         data-testid="link-admin"
                       >
                         <Shield className="w-4 h-4 shrink-0" />
