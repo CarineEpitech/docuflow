@@ -724,9 +724,10 @@ function FolderCard({ folder, viewMode, onOpen, onRename, onDelete }: {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-medium truncate" data-testid={`text-folder-name-${folder.id}`}>{folder.name}</h3>
-            {folder.createdAt && (
-              <p className="text-xs text-muted-foreground">Created {format(new Date(folder.createdAt), "MMM d, yyyy")}</p>
-            )}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              {folder.description && <span className="truncate" data-testid={`text-folder-description-${folder.id}`}>{folder.description}</span>}
+              {folder.createdAt && <span>Created {format(new Date(folder.createdAt), "MMM d, yyyy")}</span>}
+            </div>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -772,6 +773,9 @@ function FolderCard({ folder, viewMode, onOpen, onRename, onDelete }: {
           <FolderOpen className="h-4 w-4 text-primary" />
         </div>
         <h3 className="font-medium text-sm truncate w-full" data-testid={`text-folder-name-${folder.id}`}>{folder.name}</h3>
+        {folder.description && (
+          <p className="text-xs text-muted-foreground truncate w-full mt-0.5" data-testid={`text-folder-description-${folder.id}`}>{folder.description}</p>
+        )}
         {folder.createdAt && (
           <p className="text-xs text-muted-foreground mt-0.5">Created {format(new Date(folder.createdAt), "MMM d, yyyy")}</p>
         )}
