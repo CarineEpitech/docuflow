@@ -317,7 +317,7 @@ function UserListPage() {
                       </Badge>
                     ) : (
                       <Badge variant={u.role === "admin" ? "default" : "secondary"}>
-                        {u.role || "user"}
+                        {(u.role || "user").charAt(0).toUpperCase() + (u.role || "user").slice(1)}
                       </Badge>
                     )}
 
