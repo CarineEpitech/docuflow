@@ -59,7 +59,7 @@ export default function AdminPage() {
 
   if (authLoading) {
     return (
-      <div className="p-6 space-y-6 max-w-4xl mx-auto">
+      <div className="p-6 space-y-6">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -221,7 +221,7 @@ function UserListPage() {
 
   if (usersLoading) {
     return (
-      <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      <div className="p-6 space-y-6">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -229,7 +229,7 @@ function UserListPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Shield className="w-6 h-6 text-primary" />
@@ -591,7 +591,7 @@ function CreateUserPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Plus className="w-8 h-8 text-primary shrink-0" />
@@ -773,7 +773,7 @@ function UserDetailPage({ userId }: { userId: string }) {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6 max-w-2xl mx-auto">
+      <div className="p-6 space-y-6">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -782,7 +782,7 @@ function UserDetailPage({ userId }: { userId: string }) {
 
   if (!userDetails) {
     return (
-      <div className="p-6 space-y-6 max-w-2xl mx-auto">
+      <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">User Not Found</h1>
           <Button variant="ghost" onClick={() => setLocation("/admin")}>
@@ -795,7 +795,7 @@ function UserDetailPage({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <UserIcon className="w-8 h-8 text-primary shrink-0" />
