@@ -215,18 +215,18 @@ export function AppSidebar() {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter className="mt-auto p-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
-          <div className="flex items-center justify-start gap-1 mb-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
-            <SidebarTrigger data-testid="button-sidebar-toggle" className="h-8 w-8" />
+        <SidebarFooter className="mt-auto p-3 group-data-[collapsible=icon]:p-2">
+          <div className="flex items-center justify-start gap-1 mb-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:mb-2 group-data-[collapsible=icon]:items-center">
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="h-8 w-8 shrink-0 flex items-center justify-center" />
             <NotificationBell />
             <ChatBot />
             <ThemeToggle />
           </div>
           
-          <div className="flex flex-row items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center">
+          <div className="flex flex-row items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:items-center">
             <Button
               variant="ghost"
-              className="flex-1 max-w-[calc(100%-2.5rem)] justify-start gap-3 h-11 px-2 rounded-lg hover:bg-sidebar-accent group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:max-w-none"
+              className="flex-1 max-w-[calc(100%-2.5rem)] justify-start gap-3 h-11 px-2 rounded-lg hover:bg-sidebar-accent group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:max-w-none group-data-[collapsible=icon]:justify-center"
               data-testid="button-user-menu"
             >
               <Avatar className="h-8 w-8 shrink-0">
@@ -244,7 +244,7 @@ export function AppSidebar() {
               variant="ghost"
               size="icon"
               onClick={handleLogout}
-              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-sidebar-accent"
+              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-sidebar-accent flex items-center justify-center"
               data-testid="button-logout"
             >
               <LogOut className="w-4 h-4" />
