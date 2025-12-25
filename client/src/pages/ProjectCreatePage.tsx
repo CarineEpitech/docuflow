@@ -104,6 +104,14 @@ export default function ProjectCreatePage() {
       });
       return;
     }
+    if (!formData.startDate) {
+      toast({
+        title: "Validation Error",
+        description: "Start date is required",
+        variant: "destructive",
+      });
+      return;
+    }
     createProjectMutation.mutate({
       name: formData.name,
       description: formData.description || null,
@@ -205,7 +213,7 @@ export default function ProjectCreatePage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Start Date</Label>
+              <Label>Start Date <span className="text-destructive">*</span></Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
