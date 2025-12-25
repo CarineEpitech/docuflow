@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, User, Building2, Mail, Phone, FileText } from "lucide-react";
+import { ArrowLeft, User, Building2, Mail, Phone, FileText, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,12 +28,21 @@ const contactStatusConfig: Record<string, { label: string }> = {
 
 const contactStatusOptions = ["lead", "prospect", "client", "client_recurrent"];
 
+const clientSourceConfig: Record<string, { label: string }> = {
+  fiverr: { label: "Fiverr" },
+  zoho: { label: "Zoho" },
+  direct: { label: "Direct" },
+};
+
+const clientSourceOptions = ["fiverr", "zoho", "direct"];
+
 const contactFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   company: z.string().optional(),
   phone: z.string().optional(),
   status: z.string().default("lead"),
+  source: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -51,6 +60,7 @@ export default function ContactCreatePage() {
       company: "",
       phone: "",
       status: "lead",
+      source: "",
       notes: "",
     },
   });
@@ -63,6 +73,7 @@ export default function ContactCreatePage() {
         company: data.company || null,
         phone: data.phone || null,
         status: data.status,
+        source: data.source && data.source !== "_none" ? data.source : null,
         notes: data.notes || null,
       });
     },
@@ -185,6 +196,29 @@ export default function ContactCreatePage() {
                     {contactStatusOptions.map((status) => (
                       <SelectItem key={status} value={status}>
                         {contactStatusConfig[status]?.label || status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source" className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  Source
+                </Label>
+                <Select
+                  value={form.watch("source") || ""}
+                  onValueChange={(value) => form.setValue("source", value)}
+                >
+                  <SelectTrigger data-testid="select-contact-source">
+                    <SelectValue placeholder="Select source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">No source</SelectItem>
+                    {clientSourceOptions.map((source) => (
+                      <SelectItem key={source} value={source}>
+                        {clientSourceConfig[source]?.label || source}
                       </SelectItem>
                     ))}
                   </SelectContent>

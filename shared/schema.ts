@@ -262,6 +262,15 @@ export const contactStatusValues = [
 
 export type ContactStatus = typeof contactStatusValues[number];
 
+// Client Source enum values
+export const clientSourceValues = [
+  "fiverr",
+  "zoho",
+  "direct"
+] as const;
+
+export type ClientSource = typeof clientSourceValues[number];
+
 // CRM Clients table - companies/individuals associated with projects (now called Contacts)
 export const crmClients = pgTable("crm_clients", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -271,6 +280,7 @@ export const crmClients = pgTable("crm_clients", {
   phone: varchar("phone", { length: 50 }),
   notes: text("notes"),
   status: varchar("status", { length: 50 }).notNull().default("lead"),
+  source: varchar("source", { length: 50 }),
   ownerId: varchar("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
