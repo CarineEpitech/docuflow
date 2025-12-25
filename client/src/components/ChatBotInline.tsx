@@ -79,96 +79,88 @@ export function ChatBotInline() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between flex-wrap gap-2 px-3 sm:px-4 py-3 border-b">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-            <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+      <div className="flex flex-col gap-3 px-3 sm:px-4 py-3 border-b">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-semibold text-sm sm:text-base truncate">DocuFlow Assistant</h2>
+              <p className="text-xs text-muted-foreground truncate hidden sm:block">Powered by GPT-4.1-nano</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="font-semibold text-sm sm:text-base truncate">DocuFlow Assistant</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">Powered by GPT-4.1-nano</p>
+          <div className="flex items-center gap-1 shrink-0">
+            <ToggleGroup 
+              type="single" 
+              value={mode} 
+              onValueChange={(v) => v && setMode(v as ChatMode)} 
+              className="gap-0.5"
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem 
+                    value="projects" 
+                    size="sm" 
+                    className="gap-1 px-2 text-xs h-8"
+                    data-testid="toggle-mode-projects"
+                    aria-label="Search project documentation only"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Projects</span>
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Search project documentation only</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem 
+                    value="company" 
+                    size="sm" 
+                    className="gap-1 px-2 text-xs h-8"
+                    data-testid="toggle-mode-company"
+                    aria-label="Search company documents only"
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Company</span>
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Search company documents only</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem 
+                    value="both" 
+                    size="sm" 
+                    className="gap-1 px-2 text-xs h-8"
+                    data-testid="toggle-mode-both"
+                    aria-label="Search all documentation sources"
+                  >
+                    <Layers className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">All</span>
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Search all documentation sources</p>
+                </TooltipContent>
+              </Tooltip>
+            </ToggleGroup>
+            {messages.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleClearChat}
+                data-testid="button-clear-chat"
+                className="h-8 w-8"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
           </div>
-        </div>
-        {messages.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearChat}
-            data-testid="button-clear-chat"
-            className="shrink-0"
-          >
-            <Trash2 className="w-4 h-4 sm:mr-1" />
-            <span className="hidden sm:inline">Clear</span>
-          </Button>
-        )}
-      </div>
-
-      <div className="px-3 sm:px-4 py-2 sm:py-3 border-b bg-muted/30">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs sm:text-sm text-muted-foreground">Scope:</span>
-            <span className="text-xs sm:text-sm font-medium">{getModeLabel()}</span>
-          </div>
-          <ToggleGroup 
-            type="single" 
-            value={mode} 
-            onValueChange={(v) => v && setMode(v as ChatMode)} 
-            className="gap-0.5 sm:gap-1 w-full sm:w-auto"
-          >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <ToggleGroupItem 
-                  value="projects" 
-                  size="sm" 
-                  className="gap-1 px-2 sm:px-3 text-xs sm:text-sm flex-1 sm:flex-none"
-                  data-testid="toggle-mode-projects"
-                  aria-label="Search project documentation only"
-                >
-                  <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span className="hidden sm:inline">Projects</span>
-                  <span className="sm:hidden">Proj</span>
-                </ToggleGroupItem>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Search project documentation only</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <ToggleGroupItem 
-                  value="company" 
-                  size="sm" 
-                  className="gap-1 px-2 sm:px-3 text-xs sm:text-sm flex-1 sm:flex-none"
-                  data-testid="toggle-mode-company"
-                  aria-label="Search company documents only"
-                >
-                  <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span className="hidden sm:inline">Company</span>
-                  <span className="sm:hidden">Co</span>
-                </ToggleGroupItem>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Search company documents only</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <ToggleGroupItem 
-                  value="both" 
-                  size="sm" 
-                  className="gap-1 px-2 sm:px-3 text-xs sm:text-sm flex-1 sm:flex-none"
-                  data-testid="toggle-mode-both"
-                  aria-label="Search all documentation sources"
-                >
-                  <Layers className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  All
-                </ToggleGroupItem>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Search all documentation sources</p>
-              </TooltipContent>
-            </Tooltip>
-          </ToggleGroup>
         </div>
       </div>
 
