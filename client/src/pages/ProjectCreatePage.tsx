@@ -9,10 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
 import { 
   ArrowLeft,
   FolderKanban,
-  Save
+  Save,
+  CalendarDays
 } from "lucide-react";
 import type { CrmClient, CrmProjectStatus } from "@shared/schema";
 
@@ -51,6 +55,7 @@ export default function ProjectCreatePage() {
     description: "",
     clientId: "",
     status: "lead" as CrmProjectStatus,
+    startDate: null as Date | null,
     budgetedHours: "",
     actualHours: "",
   });
@@ -60,7 +65,7 @@ export default function ProjectCreatePage() {
   });
 
   const createProjectMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null }) => {
+    mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null; startDate?: string | null; budgetedHours?: number | null; actualHours?: number | null }) => {
       return apiRequest("POST", "/api/crm/projects", data);
     },
     onSuccess: (response) => {
@@ -95,6 +100,7 @@ export default function ProjectCreatePage() {
       description: formData.description || null,
       clientId: formData.clientId || null,
       status: formData.status || "lead",
+      startDate: formData.startDate?.toISOString() || null,
       budgetedHours: formData.budgetedHours ? parseInt(formData.budgetedHours) : null,
       actualHours: formData.actualHours ? parseInt(formData.actualHours) : null,
     });
@@ -187,6 +193,30 @@ export default function ProjectCreatePage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Start Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    data-testid="datepicker-start-date"
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    {formData.startDate ? format(formData.startDate, "PPP") : <span className="text-muted-foreground">Select start date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.startDate || undefined}
+                    onSelect={(date) => setFormData({ ...formData, startDate: date || null })}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
