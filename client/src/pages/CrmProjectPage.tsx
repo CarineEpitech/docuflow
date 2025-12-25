@@ -576,6 +576,21 @@ export default function CrmProjectPage() {
               </div>
               <p className="text-xs text-muted-foreground">Automatically set to 7 days after start date</p>
             </div>
+            
+            {formData?.startDate && formData?.budgetedHours && formData.budgetedHours > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Estimated End Date</label>
+                <div 
+                  className="w-full flex items-center justify-start px-3 py-2 text-left font-normal border rounded-md bg-muted"
+                  data-testid="display-estimated-end-date"
+                >
+                  <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <span>{format(addDays(new Date(formData.startDate), Math.ceil(formData.budgetedHours / (currentUser?.hoursPerDay || 8))), "PPP")}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Based on {formData.budgetedHours} budgeted hours at {currentUser?.hoursPerDay || 8}h/day</p>
+              </div>
+            )}
+            
             <DatePickerField
               label="Actual Finish Date"
               value={formData?.actualFinishDate || undefined}
