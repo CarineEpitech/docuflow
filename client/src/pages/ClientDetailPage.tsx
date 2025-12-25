@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Building2, Mail, Phone, FileText, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus, Pencil, X, Save } from "lucide-react";
+import { ArrowLeft, Building2, Mail, Phone, FileText, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus, Pencil, X, Save, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +60,14 @@ const projectStatusConfig: Record<string, { label: string; variant: "default" | 
 
 const contactStatusOptions = ["lead", "prospect", "client", "client_recurrent"];
 
+const clientSourceConfig: Record<string, { label: string }> = {
+  fiverr: { label: "Fiverr" },
+  zoho: { label: "Zoho" },
+  direct: { label: "Direct" },
+};
+
+const clientSourceOptions = ["fiverr", "zoho", "direct"];
+
 interface CrmClient {
   id: string;
   name: string;
@@ -67,6 +75,7 @@ interface CrmClient {
   email: string | null;
   phone: string | null;
   status: string | null;
+  source: string | null;
   notes: string | null;
   ownerId: string;
   createdAt: string;
@@ -107,6 +116,7 @@ export default function ClientDetailPage() {
     company: "",
     phone: "",
     status: "lead",
+    source: "",
     notes: "",
   });
 
@@ -192,7 +202,7 @@ export default function ClientDetailPage() {
   });
 
   const updateClientMutation = useMutation({
-    mutationFn: async (data: { name: string; email?: string | null; company?: string | null; phone?: string | null; status?: string; notes?: string | null }) => {
+    mutationFn: async (data: { name: string; email?: string | null; company?: string | null; phone?: string | null; status?: string; source?: string | null; notes?: string | null }) => {
       await apiRequest("PATCH", `/api/crm/clients/${id}`, data);
     },
     onSuccess: () => {
@@ -214,6 +224,7 @@ export default function ClientDetailPage() {
         company: client.company || "",
         phone: client.phone || "",
         status: client.status || "lead",
+        source: client.source || "",
         notes: client.notes || "",
       });
       setIsEditing(true);
@@ -229,6 +240,7 @@ export default function ClientDetailPage() {
         company: client.company || "",
         phone: client.phone || "",
         status: client.status || "lead",
+        source: client.source || "",
         notes: client.notes || "",
       });
     }
@@ -245,6 +257,7 @@ export default function ClientDetailPage() {
       company: editForm.company || null,
       phone: editForm.phone || null,
       status: editForm.status,
+      source: editForm.source && editForm.source !== "_none" ? editForm.source : null,
       notes: editForm.notes || null,
     });
   };
@@ -431,6 +444,29 @@ export default function ClientDetailPage() {
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="edit-source" className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  Source
+                </Label>
+                <Select
+                  value={editForm.source || ""}
+                  onValueChange={(value) => setEditForm({ ...editForm, source: value })}
+                >
+                  <SelectTrigger data-testid="select-edit-source">
+                    <SelectValue placeholder="Select source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">No source</SelectItem>
+                    {clientSourceOptions.map((source) => (
+                      <SelectItem key={source} value={source}>
+                        {clientSourceConfig[source]?.label || source}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="edit-notes" className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
@@ -492,6 +528,16 @@ export default function ClientDetailPage() {
                     ) : (
                       <p className="font-medium text-muted-foreground italic" data-testid="text-client-phone">Not provided</p>
                     )}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Globe className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm text-muted-foreground">Source</p>
+                    <p className={`font-medium ${!client.source ? 'text-muted-foreground italic' : ''}`} data-testid="text-client-source">
+                      {client.source ? (clientSourceConfig[client.source]?.label || client.source) : "Not provided"}
+                    </p>
                   </div>
                 </div>
 
