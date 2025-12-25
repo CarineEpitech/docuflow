@@ -41,16 +41,18 @@ export default function DocumentationPage() {
 
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      await apiRequest("DELETE", `/api/projects/${projectId}`);
+      await apiRequest("DELETE", `/api/crm/projects/by-project/${projectId}`);
     },
     onSuccess: () => {
       toast({ title: "Project deleted successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/projects/documentable"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       setProjectToDelete(null);
     },
     onError: () => {
       toast({ title: "Failed to delete project", variant: "destructive" });
+      setProjectToDelete(null);
     },
   });
 
