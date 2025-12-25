@@ -51,6 +51,8 @@ export default function ProjectCreatePage() {
     description: "",
     clientId: "",
     status: "lead" as CrmProjectStatus,
+    budgetedHours: "",
+    actualHours: "",
   });
 
   const { data: clients = [] } = useQuery<CrmClient[]>({
@@ -93,6 +95,8 @@ export default function ProjectCreatePage() {
       description: formData.description || null,
       clientId: formData.clientId || null,
       status: formData.status || "lead",
+      budgetedHours: formData.budgetedHours ? parseInt(formData.budgetedHours) : null,
+      actualHours: formData.actualHours ? parseInt(formData.actualHours) : null,
     });
   };
 
@@ -183,6 +187,33 @@ export default function ProjectCreatePage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="budgetedHours">Budgeted Hours</Label>
+                <Input
+                  id="budgetedHours"
+                  type="number"
+                  min="0"
+                  value={formData.budgetedHours}
+                  onChange={(e) => setFormData({ ...formData, budgetedHours: e.target.value })}
+                  placeholder="0"
+                  data-testid="input-budgeted-hours"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="actualHours">Actual Hours</Label>
+                <Input
+                  id="actualHours"
+                  type="number"
+                  min="0"
+                  value={formData.actualHours}
+                  onChange={(e) => setFormData({ ...formData, actualHours: e.target.value })}
+                  placeholder="0"
+                  data-testid="input-actual-hours"
+                />
+              </div>
             </div>
 
             <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">

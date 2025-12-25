@@ -82,6 +82,8 @@ export default function CrmProjectPage() {
     actualFinishDate: Date | null;
     comments: string;
     documentationEnabled: boolean;
+    budgetedHours: number | null;
+    actualHours: number | null;
   } | null>(null);
 
   const [hasChanges, setHasChanges] = useState(false);
@@ -117,6 +119,8 @@ export default function CrmProjectPage() {
         actualFinishDate: project.actualFinishDate ? new Date(project.actualFinishDate) : null,
         comments: project.comments || "",
         documentationEnabled: project.documentationEnabled === 1,
+        budgetedHours: project.budgetedHours ?? null,
+        actualHours: project.actualHours ?? null,
       });
       setHasChanges(false);
     }
@@ -282,6 +286,8 @@ export default function CrmProjectPage() {
       dueDate: formData.dueDate?.toISOString() || null,
       actualFinishDate: formData.actualFinishDate?.toISOString() || null,
       comments: formData.comments || null,
+      budgetedHours: formData.budgetedHours,
+      actualHours: formData.actualHours,
     };
     
     updateCrmProjectMutation.mutate(updateData as Partial<CrmProjectWithDetails>);
@@ -437,6 +443,49 @@ export default function CrmProjectPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Budgeted Hours</label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData?.budgetedHours ?? ""}
+                  onChange={(e) => updateFormField("budgetedHours", e.target.value ? parseInt(e.target.value) : null)}
+                  placeholder="0"
+                  data-testid="input-budgeted-hours"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Actual Hours</label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData?.actualHours ?? ""}
+                  onChange={(e) => updateFormField("actualHours", e.target.value ? parseInt(e.target.value) : null)}
+                  placeholder="0"
+                  data-testid="input-actual-hours"
+                />
+              </div>
+            </div>
+            
+            {formData?.budgetedHours && formData.budgetedHours > 0 && (
+              <div className="pt-2">
+                {(() => {
+                  const budgeted = formData.budgetedHours;
+                  const actual = formData.actualHours || 0;
+                  const percentage = Math.round((actual / budgeted) * 100);
+                  const isOverBudget = actual > budgeted;
+                  return (
+                    <div className={`flex items-center gap-2 text-sm ${isOverBudget ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      <Clock className="w-4 h-4" />
+                      <span>{actual} / {budgeted} hours ({percentage}%)</span>
+                      {isOverBudget && <Badge variant="destructive" className="text-xs">Over Budget</Badge>}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Comments</label>

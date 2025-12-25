@@ -1296,6 +1296,8 @@ Instructions:
         dueDate: z.string().nullable().optional(),
         actualFinishDate: z.string().nullable().optional(),
         comments: z.string().nullable().optional(),
+        budgetedHours: z.number().nullable().optional(),
+        actualHours: z.number().nullable().optional(),
       });
       
       const parsed = createSchema.safeParse(req.body);
@@ -1319,6 +1321,8 @@ Instructions:
           dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
           actualFinishDate: parsed.data.actualFinishDate ? new Date(parsed.data.actualFinishDate) : null,
           comments: parsed.data.comments || null,
+          budgetedHours: parsed.data.budgetedHours ?? null,
+          actualHours: parsed.data.actualHours ?? null,
         }
       );
       
@@ -1376,6 +1380,8 @@ Instructions:
         dueDate: z.string().nullable().optional(),
         actualFinishDate: z.string().nullable().optional(),
         comments: z.string().nullable().optional(),
+        budgetedHours: z.number().nullable().optional(),
+        actualHours: z.number().nullable().optional(),
       }).partial();
       
       const parsed = updateSchema.safeParse(req.body);
