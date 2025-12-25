@@ -342,6 +342,11 @@ export default function CrmProjectPage() {
               </Button>
             </Link>
           )}
+          <Switch
+            checked={formData?.documentationEnabled || false}
+            onCheckedChange={handleDocumentationToggle}
+            data-testid="switch-documentation"
+          />
           {hasChanges && (
             <Button 
               onClick={handleSave} 
@@ -354,21 +359,6 @@ export default function CrmProjectPage() {
             </Button>
           )}
         </div>
-      </div>
-
-      <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-        <div className="flex items-center gap-3">
-          <FileText className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Documentation</span>
-          <span className="text-xs text-muted-foreground hidden sm:inline">
-            {formData?.documentationEnabled ? "Enabled" : "Disabled"}
-          </span>
-        </div>
-        <Switch
-          checked={formData?.documentationEnabled || false}
-          onCheckedChange={handleDocumentationToggle}
-          data-testid="switch-documentation"
-        />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
