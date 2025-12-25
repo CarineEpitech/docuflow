@@ -438,8 +438,16 @@ export default function CrmPage() {
                                                     {project.client.name}
                                                   </p>
                                                 )}
+                                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
+                                                  {project.startDate && (
+                                                    <span>Start: {format(new Date(project.startDate), "MMM d")}</span>
+                                                  )}
+                                                  {project.budgetedHours && project.budgetedHours > 0 && (
+                                                    <span>{project.budgetedHours}h budgeted</span>
+                                                  )}
+                                                </div>
                                                 {project.dueDate && (
-                                                  <p className={`text-xs mt-2 ${new Date(project.dueDate) < new Date() && project.status !== "finished" ? "text-destructive" : "text-muted-foreground"}`}>
+                                                  <p className={`text-xs mt-1 ${new Date(project.dueDate) < new Date() && project.status !== "finished" ? "text-destructive" : "text-muted-foreground"}`}>
                                                     Due: {format(new Date(project.dueDate), "MMM d")}
                                                   </p>
                                                 )}
