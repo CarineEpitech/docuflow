@@ -238,9 +238,8 @@ function UserListPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button onClick={() => setLocation("/admin/create")} data-testid="button-create-user">
-            <Plus className="w-4 h-4 mr-2" />
-            Create User
+          <Button size="icon" onClick={() => setLocation("/admin/create")} data-testid="button-create-user">
+            <Plus className="w-4 h-4" />
           </Button>
           <Button variant="ghost" onClick={() => setLocation("/")} data-testid="button-back-admin">
             <ArrowLeft className="w-4 h-4 mr-2" />
