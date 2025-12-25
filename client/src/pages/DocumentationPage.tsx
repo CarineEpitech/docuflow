@@ -85,9 +85,9 @@ export default function DocumentationPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold truncate group-hover:text-primary transition-colors">{project.name}</h3>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      <div className="flex items-start gap-2">
+                        <h3 className="font-semibold group-hover:text-primary transition-colors leading-tight">{project.name}</h3>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
                       </div>
                       {project.description && (
                         <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{project.description}</p>
