@@ -442,9 +442,9 @@ export default function CrmPage() {
                                                   {project.startDate && (
                                                     <span>Start: {format(new Date(project.startDate), "MMM d")}</span>
                                                   )}
-                                                  {project.budgetedHours && project.budgetedHours > 0 && (
+                                                  {project.budgetedHours ? (
                                                     <span>{project.budgetedHours}h budgeted</span>
-                                                  )}
+                                                  ) : null}
                                                 </div>
                                                 {project.dueDate && (
                                                   <p className={`text-xs mt-1 ${new Date(project.dueDate) < new Date() && project.status !== "finished" ? "text-destructive" : "text-muted-foreground"}`}>
