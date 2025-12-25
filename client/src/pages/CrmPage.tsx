@@ -422,7 +422,7 @@ export default function CrmPage() {
                                         {...provided.dragHandleProps}
                                       >
                                         <Card
-                                          className={`hover-elevate cursor-grab ${snapshot.isDragging ? "shadow-lg rotate-2" : ""}`}
+                                          className={`hover-elevate cursor-grab group ${snapshot.isDragging ? "shadow-lg rotate-2" : ""}`}
                                           onClick={() => !snapshot.isDragging && setLocation(`/crm/project/${project.id}`)}
                                           data-testid={`kanban-card-${project.id}`}
                                         >
@@ -465,6 +465,18 @@ export default function CrmPage() {
                                                   </div>
                                                 )}
                                               </div>
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-destructive"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setDeleteProjectId(project.id);
+                                                }}
+                                                data-testid={`button-delete-kanban-${project.id}`}
+                                              >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                              </Button>
                                             </div>
                                           </CardContent>
                                         </Card>
