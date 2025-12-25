@@ -45,9 +45,9 @@ export default function DocumentationPage() {
     },
     onSuccess: () => {
       toast({ title: "Project deleted successfully" });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects/documentable"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/documentable"], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"], refetchType: 'all' });
       setProjectToDelete(null);
     },
     onError: () => {
