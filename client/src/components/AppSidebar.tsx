@@ -127,10 +127,10 @@ export function AppSidebar() {
   return (
     <>
       <Sidebar collapsible="icon">
-        <SidebarHeader className="p-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3">
-              <div className={`rounded-lg bg-primary flex items-center justify-center ${isCollapsed ? 'w-8 h-8' : 'w-8 h-8'}`}>
+        <SidebarHeader className="p-4 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
+          <div className={`flex items-center ${isCollapsed ? 'justify-center w-full' : 'justify-between'}`}>
+            <Link href="/" className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
                 <FileText className="w-4 h-4 text-primary-foreground" />
               </div>
               {!isCollapsed && (
@@ -140,7 +140,7 @@ export function AppSidebar() {
           </div>
         </SidebarHeader>
 
-        <SidebarContent className="custom-scrollbar px-3">
+        <SidebarContent className="custom-scrollbar px-3 group-data-[collapsible=icon]:px-2">
           <SidebarGroup className="p-0">
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
