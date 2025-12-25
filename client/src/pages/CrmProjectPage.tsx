@@ -337,9 +337,6 @@ export default function CrmProjectPage() {
           <p className="text-sm text-muted-foreground">Project Details</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/crm?tab=projects")} data-testid="button-back">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
           {formData?.documentationEnabled && (
             <Link href={`/project/${project.projectId}`}>
               <Button variant="outline" className="w-full sm:w-auto" data-testid="button-view-docs">
@@ -364,6 +361,9 @@ export default function CrmProjectPage() {
               {updateCrmProjectMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           )}
+          <Button variant="ghost" size="icon" onClick={() => setLocation("/crm?tab=projects")} data-testid="button-back">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
