@@ -1,16 +1,29 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Search, 
   ChevronLeft, 
   ChevronRight,
   FileText,
-  FolderOpen
+  FolderOpen,
+  Trash2
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
 
 const PAGE_SIZE = 15;
@@ -19,9 +32,26 @@ export default function DocumentationPage() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const { toast } = useToast();
 
   const { data: allProjects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects/documentable"],
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      await apiRequest("DELETE", `/api/projects/${projectId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Project deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/documentable"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      setProjectToDelete(null);
+    },
+    onError: () => {
+      toast({ title: "Failed to delete project", variant: "destructive" });
+    },
   });
 
   const filteredProjects = allProjects.filter(project =>
@@ -93,6 +123,18 @@ export default function DocumentationPage() {
                         <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{project.description}</p>
                       )}
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProjectToDelete(project);
+                      }}
+                      data-testid={`button-delete-project-${project.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -131,6 +173,29 @@ export default function DocumentationPage() {
           )}
         </>
       )}
+
+      <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
+        <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{projectToDelete?.name}"? This will permanently remove the project and all its documentation. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
+            <AlertDialogCancel className="w-full sm:w-auto" data-testid="button-cancel-delete">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => projectToDelete && deleteProjectMutation.mutate(projectToDelete.id)}
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteProjectMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
