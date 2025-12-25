@@ -104,6 +104,14 @@ export default function ProjectCreatePage() {
       });
       return;
     }
+    if (!formData.description.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Project description is required",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!formData.startDate) {
       toast({
         title: "Validation Error",
@@ -162,12 +170,12 @@ export default function ProjectCreatePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Description <span className="text-destructive">*</span></Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Project description (optional)"
+                placeholder="Enter project description"
                 rows={4}
                 data-testid="textarea-project-description"
               />
