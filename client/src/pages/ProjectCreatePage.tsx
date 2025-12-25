@@ -101,7 +101,7 @@ export default function ProjectCreatePage() {
   };
 
   return (
-    <div className="container max-w-2xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+    <div className="w-full p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">New Project</h1>
