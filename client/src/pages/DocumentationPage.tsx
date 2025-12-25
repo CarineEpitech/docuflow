@@ -92,10 +92,6 @@ export default function DocumentationPage() {
                       {project.description && (
                         <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{project.description}</p>
                       )}
-                      <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>Documentation</span>
-                      </div>
                     </div>
                   </div>
                 </CardContent>
