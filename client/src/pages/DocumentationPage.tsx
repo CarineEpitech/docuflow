@@ -54,82 +54,87 @@ export default function DocumentationPage() {
         </div>
       </div>
 
-      <Card className="overflow-hidden bg-muted/30">
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="p-8 text-center text-muted-foreground">
-              Loading projects...
-            </div>
-          ) : paginatedProjects.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>{search ? "No projects match your search." : "No documented projects found."}</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {paginatedProjects.map((project) => (
-                <div
-                  key={project.id}
-                  className="flex items-center gap-4 p-4 hover:bg-muted/50 cursor-pointer transition-colors group"
-                  onClick={() => setLocation(`/project/${project.id}`)}
-                  data-testid={`row-doc-project-${project.id}`}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    {project.icon && project.icon !== "folder" ? (
-                      <span className="text-lg">{project.icon}</span>
-                    ) : (
-                      <FolderOpen className="w-5 h-5 text-primary" />
-                    )}
+      {isLoading ? (
+        <div className="p-8 text-center text-muted-foreground">
+          Loading projects...
+        </div>
+      ) : paginatedProjects.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center text-muted-foreground">
+            <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p>{search ? "No projects match your search." : "No documented projects found."}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedProjects.map((project) => (
+              <Card
+                key={project.id}
+                className="hover-elevate cursor-pointer transition-all group"
+                onClick={() => setLocation(`/project/${project.id}`)}
+                data-testid={`row-doc-project-${project.id}`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
+                      {project.icon && project.icon !== "folder" ? (
+                        <span className="text-xl">{project.icon}</span>
+                      ) : (
+                        <FolderOpen className="w-6 h-6 text-primary" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold truncate group-hover:text-primary transition-colors">{project.name}</h3>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      </div>
+                      {project.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{project.description}</p>
+                      )}
+                      <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Documentation</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium truncate group-hover:text-primary transition-colors">{project.name}</h3>
-                    {project.description && (
-                      <p className="text-sm text-muted-foreground truncate">{project.description}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <FileText className="w-4 h-4 text-muted-foreground" />
-                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
           {totalPages > 1 && (
-            <div className="p-3 sm:p-4 border-t">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <span className="text-sm text-muted-foreground text-center sm:text-left">
-                  Showing {startIndex + 1}-{Math.min(startIndex + PAGE_SIZE, filteredProjects.length)} of {filteredProjects.length} projects
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4">
+              <span className="text-sm text-muted-foreground text-center sm:text-left">
+                Showing {startIndex + 1}-{Math.min(startIndex + PAGE_SIZE, filteredProjects.length)} of {filteredProjects.length} projects
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  data-testid="button-prev-page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-sm px-2">
+                  Page {page} of {totalPages}
                 </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    data-testid="button-prev-page"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <span className="text-sm px-2">
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    data-testid="button-next-page"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  data-testid="button-next-page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </>
+      )}
     </div>
   );
 }
