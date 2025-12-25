@@ -63,7 +63,7 @@ export default function DocumentationPage() {
   const paginatedProjects = filteredProjects.slice(startIndex, startIndex + PAGE_SIZE);
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Documentation</h1>
