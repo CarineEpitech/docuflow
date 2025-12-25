@@ -2582,6 +2582,7 @@ Instructions:
         email: z.string().email().optional(),
         firstName: z.string().min(1).optional(),
         lastName: z.string().min(1).optional(),
+        hoursPerDay: z.number().min(1).max(24).optional(),
       });
       
       const parsed = updateUserSchema.safeParse(req.body);

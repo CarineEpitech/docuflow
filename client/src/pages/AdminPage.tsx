@@ -86,7 +86,7 @@ function UserListPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{ firstName: string; lastName: string; email: string }>({ firstName: "", lastName: "", email: "" });
+  const [editForm, setEditForm] = useState<{ firstName: string; lastName: string; email: string; hoursPerDay: number }>({ firstName: "", lastName: "", email: "", hoursPerDay: 8 });
   const [copiedPassword, setCopiedPassword] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const USERS_PER_PAGE = 7;
@@ -136,7 +136,7 @@ function UserListPage() {
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: { firstName?: string; lastName?: string; email?: string } }) => {
+    mutationFn: async ({ userId, data }: { userId: string; data: { firstName?: string; lastName?: string; email?: string; hoursPerDay?: number } }) => {
       return await apiRequest("PATCH", `/api/admin/users/${userId}`, data);
     },
     onSuccess: () => {
@@ -198,12 +198,13 @@ function UserListPage() {
       firstName: u.firstName || "",
       lastName: u.lastName || "",
       email: u.email,
+      hoursPerDay: u.hoursPerDay || 8,
     });
   };
 
   const cancelEditing = () => {
     setEditingUser(null);
-    setEditForm({ firstName: "", lastName: "", email: "" });
+    setEditForm({ firstName: "", lastName: "", email: "", hoursPerDay: 8 });
   };
 
   const saveEditing = () => {
@@ -269,7 +270,7 @@ function UserListPage() {
                   data-testid={`row-user-${u.id}`}
                 >
                   {editingUser === u.id ? (
-                    <div className="flex-1 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4 sm:mr-4">
+                    <div className="flex-1 grid grid-cols-1 gap-3 sm:grid-cols-4 sm:gap-4 sm:mr-4">
                       <Input
                         value={editForm.firstName}
                         onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
@@ -288,6 +289,15 @@ function UserListPage() {
                         placeholder="Email"
                         type="email"
                         data-testid={`input-email-${u.id}`}
+                      />
+                      <Input
+                        value={editForm.hoursPerDay}
+                        onChange={(e) => setEditForm({ ...editForm, hoursPerDay: parseInt(e.target.value) || 8 })}
+                        placeholder="Hours/day"
+                        type="number"
+                        min="1"
+                        max="24"
+                        data-testid={`input-hoursperday-${u.id}`}
                       />
                     </div>
                   ) : (

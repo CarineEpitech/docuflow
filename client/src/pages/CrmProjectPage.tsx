@@ -4,6 +4,7 @@ import { useRoute, useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format, addDays, differenceInHours, differenceInDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +70,7 @@ const statusOptions: CrmProjectStatus[] = ["lead", "discovering_call_completed",
 
 export default function CrmProjectPage() {
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
   const [, params] = useRoute("/crm/project/:id");
   const [, setLocation] = useLocation();
   const projectId = params?.id;
@@ -484,6 +486,19 @@ export default function CrmProjectPage() {
                     </div>
                   );
                 })()}
+              </div>
+            )}
+            
+            {formData?.startDate && formData?.budgetedHours && formData.budgetedHours > 0 && (
+              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Estimated End Date: </span>
+                  <span className="font-medium" data-testid="text-estimated-end-date">
+                    {format(addDays(new Date(formData.startDate), Math.ceil(formData.budgetedHours / (currentUser?.hoursPerDay || 8))), "PPP")}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-2">({currentUser?.hoursPerDay || 8}h/day)</span>
+                </div>
               </div>
             )}
 

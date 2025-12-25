@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,12 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { 
   ArrowLeft,
   FolderKanban,
   Save,
-  CalendarDays
+  CalendarDays,
+  Clock
 } from "lucide-react";
 import type { CrmClient, CrmProjectStatus } from "@shared/schema";
 
@@ -48,6 +50,7 @@ const statusOptions: CrmProjectStatus[] = [
 
 export default function ProjectCreatePage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [, navigate] = useLocation();
 
   const [formData, setFormData] = useState({
@@ -63,6 +66,12 @@ export default function ProjectCreatePage() {
   const { data: clients = [] } = useQuery<CrmClient[]>({
     queryKey: ["/api/crm/clients"],
   });
+
+  // Calculate estimated end date based on start date, budgeted hours, and hours per day
+  const hoursPerDay = user?.hoursPerDay || 8;
+  const estimatedEndDate = formData.startDate && formData.budgetedHours 
+    ? addDays(formData.startDate, Math.ceil(parseInt(formData.budgetedHours) / hoursPerDay))
+    : null;
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null; startDate?: string | null; budgetedHours?: number | null; actualHours?: number | null }) => {
@@ -245,6 +254,17 @@ export default function ProjectCreatePage() {
                 />
               </div>
             </div>
+
+            {estimatedEndDate && (
+              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Estimated End Date: </span>
+                  <span className="font-medium" data-testid="text-estimated-end-date">{format(estimatedEndDate, "PPP")}</span>
+                  <span className="text-xs text-muted-foreground ml-2">({hoursPerDay}h/day)</span>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
               <Link href="/crm" className="w-full sm:w-auto">
