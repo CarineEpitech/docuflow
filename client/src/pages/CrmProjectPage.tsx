@@ -489,19 +489,6 @@ export default function CrmProjectPage() {
               </div>
             )}
             
-            {formData?.startDate && formData?.budgetedHours && formData.budgetedHours > 0 && (
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Estimated End Date: </span>
-                  <span className="font-medium" data-testid="text-estimated-end-date">
-                    {format(addDays(new Date(formData.startDate), Math.ceil(formData.budgetedHours / (currentUser?.hoursPerDay || 8))), "PPP")}
-                  </span>
-                  <span className="text-xs text-muted-foreground ml-2">({currentUser?.hoursPerDay || 8}h/day)</span>
-                </div>
-              </div>
-            )}
-
             <div className="space-y-2">
               <label className="text-sm font-medium">Comments</label>
               <Textarea
