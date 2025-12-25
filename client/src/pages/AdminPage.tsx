@@ -241,9 +241,8 @@ function UserListPage() {
           <Button size="icon" onClick={() => setLocation("/admin/create")} data-testid="button-create-user">
             <Plus className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" onClick={() => setLocation("/")} data-testid="button-back-admin">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
+          <Button size="icon" variant="ghost" onClick={() => setLocation("/")} data-testid="button-back-admin">
+            <ArrowLeft className="w-4 h-4" />
           </Button>
         </div>
       </div>
