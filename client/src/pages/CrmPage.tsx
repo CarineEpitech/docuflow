@@ -373,7 +373,7 @@ export default function CrmPage() {
           <TabsTrigger value="projects" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-projects">
             <FolderKanban className="w-4 h-4" />
             Projects
-            {(allProjectsData?.total ?? crmProjectsData?.total) !== undefined && (
+            {(allProjectsData?.total ?? crmProjectsData?.total ?? 0) > 0 && (
               <Badge variant="secondary" className="ml-1">{allProjectsData?.total ?? crmProjectsData?.total}</Badge>
             )}
           </TabsTrigger>
