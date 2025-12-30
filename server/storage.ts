@@ -813,6 +813,8 @@ export class DatabaseStorage implements IStorage {
       actualFinishDate: crmData?.actualFinishDate || null,
       comments: crmData?.comments || null,
       documentationEnabled: crmData?.documentationEnabled || 0,
+      budgetedHours: crmData?.budgetedHours ?? null,
+      actualHours: crmData?.actualHours ?? null,
     });
     
     return { project, crmProject };
