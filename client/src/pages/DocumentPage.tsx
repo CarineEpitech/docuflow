@@ -308,12 +308,12 @@ export default function DocumentPage() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className={`mx-auto px-4 md:px-6 py-4 md:py-8 ${isMobile ? "w-full" : isSidebarCollapsed ? "max-w-4xl" : "max-w-3xl"}`}>
+          <div className={`mx-auto px-4 md:px-6 ${isMobile ? "w-full" : isSidebarCollapsed ? "max-w-4xl" : "max-w-3xl"}`}>
             <Input
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
               placeholder="Untitled"
-              className="text-2xl md:text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 mb-2 w-full"
+              className="text-2xl md:text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 mb-2 mt-4 md:mt-8 w-full"
               data-testid="input-document-title"
             />
             <BlockEditor
@@ -321,6 +321,7 @@ export default function DocumentPage() {
               onChange={handleContentChange}
               onImageUpload={handleImageUpload}
             />
+            <div className="pb-4 md:pb-8" />
           </div>
         </div>
       </div>
