@@ -47,7 +47,6 @@ export default function FileViewerPage() {
   const [, params] = useRoute("/company-documents/:id/view");
   const [, navigate] = useLocation();
   const documentId = params?.id;
-  const [pdfScale, setPdfScale] = useState(1.0);
 
   const { data: document, isLoading, error } = useQuery<CompanyDocumentWithUploader>({
     queryKey: ["/api/company-documents", documentId],
@@ -68,12 +67,8 @@ export default function FileViewerPage() {
     navigate("/company-documents");
   };
 
-  const zoomIn = () => setPdfScale(prev => Math.min(prev + 0.25, 3));
-  const zoomOut = () => setPdfScale(prev => Math.max(prev - 0.25, 0.5));
-
   const isWordDoc = document?.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
                     document?.mimeType === 'application/msword';
-  const isPdf = document?.mimeType === 'application/pdf';
 
   if (isLoading) {
     return (
@@ -120,31 +115,6 @@ export default function FileViewerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
-          {isPdf && (
-            <>
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={zoomOut}
-                disabled={pdfScale <= 0.5}
-                data-testid="button-zoom-out"
-              >
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <span className="text-sm min-w-[50px] text-center" data-testid="text-zoom-level">
-                {Math.round(pdfScale * 100)}%
-              </span>
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={zoomIn}
-                disabled={pdfScale >= 3}
-                data-testid="button-zoom-in"
-              >
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-            </>
-          )}
           {!isWordDoc && (
             <Button onClick={handleDownload} size="icon" variant="outline" data-testid="button-download">
               <Download className="h-4 w-4" />
@@ -157,17 +127,16 @@ export default function FileViewerPage() {
       </div>
 
       <div className="flex-1 overflow-auto">
-        <FileContent mimeType={mimeType} streamUrl={streamUrl} document={document} pdfScale={pdfScale} />
+        <FileContent mimeType={mimeType} streamUrl={streamUrl} document={document} />
       </div>
     </div>
   );
 }
 
-function FileContent({ mimeType, streamUrl, document, pdfScale }: { 
+function FileContent({ mimeType, streamUrl, document }: { 
   mimeType: string; 
   streamUrl: string; 
   document: CompanyDocumentWithUploader;
-  pdfScale: number;
 }) {
   if (mimeType.startsWith("image/")) {
     return (
@@ -219,7 +188,7 @@ function FileContent({ mimeType, streamUrl, document, pdfScale }: {
   }
 
   if (mimeType === "application/pdf") {
-    return <PdfViewer streamUrl={streamUrl} scale={pdfScale} />;
+    return <PdfViewer streamUrl={streamUrl} />;
   }
 
   const isWordDoc = mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
@@ -309,9 +278,10 @@ function PdfPage({ pdfDoc, pageNum, scale }: { pdfDoc: PDFDocumentProxy; pageNum
   );
 }
 
-function PdfViewer({ streamUrl, scale }: { streamUrl: string; scale: number }) {
+function PdfViewer({ streamUrl }: { streamUrl: string }) {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [totalPages, setTotalPages] = useState(0);
+  const [scale, setScale] = useState(1.0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -342,6 +312,14 @@ function PdfViewer({ streamUrl, scale }: { streamUrl: string; scale: number }) {
     loadPdf();
   }, [streamUrl]);
 
+  const zoomIn = () => {
+    setScale(prev => Math.min(prev + 0.25, 3));
+  };
+
+  const zoomOut = () => {
+    setScale(prev => Math.max(prev - 0.25, 0.5));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -370,10 +348,34 @@ function PdfViewer({ streamUrl, scale }: { streamUrl: string; scale: number }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-center gap-2 py-2 px-6 bg-muted/30">
+      <div className="flex items-center justify-center gap-4 py-3 px-6 border-b bg-muted/30 sticky top-0 z-10">
         <span className="text-sm text-muted-foreground" data-testid="text-page-count">
           {totalPages} page{totalPages !== 1 ? 's' : ''}
         </span>
+        <div className="h-6 w-px bg-border" />
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={zoomOut}
+            disabled={scale <= 0.5}
+            data-testid="button-zoom-out"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <span className="text-sm min-w-[60px] text-center" data-testid="text-zoom-level">
+            {Math.round(scale * 100)}%
+          </span>
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={zoomIn}
+            disabled={scale >= 3}
+            data-testid="button-zoom-in"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       <div className="flex-1 overflow-auto bg-muted/20">
         <div className="flex flex-col items-center gap-4 p-6">
