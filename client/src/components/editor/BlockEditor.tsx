@@ -483,7 +483,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
 
   return (
     <div ref={editorContainerRef} data-testid="block-editor">
-      <div className="sticky top-0 z-30 bg-background border-b border-border py-2 mb-4 flex items-center gap-1 flex-wrap" data-testid="editor-toolbar">
+      <div className="sticky top-0 z-30 -mx-4 md:-mx-6 px-4 md:px-6 bg-background border-b border-border py-2 mb-4 flex items-center gap-1 flex-wrap" data-testid="editor-toolbar">
         <Button
           variant="ghost"
           size="icon"
