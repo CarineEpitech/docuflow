@@ -51,7 +51,7 @@ import type {
   CrmProjectStatus,
   CrmProjectNoteWithCreator
 } from "@shared/schema";
-import { UserMentionSelect } from "@/components/UserMentionSelect";
+import { NoteInput } from "@/components/NoteInput";
 
 const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   lead: { label: "Lead", variant: "secondary" },
@@ -614,19 +614,14 @@ export default function CrmProjectPage() {
         <CardContent className="space-y-4">
           {/* Add Note Form */}
           <div className="space-y-3">
-            <Textarea
-              placeholder="Add a note..."
+            <NoteInput
               value={newNoteContent}
-              onChange={(e) => setNewNoteContent(e.target.value)}
-              className="min-h-[80px]"
-              data-testid="textarea-new-note"
-            />
-            {/* User mentions */}
-            <UserMentionSelect
+              onChange={setNewNoteContent}
               users={users}
-              selectedUserIds={newNoteMentions}
-              onSelectionChange={setNewNoteMentions}
-              testIdPrefix="new-note-mention"
+              mentionedUserIds={newNoteMentions}
+              onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
+              placeholder="Add a note... (type @ to mention)"
+              testId="textarea-new-note"
             />
             <div className="flex justify-end">
               <Button
@@ -662,17 +657,14 @@ export default function CrmProjectPage() {
                   <div className="flex-1 pb-4">
                     {editingNoteId === note.id ? (
                       <div className="space-y-3">
-                        <Textarea
+                        <NoteInput
                           value={editNoteContent}
-                          onChange={(e) => setEditNoteContent(e.target.value)}
-                          className="min-h-[60px]"
-                          data-testid="textarea-edit-note"
-                        />
-                        <UserMentionSelect
+                          onChange={setEditNoteContent}
                           users={users}
-                          selectedUserIds={editNoteMentions}
-                          onSelectionChange={setEditNoteMentions}
-                          testIdPrefix="edit-note-mention"
+                          mentionedUserIds={editNoteMentions}
+                          onMentionAdd={(userId) => setEditNoteMentions(prev => [...prev, userId])}
+                          testId="textarea-edit-note"
+                          autoFocus
                         />
                         <div className="flex justify-end gap-2">
                           <Button
