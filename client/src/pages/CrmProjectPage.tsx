@@ -722,7 +722,15 @@ export default function CrmProjectPage() {
                             </Button>
                           </div>
                         </div>
-                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">{note.content}</p>
+                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">
+                          {note.content.split(/(@\w+(?:\s+\w+)?)/g).map((part, i) => 
+                            part.startsWith('@') ? (
+                              <span key={i} className="text-primary font-medium">{part}</span>
+                            ) : (
+                              <span key={i}>{part}</span>
+                            )
+                          )}
+                        </p>
                         {note.mentionedUserIds && note.mentionedUserIds.length > 0 && (
                           <div className="flex items-center gap-2 pt-1">
                             <AtSign className="w-3 h-3 text-muted-foreground" />
