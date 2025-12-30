@@ -493,11 +493,11 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true,
             value={title}
             onChange={(e) => onTitleChange(e.target.value)}
             placeholder={titlePlaceholder}
-            className="text-2xl md:text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 pt-4 md:pt-8 pb-2 w-full bg-transparent"
+            className="text-2xl md:text-4xl font-bold border-0 px-0 py-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 pt-4 md:pt-8 w-full bg-transparent !h-auto"
             data-testid="input-document-title"
           />
         )}
-        <div className="py-2 flex items-center gap-1 flex-wrap" data-testid="editor-toolbar">
+        <div className="pt-0 pb-2 flex items-center gap-1 flex-wrap" data-testid="editor-toolbar">
         <Button
           variant="ghost"
           size="icon"
