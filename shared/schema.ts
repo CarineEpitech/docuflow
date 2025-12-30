@@ -353,6 +353,7 @@ export const crmProjects = pgTable("crm_projects", {
   budgetedHours: integer("budgeted_hours"),
   actualHours: integer("actual_hours"),
   documentationEnabled: integer("documentation_enabled").default(0),
+  isDocumentationOnly: integer("is_documentation_only").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -360,6 +361,7 @@ export const crmProjects = pgTable("crm_projects", {
   index("idx_crm_projects_client").on(table.clientId),
   index("idx_crm_projects_assignee").on(table.assigneeId),
   index("idx_crm_projects_status").on(table.status),
+  index("idx_crm_projects_doc_only").on(table.isDocumentationOnly),
 ]);
 
 export const crmProjectsRelations = relations(crmProjects, ({ one }) => ({

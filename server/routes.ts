@@ -1299,6 +1299,7 @@ Instructions:
         budgetedHours: z.number().nullable().optional(),
         actualHours: z.number().nullable().optional(),
         documentationEnabled: z.boolean().optional(),
+        isDocumentationOnly: z.boolean().optional(),
       });
       
       const parsed = createSchema.safeParse(req.body);
@@ -1325,6 +1326,7 @@ Instructions:
           budgetedHours: parsed.data.budgetedHours ?? null,
           actualHours: parsed.data.actualHours ?? null,
           documentationEnabled: parsed.data.documentationEnabled ? 1 : 0,
+          isDocumentationOnly: parsed.data.isDocumentationOnly ? 1 : 0,
         }
       );
       

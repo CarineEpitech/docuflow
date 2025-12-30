@@ -61,6 +61,7 @@ export default function DocumentationPage() {
         status: "won_in_progress",
         startDate: new Date().toISOString().split('T')[0],
         documentationEnabled: true,
+        isDocumentationOnly: true,
       });
     },
     onSuccess: (response) => {

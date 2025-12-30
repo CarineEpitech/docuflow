@@ -611,24 +611,22 @@ export class DatabaseStorage implements IStorage {
       return { data: [], total: 0, page, pageSize };
     }
 
-    // Build conditions
-    const conditions: any[] = [];
+    // Build conditions - always exclude documentation-only projects from CRM view
+    const conditions: any[] = [
+      eq(crmProjects.isDocumentationOnly, 0)
+    ];
 
     if (options?.status) {
       conditions.push(eq(crmProjects.status, options.status));
     }
 
     // Count total
-    const [countResult] = conditions.length > 0 
-      ? await db.select({ count: count() }).from(crmProjects).where(and(...conditions))
-      : await db.select({ count: count() }).from(crmProjects);
+    const [countResult] = await db.select({ count: count() }).from(crmProjects).where(and(...conditions));
 
     const total = countResult?.count || 0;
 
     // Get paginated data
-    const crmProjectRows = conditions.length > 0
-      ? await db.select().from(crmProjects).where(and(...conditions)).orderBy(desc(crmProjects.updatedAt)).limit(pageSize).offset(offset)
-      : await db.select().from(crmProjects).orderBy(desc(crmProjects.updatedAt)).limit(pageSize).offset(offset);
+    const crmProjectRows = await db.select().from(crmProjects).where(and(...conditions)).orderBy(desc(crmProjects.updatedAt)).limit(pageSize).offset(offset);
 
     // Get all related data
     const projectMap = new Map(allProjects.map((p) => [p.id, p]));
@@ -813,6 +811,7 @@ export class DatabaseStorage implements IStorage {
       actualFinishDate: crmData?.actualFinishDate || null,
       comments: crmData?.comments || null,
       documentationEnabled: crmData?.documentationEnabled || 0,
+      isDocumentationOnly: crmData?.isDocumentationOnly || 0,
       budgetedHours: crmData?.budgetedHours ?? null,
       actualHours: crmData?.actualHours ?? null,
     });
