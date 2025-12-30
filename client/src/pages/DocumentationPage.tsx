@@ -4,6 +4,8 @@ import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,12 +16,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   Search, 
   ChevronLeft, 
   ChevronRight,
   FileText,
   FolderOpen,
+  FolderPlus,
   Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -33,11 +44,47 @@ export default function DocumentationPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [folderDescription, setFolderDescription] = useState("");
   const { toast } = useToast();
 
   const { data: allProjects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects/documentable"],
   });
+
+  const createFolderMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string }) => {
+      return apiRequest("POST", "/api/crm/projects", {
+        name: data.name,
+        description: data.description || null,
+        status: "won_in_progress",
+        startDate: new Date().toISOString().split('T')[0],
+      });
+    },
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/documentable"], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"], refetchType: 'all' });
+      toast({ title: "Documentation folder created" });
+      setShowCreateFolderDialog(false);
+      setFolderName("");
+      setFolderDescription("");
+      if (response?.project?.id) {
+        setLocation(`/project/${response.project.id}`);
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to create folder", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleCreateFolder = () => {
+    if (!folderName.trim()) {
+      toast({ title: "Please enter a folder name", variant: "destructive" });
+      return;
+    }
+    createFolderMutation.mutate({ name: folderName.trim(), description: folderDescription.trim() });
+  };
 
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
@@ -71,18 +118,27 @@ export default function DocumentationPage() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Documentation</h1>
           <p className="text-muted-foreground">Access your project documentation</p>
         </div>
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search projects..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="pl-9"
-            data-testid="input-search-docs"
-          />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="relative flex-1 sm:flex-initial sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search projects..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-9"
+              data-testid="input-search-docs"
+            />
+          </div>
+          <Button 
+            onClick={() => { setFolderName(""); setFolderDescription(""); setShowCreateFolderDialog(true); }} 
+            data-testid="button-create-folder"
+          >
+            <FolderPlus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Folder</span>
+          </Button>
         </div>
       </div>
 
@@ -198,6 +254,58 @@ export default function DocumentationPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showCreateFolderDialog} onOpenChange={setShowCreateFolderDialog}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Documentation Folder</DialogTitle>
+            <DialogDescription>
+              Create a new folder to organize your documentation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="folder-name">Folder Name</Label>
+              <Input
+                id="folder-name"
+                placeholder="Enter folder name..."
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                data-testid="input-folder-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="folder-description">Description (optional)</Label>
+              <Textarea
+                id="folder-description"
+                placeholder="Enter description..."
+                value={folderDescription}
+                onChange={(e) => setFolderDescription(e.target.value)}
+                rows={3}
+                data-testid="input-folder-description"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowCreateFolderDialog(false)}
+              className="w-full sm:w-auto"
+              data-testid="button-cancel-create-folder"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateFolder}
+              disabled={createFolderMutation.isPending}
+              className="w-full sm:w-auto"
+              data-testid="button-confirm-create-folder"
+            >
+              {createFolderMutation.isPending ? "Creating..." : "Create Folder"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
