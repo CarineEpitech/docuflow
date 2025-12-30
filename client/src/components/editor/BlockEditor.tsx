@@ -487,7 +487,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true,
 
   return (
     <div ref={editorContainerRef} data-testid="block-editor">
-      <div className={cn("sticky top-0 z-30 bg-background border-b border-border", isFullWidth ? "-mx-8 px-8" : "-mx-4 md:-mx-6 px-4 md:px-6")} data-testid="editor-sticky-header">
+      <div className={cn("sticky top-0 z-50 bg-background border-b border-border", isFullWidth ? "-mx-8 px-8" : "-mx-4 md:-mx-6 px-4 md:px-6")} data-testid="editor-sticky-header">
         {title !== undefined && onTitleChange && (
           <Input
             value={title}
