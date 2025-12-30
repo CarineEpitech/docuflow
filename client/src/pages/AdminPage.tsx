@@ -89,7 +89,7 @@ function UserListPage() {
   const [editForm, setEditForm] = useState<{ firstName: string; lastName: string; email: string; hoursPerDay: number }>({ firstName: "", lastName: "", email: "", hoursPerDay: 8 });
   const [copiedPassword, setCopiedPassword] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const USERS_PER_PAGE = 7;
+  const USERS_PER_PAGE = 10;
 
   const { data: users, isLoading: usersLoading } = useQuery<SafeUser[]>({
     queryKey: ["/api/admin/users"],
