@@ -60,6 +60,7 @@ export default function DocumentationPage() {
         description: data.description || null,
         status: "won_in_progress",
         startDate: new Date().toISOString().split('T')[0],
+        documentationEnabled: true,
       });
     },
     onSuccess: (response) => {
