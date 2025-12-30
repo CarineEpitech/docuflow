@@ -1,7 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import type { SafeUser } from "@shared/schema";
 
 interface NoteInputProps {
@@ -28,22 +27,40 @@ export function NoteInput({
   autoFocus = false,
 }: NoteInputProps) {
   const [isFocused, setIsFocused] = useState(autoFocus);
-  const [showMentionPopover, setShowMentionPopover] = useState(false);
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
   const [mentionStartPos, setMentionStartPos] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const getUserDisplayName = (user: SafeUser) => {
     const name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
     return name || user.email || "Unknown";
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showMentionPopover) {
-      if (e.key === "Escape") {
-        setShowMentionPopover(false);
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        textareaRef.current &&
+        !textareaRef.current.contains(e.target as Node)
+      ) {
+        setShowMentionDropdown(false);
         setMentionStartPos(null);
       }
+    };
+
+    if (showMentionDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showMentionDropdown]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showMentionDropdown && e.key === "Escape") {
+      setShowMentionDropdown(false);
+      setMentionStartPos(null);
     }
   };
 
@@ -64,12 +81,12 @@ export function NoteInput({
       if (!hasNewline && isStartOfWord && textAfterAt.length < 20) {
         setMentionSearch(textAfterAt.toLowerCase());
         setMentionStartPos(lastAtIndex);
-        setShowMentionPopover(true);
+        setShowMentionDropdown(true);
         return;
       }
     }
     
-    setShowMentionPopover(false);
+    setShowMentionDropdown(false);
     setMentionStartPos(null);
   };
 
@@ -89,7 +106,7 @@ export function NoteInput({
       onMentionAdd(user.id);
     }
     
-    setShowMentionPopover(false);
+    setShowMentionDropdown(false);
     setMentionStartPos(null);
     
     setTimeout(() => {
@@ -109,35 +126,32 @@ export function NoteInput({
 
   return (
     <div className="relative">
-      <Popover open={showMentionPopover} onOpenChange={setShowMentionPopover}>
-        <PopoverAnchor asChild>
-          <Textarea
-            ref={textareaRef}
-            value={value}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => {
-              setTimeout(() => {
-                if (!showMentionPopover) {
-                  setIsFocused(false);
-                }
-              }, 150);
-            }}
-            placeholder={placeholder}
-            className={`transition-all duration-200 resize-none ${
-              isFocused || value ? "min-h-[80px]" : "min-h-[40px]"
-            } ${className}`}
-            rows={isFocused || value ? 3 : 1}
-            data-testid={testId}
-            autoFocus={autoFocus}
-          />
-        </PopoverAnchor>
-        <PopoverContent 
-          className="w-[220px] p-0" 
-          align="start"
-          side="bottom"
-          onOpenAutoFocus={(e) => e.preventDefault()}
+      <Textarea
+        ref={textareaRef}
+        value={value}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => {
+          setTimeout(() => {
+            if (!showMentionDropdown) {
+              setIsFocused(false);
+            }
+          }, 150);
+        }}
+        placeholder={placeholder}
+        className={`transition-all duration-200 resize-none ${
+          isFocused || value ? "min-h-[80px]" : "min-h-[40px]"
+        } ${className}`}
+        rows={isFocused || value ? 3 : 1}
+        data-testid={testId}
+        autoFocus={autoFocus}
+      />
+      
+      {showMentionDropdown && filteredUsers.length > 0 && (
+        <div
+          ref={dropdownRef}
+          className="absolute left-0 top-full mt-1 z-50 w-[220px] rounded-md border bg-popover shadow-md"
         >
           <Command>
             <CommandList>
@@ -161,8 +175,9 @@ export function NoteInput({
               </CommandGroup>
             </CommandList>
           </Command>
-        </PopoverContent>
-      </Popover>
+        </div>
+      )}
+      
       {!isFocused && !value && (
         <p className="text-xs text-muted-foreground mt-1">Type @ to mention users</p>
       )}
