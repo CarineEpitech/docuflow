@@ -1298,6 +1298,7 @@ Instructions:
         comments: z.string().nullable().optional(),
         budgetedHours: z.number().nullable().optional(),
         actualHours: z.number().nullable().optional(),
+        documentationEnabled: z.boolean().optional(),
       });
       
       const parsed = createSchema.safeParse(req.body);
@@ -1323,6 +1324,7 @@ Instructions:
           comments: parsed.data.comments || null,
           budgetedHours: parsed.data.budgetedHours ?? null,
           actualHours: parsed.data.actualHours ?? null,
+          documentationEnabled: parsed.data.documentationEnabled ? 1 : 0,
         }
       );
       
