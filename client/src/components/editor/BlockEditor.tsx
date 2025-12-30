@@ -482,8 +482,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
   }, {} as Record<string, typeof SLASH_COMMANDS>);
 
   return (
-    <div className="relative" ref={editorContainerRef} data-testid="block-editor">
-      <div className="sticky top-0 z-10 bg-background border-b border-border mb-4 py-2 flex items-center gap-1 flex-wrap overflow-hidden" data-testid="editor-toolbar">
+    <div ref={editorContainerRef} data-testid="block-editor">
+      <div className="sticky top-0 z-30 bg-background border-b border-border py-2 mb-4 flex items-center gap-1 flex-wrap" data-testid="editor-toolbar">
         <Button
           variant="ghost"
           size="icon"
@@ -699,9 +699,10 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
         </Button>
       </div>
 
-      <EditorContent editor={editor} />
+      <div className="relative">
+        <EditorContent editor={editor} />
 
-      {showSlashMenu && filteredCommands.length > 0 && (
+        {showSlashMenu && filteredCommands.length > 0 && (
         <div
           ref={slashMenuRef}
           className="slash-menu absolute z-50"
@@ -741,7 +742,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
             </div>
           ))}
         </div>
-      )}
+        )}
+      </div>
 
       <Dialog 
         open={showLinkDialog} 
