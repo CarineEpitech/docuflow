@@ -216,6 +216,7 @@ export default function CrmPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
       setDeleteProjectId(null);
       toast({ title: "Project deleted" });
     },
