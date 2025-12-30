@@ -58,6 +58,9 @@ interface BlockEditorProps {
   onChange: (content: any) => void;
   onImageUpload?: () => Promise<string | null>;
   editable?: boolean;
+  title?: string;
+  onTitleChange?: (title: string) => void;
+  titlePlaceholder?: string;
 }
 
 const SLASH_COMMANDS = [
@@ -76,7 +79,7 @@ const SLASH_COMMANDS = [
   { title: "Callout", icon: AlertCircle, description: "Info callout box", type: "callout", group: "Blocks" },
 ];
 
-export function BlockEditor({ content, onChange, onImageUpload, editable = true }: BlockEditorProps) {
+export function BlockEditor({ content, onChange, onImageUpload, editable = true, title, onTitleChange, titlePlaceholder = "Untitled" }: BlockEditorProps) {
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 });
   const [slashFilter, setSlashFilter] = useState("");
@@ -483,7 +486,17 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
 
   return (
     <div ref={editorContainerRef} data-testid="block-editor">
-      <div className="sticky top-0 z-30 -mx-4 md:-mx-6 px-4 md:px-6 bg-background border-b border-border py-2 mb-4 flex items-center gap-1 flex-wrap" data-testid="editor-toolbar">
+      <div className="sticky top-0 z-30 -mx-4 md:-mx-6 px-4 md:px-6 bg-background border-b border-border" data-testid="editor-sticky-header">
+        {title !== undefined && onTitleChange && (
+          <Input
+            value={title}
+            onChange={(e) => onTitleChange(e.target.value)}
+            placeholder={titlePlaceholder}
+            className="text-2xl md:text-4xl font-bold border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 pt-4 md:pt-8 pb-2 w-full bg-transparent"
+            data-testid="input-document-title"
+          />
+        )}
+        <div className="py-2 flex items-center gap-1 flex-wrap" data-testid="editor-toolbar">
         <Button
           variant="ghost"
           size="icon"
@@ -697,6 +710,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true 
         >
           <Video className="w-4 h-4" />
         </Button>
+        </div>
       </div>
 
       <div className="relative">
