@@ -151,7 +151,7 @@ export function NoteInput({
       {showMentionDropdown && filteredUsers.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute left-0 top-full mt-1 z-50 w-[220px] rounded-md border bg-popover shadow-md"
+          className="absolute left-0 bottom-full mb-1 z-50 w-[220px] rounded-md border bg-popover shadow-md"
         >
           <Command>
             <CommandList>
