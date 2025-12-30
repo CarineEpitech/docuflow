@@ -427,6 +427,10 @@ export default function CompanyDocumentsPage() {
               )}
               {currentFolderId && (
                 <>
+                  <Button variant="outline" onClick={() => { setFolderName(""); setEditingFolder(null); setShowFolderDialog(true); }} data-testid="button-new-subfolder">
+                    <Folder className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">New Folder</span>
+                  </Button>
                   <Button variant="outline" onClick={() => { setDocumentName(""); setDocumentDescription(""); setShowCreateDocDialog(true); }} data-testid="button-create-document">
                     <FilePlus className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Create Document</span>
