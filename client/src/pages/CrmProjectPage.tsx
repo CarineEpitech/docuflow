@@ -112,19 +112,24 @@ export default function CrmProjectPage() {
 
   useEffect(() => {
     if (project) {
+      const startDate = project.startDate ? new Date(project.startDate) : null;
+      const dueDate = project.dueDate 
+        ? new Date(project.dueDate) 
+        : (startDate ? addDays(startDate, 7) : null);
+      
       setFormData({
         status: project.status as CrmProjectStatus,
         clientId: project.clientId,
         assigneeId: project.assigneeId,
-        startDate: project.startDate ? new Date(project.startDate) : null,
-        dueDate: project.dueDate ? new Date(project.dueDate) : null,
+        startDate,
+        dueDate,
         actualFinishDate: project.actualFinishDate ? new Date(project.actualFinishDate) : null,
         comments: project.comments || "",
         documentationEnabled: project.documentationEnabled === 1,
         budgetedHours: project.budgetedHours ?? null,
         actualHours: project.actualHours ?? null,
       });
-      setHasChanges(false);
+      setHasChanges(startDate !== null && project.dueDate === null);
     }
   }, [project]);
 
