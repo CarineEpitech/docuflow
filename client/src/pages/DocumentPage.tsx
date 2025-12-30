@@ -308,7 +308,7 @@ export default function DocumentPage() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className={`mx-auto px-4 md:px-6 lg:px-12 ${isMobile ? "w-full" : isSidebarCollapsed ? "w-full max-w-none" : "max-w-3xl"}`}>
+          <div className={`mx-auto ${isMobile ? "px-4 w-full" : isSidebarCollapsed ? "px-6 w-full max-w-none" : "px-4 md:px-6 max-w-3xl"}`}>
             <BlockEditor
               content={content}
               onChange={handleContentChange}
