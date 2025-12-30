@@ -61,6 +61,7 @@ interface BlockEditorProps {
   title?: string;
   onTitleChange?: (title: string) => void;
   titlePlaceholder?: string;
+  isFullWidth?: boolean;
 }
 
 const SLASH_COMMANDS = [
@@ -79,7 +80,7 @@ const SLASH_COMMANDS = [
   { title: "Callout", icon: AlertCircle, description: "Info callout box", type: "callout", group: "Blocks" },
 ];
 
-export function BlockEditor({ content, onChange, onImageUpload, editable = true, title, onTitleChange, titlePlaceholder = "Untitled" }: BlockEditorProps) {
+export function BlockEditor({ content, onChange, onImageUpload, editable = true, title, onTitleChange, titlePlaceholder = "Untitled", isFullWidth = false }: BlockEditorProps) {
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 });
   const [slashFilter, setSlashFilter] = useState("");
@@ -486,7 +487,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true,
 
   return (
     <div ref={editorContainerRef} data-testid="block-editor">
-      <div className="sticky top-0 z-30 -mx-4 md:-mx-6 px-4 md:px-6 bg-background border-b border-border" data-testid="editor-sticky-header">
+      <div className={cn("sticky top-0 z-30 bg-background border-b border-border", isFullWidth ? "-mx-8 px-8" : "-mx-4 md:-mx-6 px-4 md:px-6")} data-testid="editor-sticky-header">
         {title !== undefined && onTitleChange && (
           <Input
             value={title}
