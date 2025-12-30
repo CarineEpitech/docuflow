@@ -723,7 +723,7 @@ export default function CrmProjectPage() {
                           </div>
                         </div>
                         <p className="text-sm text-foreground/80 whitespace-pre-wrap">
-                          {note.content.split(/(@\w+(?:\s+\w+)?)/g).map((part, i) => 
+                          {note.content.split(/(@[\w-]+(?:\s+[\w-]+)?)/g).map((part, i) => 
                             part.startsWith('@') ? (
                               <span key={i} className="text-green-600 dark:text-green-400 font-medium">{part}</span>
                             ) : (
