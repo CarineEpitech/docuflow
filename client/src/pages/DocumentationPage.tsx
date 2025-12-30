@@ -156,7 +156,7 @@ export default function DocumentationPage() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {paginatedProjects.map((project) => (
               <Card
                 key={project.id}
@@ -164,35 +164,29 @@ export default function DocumentationPage() {
                 onClick={() => setLocation(`/project/${project.id}`)}
                 data-testid={`row-doc-project-${project.id}`}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
                       {project.icon && project.icon !== "folder" ? (
-                        <span className="text-xl">{project.icon}</span>
+                        <span className="text-sm">{project.icon}</span>
                       ) : (
-                        <FolderOpen className="w-6 h-6 text-primary" />
+                        <FolderOpen className="w-4 h-4 text-primary" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-2">
-                        <h3 className="font-semibold group-hover:text-primary transition-colors leading-tight">{project.name}</h3>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
-                      </div>
-                      {project.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{project.description}</p>
-                      )}
+                      <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight truncate">{project.name}</h3>
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-destructive"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={(e) => {
                         e.stopPropagation();
                         setProjectToDelete(project);
                       }}
                       data-testid={`button-delete-project-${project.id}`}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </CardContent>
