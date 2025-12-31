@@ -167,8 +167,8 @@ export default function CompanyDocumentEditorPage() {
           </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto px-4 sm:px-6 py-4 sm:py-6">
-        <div className="max-w-3xl mx-auto">
+      <div className="flex-1 overflow-hidden px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto h-full">
           <BlockEditor
             content={content}
             onChange={handleContentChange}

@@ -486,8 +486,8 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true,
   }, {} as Record<string, typeof SLASH_COMMANDS>);
 
   return (
-    <div ref={editorContainerRef} data-testid="block-editor">
-      <div className={cn("sticky top-0 z-50 bg-background border-b border-border", isFullWidth ? "-mx-8 px-8" : "-mx-4 md:-mx-6 px-4 md:px-6")} data-testid="editor-sticky-header">
+    <div ref={editorContainerRef} className="flex flex-col h-full" data-testid="block-editor">
+      <div className={cn("sticky top-0 z-50 bg-background border-b border-border flex-shrink-0", isFullWidth ? "-mx-8 px-8" : "-mx-4 md:-mx-6 px-4 md:px-6")} data-testid="editor-sticky-header">
         {title !== undefined && onTitleChange && (
           <Input
             value={title}
@@ -714,7 +714,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true,
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative flex-1 overflow-auto pt-4">
         <EditorContent editor={editor} />
 
         {showSlashMenu && filteredCommands.length > 0 && (
