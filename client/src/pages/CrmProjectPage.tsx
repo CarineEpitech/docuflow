@@ -673,6 +673,19 @@ export default function CrmProjectPage() {
                   </div>
                 )}
 
+                {/* Documentation Toggle */}
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Enable Documentation</span>
+                  </div>
+                  <Switch
+                    checked={formData?.documentationEnabled || false}
+                    onCheckedChange={(checked) => handleDocumentationToggle(checked)}
+                    data-testid="switch-documentation"
+                  />
+                </div>
+
                 {formData?.documentationEnabled && (
                   <div className="pt-2">
                     <Link href={`/project/${project.projectId}`}>
