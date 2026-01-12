@@ -49,7 +49,8 @@ import {
   CheckCircle,
   Plus,
   StickyNote,
-  X
+  X,
+  Send
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
@@ -829,46 +830,21 @@ export default function CrmProjectPage() {
         </Card>
       </div>
 
-      {/* Project Notes Section */}
-      <Card>
-        <CardHeader>
+      {/* Project Notes Section - Chat Style */}
+      <Card className="flex flex-col">
+        <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2">
-            <StickyNote className="w-5 h-5" />
+            <MessageSquare className="w-5 h-5" />
             Notes
           </CardTitle>
-          <CardDescription>Add notes and updates about this project</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Add Note Form */}
-          <div className="space-y-3">
-            <NoteInput
-              value={newNoteContent}
-              onChange={setNewNoteContent}
-              users={users}
-              mentionedUserIds={newNoteMentions}
-              onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
-              placeholder="Add a note... (type @ to mention)"
-              testId="textarea-new-note"
-            />
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                onClick={handleAddNote}
-                disabled={!newNoteContent.trim() || createNoteMutation.isPending}
-                data-testid="button-add-note"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                {createNoteMutation.isPending ? "Adding..." : "Add Note"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Chat-style Notes List */}
-          <div className="space-y-4 max-h-96 overflow-y-auto">
+        <CardContent className="flex flex-col flex-1 p-0">
+          {/* Chat Messages Area */}
+          <div className="flex-1 space-y-4 max-h-80 overflow-y-auto p-4 border-b">
             {notesLoading ? (
               <p className="text-sm text-muted-foreground text-center py-4">Loading notes...</p>
             ) : notes.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No notes yet. Start the conversation above.</p>
+              <p className="text-sm text-muted-foreground text-center py-8">No messages yet. Start the conversation below.</p>
             ) : (
               notes.map((note) => {
                 const isCurrentUser = note.createdBy?.id === currentUser?.id;
@@ -974,6 +950,36 @@ export default function CrmProjectPage() {
                 );
               })
             )}
+          </div>
+          
+          {/* Chat Input Area */}
+          <div className="p-4 bg-muted/30">
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <NoteInput
+                  value={newNoteContent}
+                  onChange={setNewNoteContent}
+                  users={users}
+                  mentionedUserIds={newNoteMentions}
+                  onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
+                  placeholder="Type a message... (@ to mention)"
+                  testId="textarea-new-note"
+                />
+              </div>
+              <Button
+                size="icon"
+                onClick={handleAddNote}
+                disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                data-testid="button-add-note"
+                className="h-10 w-10 flex-shrink-0 rounded-full"
+              >
+                {createNoteMutation.isPending ? (
+                  <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
