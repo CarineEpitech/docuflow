@@ -89,7 +89,9 @@ export default function CrmProjectPage() {
     description: string;
   } | null>(null);
 
+  const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddContactDialog, setShowAddContactDialog] = useState(false);
   const [editingClient, setEditingClient] = useState<CrmClient | null>(null);
 
@@ -150,7 +152,9 @@ export default function CrmProjectPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
       setHasChanges(false);
+      setIsEditing(false);
       toast({ title: "Project updated successfully" });
     },
     onError: () => {
@@ -265,6 +269,50 @@ export default function CrmProjectPage() {
     },
   });
 
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("DELETE", `/api/crm/projects/${projectId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
+      toast({ title: "Project deleted successfully" });
+      setLocation("/crm?tab=projects");
+    },
+    onError: () => {
+      toast({ title: "Failed to delete project", variant: "destructive" });
+    },
+  });
+
+  const startEditing = () => {
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    if (project) {
+      const startDate = project.startDate ? new Date(project.startDate) : null;
+      const dueDate = project.dueDate 
+        ? new Date(project.dueDate) 
+        : (startDate ? addDays(startDate, 7) : null);
+      
+      setFormData({
+        status: project.status as CrmProjectStatus,
+        clientId: project.clientId,
+        assigneeId: project.assigneeId,
+        startDate,
+        dueDate,
+        actualFinishDate: project.actualFinishDate ? new Date(project.actualFinishDate) : null,
+        comments: project.comments || "",
+        documentationEnabled: project.documentationEnabled === 1,
+        budgetedHours: project.budgetedHours ?? null,
+        actualHours: project.actualHours ?? null,
+        description: project.project?.description || "",
+      });
+    }
+    setIsEditing(false);
+    setHasChanges(false);
+  };
+
   const handleAddNote = () => {
     if (!newNoteContent.trim()) return;
     createNoteMutation.mutate({ 
@@ -340,37 +388,69 @@ export default function CrmProjectPage() {
   return (
     <div className="p-4 md:p-6 w-full space-y-4 md:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold" data-testid="text-project-title">{project.project?.name}</h1>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <h1 className="text-xl md:text-2xl font-bold break-words" data-testid="text-project-title">{project.project?.name}</h1>
+            {formData?.status && (
+              <Badge 
+                variant={crmStatusConfig[formData.status]?.variant || "secondary"}
+                data-testid="badge-project-status"
+              >
+                {crmStatusConfig[formData.status]?.label || formData.status}
+              </Badge>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          {formData?.documentationEnabled && (
-            <Link href={`/project/${project.projectId}`}>
-              <Button variant="outline" className="w-full sm:w-auto" data-testid="button-view-docs">
-                <FileText className="w-4 h-4 mr-2" />
-                View Documentation
-              </Button>
-            </Link>
-          )}
-          <Switch
-            checked={formData?.documentationEnabled || false}
-            onCheckedChange={handleDocumentationToggle}
-            data-testid="switch-documentation"
-          />
-          {hasChanges && (
-            <Button 
-              onClick={handleSave} 
-              disabled={updateCrmProjectMutation.isPending}
-              className="w-full sm:w-auto"
-              data-testid="button-save-changes"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {updateCrmProjectMutation.isPending ? "Saving..." : "Save Changes"}
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/crm?tab=projects")} data-testid="button-back">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setLocation("/crm?tab=projects")}
+            data-testid="button-back"
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
+          {isEditing ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={cancelEditing}
+                data-testid="button-cancel-edit"
+              >
+                <X className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Cancel</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={updateCrmProjectMutation.isPending}
+                data-testid="button-save-edit"
+              >
+                <Save className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{updateCrmProjectMutation.isPending ? "Saving..." : "Save"}</span>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={startEditing}
+                data-testid="button-edit-project"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={() => setShowDeleteConfirm(true)}
+                data-testid="button-delete-project"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
