@@ -166,7 +166,7 @@ export default function DocumentationPage() {
                 data-testid={`row-doc-project-${project.id}`}
               >
                 <CardContent className="p-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-start gap-2">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
                       {project.icon && project.icon !== "folder" ? (
                         <span className="text-sm">{project.icon}</span>
@@ -175,20 +175,25 @@ export default function DocumentationPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight break-words">{project.name}</h3>
+                      <div className="flex items-start gap-1">
+                        <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight break-words flex-1">{project.name}</h3>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-destructive -mt-0.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProjectToDelete(project);
+                          }}
+                          data-testid={`button-delete-project-${project.id}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                      {project.description && (
+                        <p className="text-xs text-muted-foreground mt-1 break-words line-clamp-2">{project.description}</p>
+                      )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setProjectToDelete(project);
-                      }}
-                      data-testid={`button-delete-project-${project.id}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
