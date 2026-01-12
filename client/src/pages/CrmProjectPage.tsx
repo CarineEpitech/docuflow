@@ -863,106 +863,116 @@ export default function CrmProjectPage() {
             </div>
           </div>
 
-          {/* Notes List */}
-          <div className="space-y-3">
+          {/* Chat-style Notes List */}
+          <div className="space-y-4 max-h-96 overflow-y-auto">
             {notesLoading ? (
               <p className="text-sm text-muted-foreground text-center py-4">Loading notes...</p>
             ) : notes.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No notes yet. Add the first note above.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">No notes yet. Start the conversation above.</p>
             ) : (
-              notes.map((note) => (
-                <div key={note.id} className="flex gap-3 group" data-testid={`note-${note.id}`}>
-                  <div className="flex flex-col items-center">
-                    <Avatar className="w-8 h-8 border-2 border-background shadow-sm">
+              notes.map((note) => {
+                const isCurrentUser = note.createdBy?.id === currentUser?.id;
+                return (
+                  <div 
+                    key={note.id} 
+                    className={`flex gap-2 group ${isCurrentUser ? 'flex-row-reverse' : ''}`}
+                    data-testid={`note-${note.id}`}
+                  >
+                    <Avatar className="w-8 h-8 flex-shrink-0 border border-border">
                       <AvatarImage src={note.createdBy?.profileImageUrl || undefined} />
-                      <AvatarFallback className="text-xs bg-primary/10">
+                      <AvatarFallback className="text-xs bg-muted">
                         {note.createdBy?.firstName?.[0]}{note.createdBy?.lastName?.[0]}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="w-px flex-1 bg-border mt-2" />
-                  </div>
-                  <div className="flex-1 pb-4">
-                    {editingNoteId === note.id ? (
-                      <div className="space-y-3">
-                        <NoteInput
-                          value={editNoteContent}
-                          onChange={setEditNoteContent}
-                          users={users}
-                          mentionedUserIds={editNoteMentions}
-                          onMentionAdd={(userId) => setEditNoteMentions(prev => [...prev, userId])}
-                          testId="textarea-edit-note"
-                          autoFocus
-                        />
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingNoteId(null);
-                              setEditNoteContent("");
-                              setEditNoteMentions([]);
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => handleUpdateNote(note.id)}
-                            disabled={!editNoteContent.trim() || updateNoteMutation.isPending}
-                            data-testid="button-save-note"
-                          >
-                            {updateNoteMutation.isPending ? "Saving..." : "Save"}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <span className="font-medium text-sm">{note.createdBy?.firstName} {note.createdBy?.lastName}</span>
-                            <span className="text-muted-foreground text-xs ml-2">
-                              {note.createdAt ? format(new Date(note.createdAt), "MMM d, yyyy 'at' h:mm a") : ""}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className={`flex-1 max-w-[80%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+                      {editingNoteId === note.id ? (
+                        <div className="space-y-2">
+                          <NoteInput
+                            value={editNoteContent}
+                            onChange={setEditNoteContent}
+                            users={users}
+                            mentionedUserIds={editNoteMentions}
+                            onMentionAdd={(userId) => setEditNoteMentions(prev => [...prev, userId])}
+                            testId="textarea-edit-note"
+                            autoFocus
+                          />
+                          <div className="flex justify-end gap-2">
                             <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6"
+                              variant="outline"
+                              size="sm"
                               onClick={() => {
-                                setEditingNoteId(note.id);
-                                setEditNoteContent(note.content);
-                                setEditNoteMentions(note.mentionedUserIds || []);
+                                setEditingNoteId(null);
+                                setEditNoteContent("");
+                                setEditNoteMentions([]);
                               }}
-                              data-testid={`button-edit-note-${note.id}`}
                             >
-                              <Pencil className="w-3 h-3" />
+                              Cancel
                             </Button>
                             <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6"
-                              onClick={() => deleteNoteMutation.mutate(note.id)}
-                              data-testid={`button-delete-note-${note.id}`}
+                              size="sm"
+                              onClick={() => handleUpdateNote(note.id)}
+                              disabled={!editNoteContent.trim() || updateNoteMutation.isPending}
+                              data-testid="button-save-note"
                             >
-                              <Trash2 className="w-3 h-3 text-destructive" />
+                              {updateNoteMutation.isPending ? "Saving..." : "Save"}
                             </Button>
                           </div>
                         </div>
-                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">
-                          {note.content.split(/(@[\w-]+(?:\s+[\w-]+)?)/g).map((part, i) => 
-                            part.startsWith('@') ? (
-                              <span key={i} className="text-green-600 dark:text-green-400 font-medium">{part}</span>
-                            ) : (
-                              <span key={i}>{part}</span>
-                            )
-                          )}
-                        </p>
-                      </div>
-                    )}
+                      ) : (
+                        <div className={`flex flex-col ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+                          <span className="text-xs text-muted-foreground mb-1">
+                            {note.createdBy?.firstName} {note.createdBy?.lastName}
+                          </span>
+                          <div 
+                            className={`relative rounded-2xl px-4 py-2 ${
+                              isCurrentUser 
+                                ? 'bg-primary text-primary-foreground rounded-br-md' 
+                                : 'bg-muted rounded-bl-md'
+                            }`}
+                          >
+                            <p className="text-sm whitespace-pre-wrap">
+                              {note.content.split(/(@[\w-]+(?:\s+[\w-]+)?)/g).map((part, i) => 
+                                part.startsWith('@') ? (
+                                  <span key={i} className={`font-semibold ${isCurrentUser ? 'text-primary-foreground/90' : 'text-primary'}`}>{part}</span>
+                                ) : (
+                                  <span key={i}>{part}</span>
+                                )
+                              )}
+                            </p>
+                            <div className={`absolute top-1 ${isCurrentUser ? '-left-14' : '-right-14'} flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => {
+                                  setEditingNoteId(note.id);
+                                  setEditNoteContent(note.content);
+                                  setEditNoteMentions(note.mentionedUserIds || []);
+                                }}
+                                data-testid={`button-edit-note-${note.id}`}
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => deleteNoteMutation.mutate(note.id)}
+                                data-testid={`button-delete-note-${note.id}`}
+                              >
+                                <Trash2 className="w-3 h-3 text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                          <span className="text-xs text-muted-foreground mt-1">
+                            {note.createdAt ? format(new Date(note.createdAt), "MMM d 'at' h:mm a") : ""}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </CardContent>
