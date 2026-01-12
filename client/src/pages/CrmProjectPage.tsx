@@ -49,7 +49,6 @@ import {
   CheckCircle,
   Plus,
   StickyNote,
-  AtSign,
   X
 } from "lucide-react";
 import { Link } from "wouter";
@@ -959,21 +958,6 @@ export default function CrmProjectPage() {
                             )
                           )}
                         </p>
-                        {note.mentionedUserIds && note.mentionedUserIds.length > 0 && (
-                          <div className="flex items-center gap-2 pt-1">
-                            <AtSign className="w-3 h-3 text-green-600 dark:text-green-400" />
-                            <div className="flex flex-wrap gap-1">
-                              {note.mentionedUserIds.map((userId) => {
-                                const mentionedUser = users.find(u => u.id === userId);
-                                return mentionedUser ? (
-                                  <span key={userId} className="text-xs text-green-600 dark:text-green-400 font-medium">
-                                    {mentionedUser.firstName} {mentionedUser.lastName}
-                                  </span>
-                                ) : null;
-                              })}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
