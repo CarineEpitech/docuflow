@@ -381,16 +381,6 @@ export default function CrmProjectPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <Textarea
-                value={formData?.description || ""}
-                onChange={(e) => updateFormField("description", e.target.value)}
-                placeholder="Enter project description..."
-                rows={3}
-                data-testid="textarea-project-description"
-              />
-            </div>
-            <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
               <Select 
                 value={formData?.status || "lead"} 
@@ -503,6 +493,17 @@ export default function CrmProjectPage() {
                 })()}
               </div>
             )}
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={formData?.description || ""}
+                onChange={(e) => updateFormField("description", e.target.value)}
+                placeholder="Enter project description..."
+                rows={3}
+                data-testid="textarea-project-description"
+              />
+            </div>
             
             <div className="space-y-2">
               <label className="text-sm font-medium">Comments</label>
