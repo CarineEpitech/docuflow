@@ -162,6 +162,13 @@ export default function ProjectPage() {
             <p className="text-muted-foreground/60 text-sm max-w-sm mx-auto px-4">
               Choose a page from the sidebar or create a new one to begin documenting your project.
             </p>
+            {project.description && (
+              <div className="mt-6 pt-6 border-t border-border max-w-md mx-auto">
+                <p className="text-sm text-muted-foreground" data-testid="text-project-description">
+                  {project.description}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
