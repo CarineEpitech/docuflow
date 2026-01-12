@@ -339,9 +339,6 @@ export default function CrmProjectPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl md:text-2xl font-bold" data-testid="text-project-title">{project.project?.name}</h1>
-          {project.project?.description && (
-            <p className="text-sm text-muted-foreground mt-1" data-testid="text-project-description">{project.project.description}</p>
-          )}
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           {formData?.documentationEnabled && (
@@ -380,6 +377,12 @@ export default function CrmProjectPage() {
             <CardTitle>Project Status</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {project.project?.description && (
+              <div className="space-y-1 pb-2 border-b border-border">
+                <label className="text-sm font-medium">Description</label>
+                <p className="text-sm text-muted-foreground" data-testid="text-project-description">{project.project.description}</p>
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
               <Select 
