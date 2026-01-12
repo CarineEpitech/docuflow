@@ -28,22 +28,12 @@ import {
   Search, 
   ChevronLeft, 
   ChevronRight,
-  FileText,
   FolderOpen,
   FolderPlus,
   Trash2,
   LayoutGrid,
-  List,
-  Calendar
+  List
 } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -234,73 +224,75 @@ export default function DocumentationPage() {
               ))}
             </div>
           ) : (
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="hidden md:table-cell">Description</TableHead>
-                    <TableHead className="hidden sm:table-cell">Created</TableHead>
-                    <TableHead className="hidden sm:table-cell">Updated</TableHead>
-                    <TableHead className="w-12"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedProjects.map((project) => (
-                    <TableRow
-                      key={project.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => setLocation(`/project/${project.id}`)}
-                      data-testid={`row-doc-project-${project.id}`}
-                    >
-                      <TableCell>
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                          {project.icon && project.icon !== "folder" ? (
-                            <span className="text-sm">{project.icon}</span>
-                          ) : (
-                            <FolderOpen className="w-4 h-4 text-primary" />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">{project.name}</span>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <span className="text-muted-foreground text-sm line-clamp-1">
-                          {project.description || "-"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          {project.createdAt ? format(new Date(project.createdAt), "MMM d, yyyy") : "-"}
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          {project.updatedAt ? format(new Date(project.updatedAt), "MMM d, yyyy") : "-"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setProjectToDelete(project);
-                          }}
-                          data-testid={`button-delete-project-${project.id}`}
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto scrollbar-hidden">
+                  <table className="w-full min-w-[700px]">
+                    <thead>
+                      <tr className="bg-muted whitespace-nowrap">
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-12"></th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Project</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Description</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Created</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Updated</th>
+                        <th className="text-right px-4 py-3 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {paginatedProjects.map((project) => (
+                        <tr
+                          key={project.id}
+                          className="hover:bg-muted/50 cursor-pointer whitespace-nowrap transition-colors"
+                          onClick={() => setLocation(`/project/${project.id}`)}
+                          data-testid={`row-doc-project-${project.id}`}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                          <td className="px-4 py-3">
+                            <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                              {project.icon && project.icon !== "folder" ? (
+                                <span className="text-sm">{project.icon}</span>
+                              ) : (
+                                <FolderOpen className="w-4 h-4 text-primary" />
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-medium text-sm">{project.name}</span>
+                          </td>
+                          <td className="px-4 py-3 max-w-[300px]">
+                            <span className="text-muted-foreground text-sm line-clamp-1">
+                              {project.description || "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-sm text-muted-foreground">
+                              {project.createdAt ? format(new Date(project.createdAt), "MMM d, yyyy") : "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-sm text-muted-foreground">
+                              {project.updatedAt ? format(new Date(project.updatedAt), "MMM d, yyyy") : "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setProjectToDelete(project);
+                              }}
+                              data-testid={`button-delete-project-${project.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
             </Card>
           )}
 
