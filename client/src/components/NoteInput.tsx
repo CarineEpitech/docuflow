@@ -312,10 +312,6 @@ export function NoteInput({
           </ScrollArea>
         </div>
       )}
-      
-      {!isFocused && !value && (
-        <p className="text-xs text-muted-foreground mt-1">Type @ to mention users</p>
-      )}
     </div>
   );
 }
