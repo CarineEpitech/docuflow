@@ -820,11 +820,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async toggleDocumentation(crmProjectId: string, enabled: boolean): Promise<CrmProject | undefined> {
+    // Get the CRM project to find the associated project
+    const crmProject = await db.query.crmProjects.findFirst({
+      where: eq(crmProjects.id, crmProjectId),
+    });
+    
+    if (!crmProject) return undefined;
+    
     const [updated] = await db
       .update(crmProjects)
       .set({ documentationEnabled: enabled ? 1 : 0, updatedAt: new Date() })
       .where(eq(crmProjects.id, crmProjectId))
       .returning();
+    
+    // If enabling documentation, create default pages if they don't exist
+    if (enabled && crmProject.projectId) {
+      const existingDocs = await db
+        .select()
+        .from(documents)
+        .where(eq(documents.projectId, crmProject.projectId));
+      
+      // Only create default pages if no documents exist yet
+      if (existingDocs.length === 0) {
+        const defaultPages = ["Resources", "Requirements", "Deliverables"];
+        
+        for (const title of defaultPages) {
+          await this.createDocument({
+            projectId: crmProject.projectId,
+            parentId: null,
+            title,
+            content: { type: "doc", content: [{ type: "paragraph" }] },
+          });
+        }
+      }
+    }
+    
     return updated;
   }
 
