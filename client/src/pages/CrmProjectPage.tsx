@@ -12,6 +12,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -457,144 +467,211 @@ export default function CrmProjectPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Project Status</CardTitle>
+            <CardTitle>Project Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
-              <Select 
-                value={formData?.status || "lead"} 
-                onValueChange={(v) => updateFormField("status", v as CrmProjectStatus)}
-              >
-                <SelectTrigger data-testid="select-project-status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map(status => (
-                    <SelectItem key={status} value={status}>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={crmStatusConfig[status].variant} className="text-xs">
-                          {crmStatusConfig[status].label}
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {isEditing ? (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select 
+                    value={formData?.status || "lead"} 
+                    onValueChange={(v) => updateFormField("status", v as CrmProjectStatus)}
+                  >
+                    <SelectTrigger data-testid="select-project-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map(status => (
+                        <SelectItem key={status} value={status}>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={crmStatusConfig[status].variant} className="text-xs">
+                              {crmStatusConfig[status].label}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Assigned To</label>
-              <Select 
-                value={formData?.assigneeId || "_none"} 
-                onValueChange={(v) => updateFormField("assigneeId", v === "_none" ? null : v)}
-              >
-                <SelectTrigger data-testid="select-assignee">
-                  <SelectValue placeholder="Select assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">Unassigned</SelectItem>
-                  {users.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="w-5 h-5">
-                          <AvatarImage src={user.profileImageUrl || undefined} />
-                          <AvatarFallback className="text-xs">
-                            {user.firstName?.[0]}{user.lastName?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        {user.firstName} {user.lastName}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Assigned To</label>
+                  <Select 
+                    value={formData?.assigneeId || "_none"} 
+                    onValueChange={(v) => updateFormField("assigneeId", v === "_none" ? null : v)}
+                  >
+                    <SelectTrigger data-testid="select-assignee">
+                      <SelectValue placeholder="Select assignee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Unassigned</SelectItem>
+                      {users.map(user => (
+                        <SelectItem key={user.id} value={user.id}>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-5 h-5">
+                              <AvatarImage src={user.profileImageUrl || undefined} />
+                              <AvatarFallback className="text-xs">
+                                {user.firstName?.[0]}{user.lastName?.[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            {user.firstName} {user.lastName}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Client</label>
-              <Select 
-                value={formData?.clientId || "_none"} 
-                onValueChange={(v) => updateFormField("clientId", v === "_none" ? null : v)}
-              >
-                <SelectTrigger data-testid="select-client">
-                  <SelectValue placeholder="Select client" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">No client</SelectItem>
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name} {client.company ? `(${client.company})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Client</label>
+                  <Select 
+                    value={formData?.clientId || "_none"} 
+                    onValueChange={(v) => updateFormField("clientId", v === "_none" ? null : v)}
+                  >
+                    <SelectTrigger data-testid="select-client">
+                      <SelectValue placeholder="Select client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">No client</SelectItem>
+                      {clients.map(client => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name} {client.company ? `(${client.company})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Budgeted Hours</label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={formData?.budgetedHours ?? ""}
-                  onChange={(e) => updateFormField("budgetedHours", e.target.value ? parseInt(e.target.value) : null)}
-                  placeholder="0"
-                  data-testid="input-budgeted-hours"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Actual Hours</label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={formData?.actualHours ?? ""}
-                  onChange={(e) => updateFormField("actualHours", e.target.value ? parseInt(e.target.value) : null)}
-                  placeholder="0"
-                  data-testid="input-actual-hours"
-                />
-              </div>
-            </div>
-            
-            {formData?.budgetedHours && formData.budgetedHours > 0 && (
-              <div className="pt-2">
-                {(() => {
-                  const budgeted = formData.budgetedHours;
-                  const actual = formData.actualHours || 0;
-                  const percentage = Math.round((actual / budgeted) * 100);
-                  const isOverBudget = actual > budgeted;
-                  return (
-                    <div className={`flex items-center gap-2 text-sm ${isOverBudget ? 'text-destructive' : 'text-muted-foreground'}`}>
-                      <Clock className="w-4 h-4" />
-                      <span>{actual} / {budgeted} hours ({percentage}%)</span>
-                      {isOverBudget && <Badge variant="destructive" className="text-xs">Over Budget</Badge>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Budgeted Hours</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={formData?.budgetedHours ?? ""}
+                      onChange={(e) => updateFormField("budgetedHours", e.target.value ? parseInt(e.target.value) : null)}
+                      placeholder="0"
+                      data-testid="input-budgeted-hours"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Actual Hours</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={formData?.actualHours ?? ""}
+                      onChange={(e) => updateFormField("actualHours", e.target.value ? parseInt(e.target.value) : null)}
+                      placeholder="0"
+                      data-testid="input-actual-hours"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Description</label>
+                  <Textarea
+                    value={formData?.description || ""}
+                    onChange={(e) => updateFormField("description", e.target.value)}
+                    placeholder="Enter project description..."
+                    rows={3}
+                    data-testid="textarea-project-description"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Comments</label>
+                  <Textarea
+                    value={formData?.comments || ""}
+                    onChange={(e) => updateFormField("comments", e.target.value)}
+                    placeholder="Add notes about this project..."
+                    className="min-h-[100px]"
+                    data-testid="textarea-comments"
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Assigned To:</span>
+                  {selectedAssignee ? (
+                    <div className="flex items-center gap-2">
+                      <Avatar className="w-6 h-6">
+                        <AvatarImage src={selectedAssignee.profileImageUrl || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {selectedAssignee.firstName?.[0]}{selectedAssignee.lastName?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm">{selectedAssignee.firstName} {selectedAssignee.lastName}</span>
                     </div>
-                  );
-                })()}
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Unassigned</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Client:</span>
+                  {selectedClient ? (
+                    <Link href={`/crm/client/${selectedClient.id}`}>
+                      <span className="text-sm text-primary hover:underline">
+                        {selectedClient.name} {selectedClient.company ? `(${selectedClient.company})` : ""}
+                      </span>
+                    </Link>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No client</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Hours:</span>
+                  <span className="text-sm">
+                    {formData?.actualHours ?? 0} / {formData?.budgetedHours ?? 0} hours
+                    {formData?.budgetedHours && formData.budgetedHours > 0 && (
+                      <span className="text-muted-foreground ml-1">
+                        ({Math.round(((formData?.actualHours || 0) / formData.budgetedHours) * 100)}%)
+                      </span>
+                    )}
+                  </span>
+                  {formData?.budgetedHours && formData?.actualHours && formData.actualHours > formData.budgetedHours && (
+                    <Badge variant="destructive" className="text-xs">Over Budget</Badge>
+                  )}
+                </div>
+
+                {formData?.description && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Description:</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground pl-6" data-testid="text-project-description">{formData.description}</p>
+                  </div>
+                )}
+
+                {formData?.comments && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Comments:</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground pl-6 whitespace-pre-wrap" data-testid="text-project-comments">{formData.comments}</p>
+                  </div>
+                )}
+
+                {formData?.documentationEnabled && (
+                  <div className="pt-2">
+                    <Link href={`/project/${project.projectId}`}>
+                      <Button variant="outline" size="sm" data-testid="button-view-docs">
+                        <FileText className="w-4 h-4 mr-2" />
+                        View Documentation
+                      </Button>
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <Textarea
-                value={formData?.description || ""}
-                onChange={(e) => updateFormField("description", e.target.value)}
-                placeholder="Enter project description..."
-                rows={3}
-                data-testid="textarea-project-description"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Comments</label>
-              <Textarea
-                value={formData?.comments || ""}
-                onChange={(e) => updateFormField("comments", e.target.value)}
-                placeholder="Add notes about this project..."
-                className="min-h-[100px]"
-                data-testid="textarea-comments"
-              />
-            </div>
           </CardContent>
         </Card>
 
@@ -632,54 +709,94 @@ export default function CrmProjectPage() {
             )}
           </CardHeader>
           <CardContent className="space-y-4">
-            <DatePickerField
-              label="Start Date"
-              value={formData?.startDate || undefined}
-              onChange={(date) => {
-                if (!formData) return;
-                const startDate = date || null;
-                const dueDate = date ? addDays(date, 7) : null;
-                setFormData({ ...formData, startDate, dueDate });
-                setHasChanges(true);
-              }}
-              testId="datepicker-start"
-            />
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Due Date</label>
-              <div 
-                className="w-full flex items-center justify-start px-3 py-2 text-left font-normal border rounded-md bg-muted"
-                data-testid="display-due-date"
-              >
-                <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                {formData?.dueDate ? (
-                  <span>{format(formData.dueDate, "PPP")}</span>
-                ) : (
-                  <span className="text-muted-foreground italic">Set a start date first</span>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">Automatically set to 7 days after start date</p>
-            </div>
-            
-            {formData?.startDate && formData?.budgetedHours && formData.budgetedHours > 0 && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Estimated End Date</label>
-                <div 
-                  className="w-full flex items-center justify-start px-3 py-2 text-left font-normal border rounded-md bg-muted"
-                  data-testid="display-estimated-end-date"
-                >
-                  <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <span>{format(addDays(new Date(formData.startDate), Math.ceil(formData.budgetedHours / (currentUser?.hoursPerDay || 8))), "PPP")}</span>
+            {isEditing ? (
+              <>
+                <DatePickerField
+                  label="Start Date"
+                  value={formData?.startDate || undefined}
+                  onChange={(date) => {
+                    if (!formData) return;
+                    const startDate = date || null;
+                    const dueDate = date ? addDays(date, 7) : null;
+                    setFormData({ ...formData, startDate, dueDate });
+                    setHasChanges(true);
+                  }}
+                  testId="datepicker-start"
+                />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Due Date</label>
+                  <div 
+                    className="w-full flex items-center justify-start px-3 py-2 text-left font-normal border rounded-md bg-muted"
+                    data-testid="display-due-date"
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {formData?.dueDate ? (
+                      <span>{format(formData.dueDate, "PPP")}</span>
+                    ) : (
+                      <span className="text-muted-foreground italic">Set a start date first</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Automatically set to 7 days after start date</p>
                 </div>
-                <p className="text-xs text-muted-foreground">Based on {formData.budgetedHours} budgeted hours at {currentUser?.hoursPerDay || 8}h/day</p>
+                
+                {formData?.startDate && formData?.budgetedHours && formData.budgetedHours > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Estimated End Date</label>
+                    <div 
+                      className="w-full flex items-center justify-start px-3 py-2 text-left font-normal border rounded-md bg-muted"
+                      data-testid="display-estimated-end-date"
+                    >
+                      <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span>{format(addDays(new Date(formData.startDate), Math.ceil(formData.budgetedHours / (currentUser?.hoursPerDay || 8))), "PPP")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Based on {formData.budgetedHours} budgeted hours at {currentUser?.hoursPerDay || 8}h/day</p>
+                  </div>
+                )}
+                
+                <DatePickerField
+                  label="Actual Finish Date"
+                  value={formData?.actualFinishDate || undefined}
+                  onChange={(date) => updateFormField("actualFinishDate", date || null)}
+                  testId="datepicker-finish"
+                />
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Start Date:</span>
+                  <span className="text-sm">
+                    {formData?.startDate ? format(formData.startDate, "PPP") : <span className="text-muted-foreground">Not set</span>}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Due Date:</span>
+                  <span className="text-sm">
+                    {formData?.dueDate ? format(formData.dueDate, "PPP") : <span className="text-muted-foreground">Not set</span>}
+                  </span>
+                </div>
+                
+                {formData?.startDate && formData?.budgetedHours && formData.budgetedHours > 0 && (
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Estimated End:</span>
+                    <span className="text-sm">
+                      {format(addDays(new Date(formData.startDate), Math.ceil(formData.budgetedHours / (currentUser?.hoursPerDay || 8))), "PPP")}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Actual Finish:</span>
+                  <span className="text-sm">
+                    {formData?.actualFinishDate ? format(formData.actualFinishDate, "PPP") : <span className="text-muted-foreground">Not completed</span>}
+                  </span>
+                </div>
               </div>
             )}
-            
-            <DatePickerField
-              label="Actual Finish Date"
-              value={formData?.actualFinishDate || undefined}
-              onChange={(date) => updateFormField("actualFinishDate", date || null)}
-              testId="datepicker-finish"
-            />
             
             {formData?.dueDate && formData?.actualFinishDate && (
               <div className="pt-2">
@@ -872,6 +989,27 @@ export default function CrmProjectPage() {
         onSubmit={(clientId, data) => createContactMutation.mutate({ clientId, data })}
         isLoading={createContactMutation.isPending}
       />
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{project.project?.name}"? This action cannot be undone. All associated notes and documentation links will also be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteProjectMutation.mutate()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteProjectMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
