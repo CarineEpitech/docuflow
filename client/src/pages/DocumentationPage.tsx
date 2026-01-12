@@ -45,7 +45,7 @@ export default function DocumentationPage() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
   const [folderName, setFolderName] = useState("");
@@ -230,12 +230,12 @@ export default function DocumentationPage() {
                   <table className="w-full min-w-[700px]">
                     <thead>
                       <tr className="bg-muted whitespace-nowrap">
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-12"></th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Project</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Description</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Created</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Updated</th>
-                        <th className="text-right px-4 py-3 w-10"></th>
+                        <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-12"></th>
+                        <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Project</th>
+                        <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Description</th>
+                        <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Created</th>
+                        <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Updated</th>
+                        <th className="text-right px-4 py-2 w-10"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -246,8 +246,8 @@ export default function DocumentationPage() {
                           onClick={() => setLocation(`/project/${project.id}`)}
                           data-testid={`row-doc-project-${project.id}`}
                         >
-                          <td className="px-4 py-3">
-                            <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                          <td className="px-4 py-2">
+                            <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                               {project.icon && project.icon !== "folder" ? (
                                 <span className="text-sm">{project.icon}</span>
                               ) : (
@@ -255,29 +255,29 @@ export default function DocumentationPage() {
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-2">
                             <span className="font-medium text-sm">{project.name}</span>
                           </td>
-                          <td className="px-4 py-3 max-w-[300px]">
+                          <td className="px-4 py-2 max-w-[300px]">
                             <span className="text-muted-foreground text-sm line-clamp-1">
                               {project.description || "—"}
                             </span>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-2">
                             <span className="text-sm text-muted-foreground">
                               {project.createdAt ? format(new Date(project.createdAt), "MMM d, yyyy") : "—"}
                             </span>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-2">
                             <span className="text-sm text-muted-foreground">
                               {project.updatedAt ? format(new Date(project.updatedAt), "MMM d, yyyy") : "—"}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-4 py-2 text-right">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setProjectToDelete(project);
