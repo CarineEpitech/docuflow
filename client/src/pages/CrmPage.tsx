@@ -431,7 +431,7 @@ export default function CrmPage() {
                                             <div className="flex items-start gap-2">
                                               <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                                               <div className="flex-1 min-w-0">
-                                                <p className="font-medium text-sm truncate">
+                                                <p className="font-medium text-sm break-words">
                                                   {project.project?.name || "Unknown"}
                                                 </p>
                                                 {project.client && (
