@@ -86,6 +86,7 @@ export default function CrmProjectPage() {
   const projectId = params?.id;
 
   const [formData, setFormData] = useState<{
+    name: string;
     status: CrmProjectStatus;
     clientId: string | null;
     assigneeId: string | null;
@@ -131,6 +132,7 @@ export default function CrmProjectPage() {
         : (startDate ? addDays(startDate, 7) : null);
       
       setFormData({
+        name: project.project?.name || "",
         status: project.status as CrmProjectStatus,
         clientId: project.clientId,
         assigneeId: project.assigneeId,
@@ -306,6 +308,7 @@ export default function CrmProjectPage() {
         : (startDate ? addDays(startDate, 7) : null);
       
       setFormData({
+        name: project.project?.name || "",
         status: project.status as CrmProjectStatus,
         clientId: project.clientId,
         assigneeId: project.assigneeId,
@@ -346,6 +349,7 @@ export default function CrmProjectPage() {
     if (!formData) return;
     
     const updateData: Record<string, unknown> = {
+      projectName: formData.name,
       status: formData.status,
       clientId: formData.clientId,
       assigneeId: formData.assigneeId,
@@ -400,7 +404,16 @@ export default function CrmProjectPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
-            <h1 className="text-xl md:text-2xl font-bold break-words" data-testid="text-project-title">{project.project?.name}</h1>
+            {isEditing ? (
+              <Input
+                value={formData?.name || ""}
+                onChange={(e) => updateFormField("name", e.target.value)}
+                className="text-xl md:text-2xl font-bold h-auto py-1"
+                data-testid="input-project-title"
+              />
+            ) : (
+              <h1 className="text-xl md:text-2xl font-bold break-words" data-testid="text-project-title">{project.project?.name}</h1>
+            )}
             {formData?.status && (
               <Badge 
                 variant={crmStatusConfig[formData.status]?.variant || "secondary"}

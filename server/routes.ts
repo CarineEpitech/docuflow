@@ -1377,6 +1377,7 @@ Instructions:
       
       // Company-wide access - all authenticated users can update CRM projects
       const updateSchema = z.object({
+        projectName: z.string().optional(),
         clientId: z.string().nullable().optional(),
         status: z.enum(crmProjectStatusValues).optional(),
         assigneeId: z.string().nullable().optional(),
@@ -1395,13 +1396,22 @@ Instructions:
         return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
       }
       
-      // Update base project description if provided
-      if (parsed.data.projectDescription !== undefined && crmProject.projectId) {
-        await storage.updateProject(crmProject.projectId, { description: parsed.data.projectDescription });
+      // Update base project name and/or description if provided
+      if (crmProject.projectId) {
+        const projectUpdates: { name?: string; description?: string | null } = {};
+        if (parsed.data.projectName !== undefined) {
+          projectUpdates.name = parsed.data.projectName;
+        }
+        if (parsed.data.projectDescription !== undefined) {
+          projectUpdates.description = parsed.data.projectDescription;
+        }
+        if (Object.keys(projectUpdates).length > 0) {
+          await storage.updateProject(crmProject.projectId, projectUpdates);
+        }
       }
       
-      // Convert date strings to Date objects (exclude projectDescription from CRM update)
-      const { projectDescription, ...crmFields } = parsed.data;
+      // Convert date strings to Date objects (exclude projectName/projectDescription from CRM update)
+      const { projectName, projectDescription, ...crmFields } = parsed.data;
       const updateData: any = { ...crmFields };
       if (parsed.data.startDate !== undefined) {
         updateData.startDate = parsed.data.startDate ? new Date(parsed.data.startDate) : null;
