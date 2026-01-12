@@ -86,6 +86,7 @@ export default function CrmProjectPage() {
     documentationEnabled: boolean;
     budgetedHours: number | null;
     actualHours: number | null;
+    description: string;
   } | null>(null);
 
   const [hasChanges, setHasChanges] = useState(false);
@@ -128,6 +129,7 @@ export default function CrmProjectPage() {
         documentationEnabled: project.documentationEnabled === 1,
         budgetedHours: project.budgetedHours ?? null,
         actualHours: project.actualHours ?? null,
+        description: project.project?.description || "",
       });
       setHasChanges(startDate !== null && project.dueDate === null);
     }
@@ -295,6 +297,7 @@ export default function CrmProjectPage() {
       comments: formData.comments || null,
       budgetedHours: formData.budgetedHours,
       actualHours: formData.actualHours,
+      projectDescription: formData.description || null,
     };
     
     updateCrmProjectMutation.mutate(updateData as Partial<CrmProjectWithDetails>);
@@ -377,12 +380,16 @@ export default function CrmProjectPage() {
             <CardTitle>Project Status</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {project.project?.description && (
-              <div className="space-y-1 pb-2 border-b border-border">
-                <label className="text-sm font-medium">Description</label>
-                <p className="text-sm text-muted-foreground" data-testid="text-project-description">{project.project.description}</p>
-              </div>
-            )}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={formData?.description || ""}
+                onChange={(e) => updateFormField("description", e.target.value)}
+                placeholder="Enter project description..."
+                rows={3}
+                data-testid="textarea-project-description"
+              />
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
               <Select 

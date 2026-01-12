@@ -1386,6 +1386,7 @@ Instructions:
         comments: z.string().nullable().optional(),
         budgetedHours: z.number().nullable().optional(),
         actualHours: z.number().nullable().optional(),
+        projectDescription: z.string().nullable().optional(),
       }).partial();
       
       const parsed = updateSchema.safeParse(req.body);
@@ -1394,8 +1395,14 @@ Instructions:
         return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
       }
       
-      // Convert date strings to Date objects
-      const updateData: any = { ...parsed.data };
+      // Update base project description if provided
+      if (parsed.data.projectDescription !== undefined && crmProject.projectId) {
+        await storage.updateProject(crmProject.projectId, { description: parsed.data.projectDescription });
+      }
+      
+      // Convert date strings to Date objects (exclude projectDescription from CRM update)
+      const { projectDescription, ...crmFields } = parsed.data;
+      const updateData: any = { ...crmFields };
       if (parsed.data.startDate !== undefined) {
         updateData.startDate = parsed.data.startDate ? new Date(parsed.data.startDate) : null;
       }
