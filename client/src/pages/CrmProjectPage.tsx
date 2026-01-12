@@ -954,17 +954,18 @@ export default function CrmProjectPage() {
           
           {/* Chat Input Area */}
           <div className="p-4 bg-muted/30">
-            <div className="flex gap-2 items-center">
-              <NoteInput
-                value={newNoteContent}
-                onChange={setNewNoteContent}
-                users={users}
-                mentionedUserIds={newNoteMentions}
-                onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
-                placeholder="Type a message... (@ to mention)"
-                testId="textarea-new-note"
-                className="flex-1"
-              />
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <NoteInput
+                  value={newNoteContent}
+                  onChange={setNewNoteContent}
+                  users={users}
+                  mentionedUserIds={newNoteMentions}
+                  onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
+                  placeholder="Type a message... (@ to mention)"
+                  testId="textarea-new-note"
+                />
+              </div>
               <Button
                 size="icon"
                 onClick={handleAddNote}
