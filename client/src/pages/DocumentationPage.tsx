@@ -39,7 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
 
 export default function DocumentationPage() {
   const [, setLocation] = useLocation();
