@@ -98,7 +98,7 @@ export default function CrmPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const searchString = useSearch();
-  const [activeTab, setActiveTab] = useState<string>("clients");
+  const [activeTab, setActiveTab] = useState<string>("projects");
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [contactStatusFilter, setContactStatusFilter] = useState<string>("all");
@@ -364,18 +364,18 @@ export default function CrmPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/80 p-1 h-auto">
-          <TabsTrigger value="clients" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-clients">
-            <Users className="w-4 h-4" />
-            Contacts
-            {clients.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
-            )}
-          </TabsTrigger>
           <TabsTrigger value="projects" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-projects">
             <FolderKanban className="w-4 h-4" />
             Projects
             {(allProjectsData?.total ?? crmProjectsData?.total ?? 0) > 0 && (
               <Badge variant="secondary" className="ml-1">{allProjectsData?.total ?? crmProjectsData?.total}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="clients" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-clients">
+            <Users className="w-4 h-4" />
+            Contacts
+            {clients.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
