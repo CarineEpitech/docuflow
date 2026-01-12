@@ -175,7 +175,7 @@ export default function DocumentationPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight truncate">{project.name}</h3>
+                      <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight break-words">{project.name}</h3>
                     </div>
                     <Button
                       variant="ghost"
