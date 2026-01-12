@@ -31,8 +31,20 @@ import {
   FileText,
   FolderOpen,
   FolderPlus,
-  Trash2
+  Trash2,
+  LayoutGrid,
+  List,
+  Calendar
 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
@@ -43,6 +55,7 @@ export default function DocumentationPage() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
   const [folderName, setFolderName] = useState("");
@@ -134,6 +147,26 @@ export default function DocumentationPage() {
               data-testid="input-search-docs"
             />
           </div>
+          <div className="flex items-center gap-1 border rounded-md p-1">
+            <Button
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode("grid")}
+              data-testid="button-view-grid"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "table" ? "default" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode("table")}
+              data-testid="button-view-table"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
           <Button 
             onClick={() => { setFolderName(""); setFolderDescription(""); setShowCreateFolderDialog(true); }} 
             data-testid="button-create-folder"
@@ -157,48 +190,119 @@ export default function DocumentationPage() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {paginatedProjects.map((project) => (
-              <Card
-                key={project.id}
-                className="hover-elevate cursor-pointer transition-all group"
-                onClick={() => setLocation(`/project/${project.id}`)}
-                data-testid={`row-doc-project-${project.id}`}
-              >
-                <CardContent className="p-3">
-                  <div className="flex items-start gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
-                      {project.icon && project.icon !== "folder" ? (
-                        <span className="text-sm">{project.icon}</span>
-                      ) : (
-                        <FolderOpen className="w-4 h-4 text-primary" />
-                      )}
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {paginatedProjects.map((project) => (
+                <Card
+                  key={project.id}
+                  className="hover-elevate cursor-pointer transition-all group"
+                  onClick={() => setLocation(`/project/${project.id}`)}
+                  data-testid={`row-doc-project-${project.id}`}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
+                        {project.icon && project.icon !== "folder" ? (
+                          <span className="text-sm">{project.icon}</span>
+                        ) : (
+                          <FolderOpen className="w-4 h-4 text-primary" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-1">
+                          <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight break-words flex-1">{project.name}</h3>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-destructive -mt-0.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProjectToDelete(project);
+                            }}
+                            data-testid={`button-delete-project-${project.id}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                        {project.description && (
+                          <p className="text-xs text-muted-foreground mt-1 break-words line-clamp-2">{project.description}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-1">
-                        <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight break-words flex-1">{project.name}</h3>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="hidden md:table-cell">Description</TableHead>
+                    <TableHead className="hidden sm:table-cell">Created</TableHead>
+                    <TableHead className="hidden sm:table-cell">Updated</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedProjects.map((project) => (
+                    <TableRow
+                      key={project.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setLocation(`/project/${project.id}`)}
+                      data-testid={`row-doc-project-${project.id}`}
+                    >
+                      <TableCell>
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                          {project.icon && project.icon !== "folder" ? (
+                            <span className="text-sm">{project.icon}</span>
+                          ) : (
+                            <FolderOpen className="w-4 h-4 text-primary" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">{project.name}</span>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <span className="text-muted-foreground text-sm line-clamp-1">
+                          {project.description || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Calendar className="w-3 h-3" />
+                          {project.createdAt ? format(new Date(project.createdAt), "MMM d, yyyy") : "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Calendar className="w-3 h-3" />
+                          {project.updatedAt ? format(new Date(project.updatedAt), "MMM d, yyyy") : "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-destructive -mt-0.5"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
                           onClick={(e) => {
                             e.stopPropagation();
                             setProjectToDelete(project);
                           }}
                           data-testid={`button-delete-project-${project.id}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
-                      </div>
-                      {project.description && (
-                        <p className="text-xs text-muted-foreground mt-1 break-words line-clamp-2">{project.description}</p>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
 
           {totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4">
