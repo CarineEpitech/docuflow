@@ -425,10 +425,16 @@ export default function CrmProjectPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Documentation Toggle in Header */}
+          {/* Documentation Toggle and Button in Header */}
           <div className="flex items-center gap-2 mr-2">
-            <FileText className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm hidden sm:inline">View Documentation</span>
+            {formData?.documentationEnabled && (
+              <Link href={`/project/${project.projectId}`}>
+                <Button variant="outline" size="sm" data-testid="button-view-docs-header">
+                  <FileText className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">View Documentation</span>
+                </Button>
+              </Link>
+            )}
             <Switch
               checked={formData?.documentationEnabled || false}
               onCheckedChange={(checked) => handleDocumentationToggle(checked)}
@@ -680,17 +686,6 @@ export default function CrmProjectPage() {
                       <span className="text-sm font-medium">Comments:</span>
                     </div>
                     <p className="text-sm text-muted-foreground pl-6 whitespace-pre-wrap" data-testid="text-project-comments">{formData.comments}</p>
-                  </div>
-                )}
-
-                {formData?.documentationEnabled && (
-                  <div className="pt-3 border-t">
-                    <Link href={`/project/${project.projectId}`}>
-                      <Button variant="outline" size="sm" data-testid="button-view-docs">
-                        <FileText className="w-4 h-4 mr-2" />
-                        View Documentation
-                      </Button>
-                    </Link>
                   </div>
                 )}
               </div>
