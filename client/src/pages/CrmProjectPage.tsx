@@ -967,6 +967,7 @@ export default function CrmProjectPage() {
                   users={users}
                   mentionedUserIds={newNoteMentions}
                   onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
+                  onSubmit={handleAddNote}
                   placeholder="Type a message... (@ to mention)"
                   testId="textarea-new-note"
                 />

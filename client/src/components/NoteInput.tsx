@@ -8,6 +8,7 @@ interface NoteInputProps {
   users: SafeUser[];
   mentionedUserIds: string[];
   onMentionAdd: (userId: string) => void;
+  onSubmit?: () => void;
   placeholder?: string;
   className?: string;
   testId?: string;
@@ -20,6 +21,7 @@ export function NoteInput({
   users,
   mentionedUserIds,
   onMentionAdd,
+  onSubmit,
   placeholder = "Add a note... (type @ to mention)",
   className = "",
   testId,
@@ -188,6 +190,15 @@ export function NoteInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Handle Enter to submit when dropdown is not showing
+    if (e.key === "Enter" && !e.shiftKey && !showMentionDropdown) {
+      e.preventDefault();
+      if (onSubmit && value.trim()) {
+        onSubmit();
+      }
+      return;
+    }
+
     if (!showMentionDropdown || filteredUsers.length === 0) {
       return;
     }
