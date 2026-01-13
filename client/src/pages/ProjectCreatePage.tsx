@@ -330,10 +330,7 @@ export default function ProjectCreatePage() {
                 <SelectContent>
                   {projectTypeOptions.map(type => (
                     <SelectItem key={type} value={type}>
-                      <div className="flex flex-col">
-                        <span>{projectTypeConfig[type].label}</span>
-                        <span className="text-xs text-muted-foreground">{projectTypeConfig[type].description}</span>
-                      </div>
+                      {projectTypeConfig[type].label}
                     </SelectItem>
                   ))}
                 </SelectContent>
