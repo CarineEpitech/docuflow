@@ -44,6 +44,7 @@ export default function CompanyDocumentEditorPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company-documents", documentId] });
       setHasUnsavedChanges(false);
       toast({ title: "Document saved" });
     },
