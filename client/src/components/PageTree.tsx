@@ -347,7 +347,7 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
             <span className="text-base flex-shrink-0">
               {node.icon || "📄"}
             </span>
-            <span className="truncate text-sm">{node.title}</span>
+            <span className="text-sm break-words">{node.title}</span>
           </Link>
 
           <div className="actions flex items-center gap-0.5">
