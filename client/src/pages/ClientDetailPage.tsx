@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Building2, Mail, Phone, FileText, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus, Pencil, X, Save, Globe } from "lucide-react";
+import { ArrowLeft, Building2, Mail, Phone, FileText, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus, Pencil, X, Save, Globe, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -142,6 +142,23 @@ export default function ClientDetailPage() {
       return data.data || [];
     },
   });
+
+  const { data: allClients = [] } = useQuery<CrmClient[]>({
+    queryKey: ["/api/crm/clients"],
+    queryFn: async () => {
+      const res = await fetch("/api/crm/clients?pageSize=1000", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch clients");
+      const data = await res.json();
+      return data.data || [];
+    },
+  });
+
+  const relatedContacts = allClients.filter(c => 
+    c.id !== id && 
+    client?.company && 
+    c.company && 
+    c.company.toLowerCase().trim() === client.company.toLowerCase().trim()
+  );
 
   const clientProjects = allProjects.filter(p => String(p.clientId) === String(id));
   const availableProjects = allProjects.filter(p => !p.clientId || p.clientId === null);
@@ -694,6 +711,58 @@ export default function ClientDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {client.company && (
+        <Card>
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="text-base md:text-lg flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              <span>Other Contacts at {client.company}</span>
+              {relatedContacts.length > 0 && (
+                <Badge variant="secondary">{relatedContacts.length}</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+            {relatedContacts.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No other contacts at this company</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {relatedContacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/30 sm:flex-row sm:items-center sm:justify-between cursor-pointer hover-elevate"
+                    onClick={() => navigate(`/crm/contacts/${contact.id}`)}
+                    data-testid={`card-related-contact-${contact.id}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-medium text-primary">
+                          {contact.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{contact.name}</p>
+                        {contact.email && (
+                          <p className="text-sm text-muted-foreground truncate">{contact.email}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 justify-between sm:justify-end flex-shrink-0">
+                      <Badge variant={contactStatusConfig[contact.status || "lead"]?.variant || "secondary"}>
+                        {contactStatusConfig[contact.status || "lead"]?.label || contact.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
