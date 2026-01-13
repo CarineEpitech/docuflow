@@ -171,6 +171,52 @@ export default function CrmProjectPage() {
     setHasChanges(true);
   };
 
+  // Calculate due date based on project type
+  const hoursPerDay = currentUser?.hoursPerDay || 8;
+  const calculateDueDateForType = (type: CrmProjectType, startDate: Date | null, budgetedHours: number | null): Date | null => {
+    if (!startDate) return null;
+    
+    switch (type) {
+      case "one_time":
+        return addDays(startDate, 7);
+      case "monthly":
+        return addDays(startDate, 30);
+      case "hourly_budget":
+        if (budgetedHours) {
+          return addDays(startDate, Math.ceil(budgetedHours / hoursPerDay));
+        }
+        return null;
+      default:
+        return null;
+    }
+  };
+
+  // Update project type and recalculate due date
+  const handleProjectTypeChange = (newType: CrmProjectType) => {
+    if (!formData) return;
+    const newDueDate = calculateDueDateForType(newType, formData.startDate, formData.budgetedHours);
+    setFormData({ 
+      ...formData, 
+      projectType: newType,
+      dueDate: newDueDate
+    });
+    setHasChanges(true);
+  };
+
+  // Update budgeted hours and recalculate due date for hourly_budget type
+  const handleBudgetedHoursChange = (hours: number | null) => {
+    if (!formData) return;
+    const newDueDate = formData.projectType === "hourly_budget" && formData.startDate
+      ? calculateDueDateForType("hourly_budget", formData.startDate, hours)
+      : formData.dueDate;
+    setFormData({ 
+      ...formData, 
+      budgetedHours: hours,
+      dueDate: newDueDate
+    });
+    setHasChanges(true);
+  };
+
   const updateCrmProjectMutation = useMutation({
     mutationFn: async (data: Partial<CrmProjectWithDetails>) => {
       return apiRequest("PATCH", `/api/crm/projects/${projectId}`, data);
@@ -543,7 +589,7 @@ export default function CrmProjectPage() {
                   <label className="text-sm font-medium">Project Type</label>
                   <Select 
                     value={formData?.projectType || "one_time"} 
-                    onValueChange={(v) => updateFormField("projectType", v as CrmProjectType)}
+                    onValueChange={(v) => handleProjectTypeChange(v as CrmProjectType)}
                   >
                     <SelectTrigger data-testid="select-project-type">
                       <SelectValue />
@@ -616,7 +662,7 @@ export default function CrmProjectPage() {
                       type="number"
                       min="0"
                       value={formData?.budgetedHours ?? ""}
-                      onChange={(e) => updateFormField("budgetedHours", e.target.value ? parseInt(e.target.value) : null)}
+                      onChange={(e) => handleBudgetedHoursChange(e.target.value ? parseInt(e.target.value) : null)}
                       placeholder="0"
                       data-testid="input-budgeted-hours"
                     />
