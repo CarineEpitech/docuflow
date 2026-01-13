@@ -436,15 +436,24 @@
   [data-sidebar],
   [data-testid="button-sidebar-toggle"],
   [data-testid="button-print"],
+  [data-testid="button-save"],
   [data-testid="button-create-folder"],
+  [data-testid="button-collapse-sidebar"],
+  [data-testid="button-expand-sidebar"],
+  [data-testid="button-mobile-menu"],
   [data-testid="input-search-docs"],
   [data-testid="button-view-grid"],
   [data-testid="button-view-table"],
   [data-testid^="button-delete"],
   .no-print,
   button,
-  nav,
+  nav:not([data-testid="nav-breadcrumbs"]),
   aside {
+    display: none !important;
+  }
+
+  /* Hide the page tree sidebar */
+  [data-testid="document-page"] > div:first-child:not(.flex-1) {
     display: none !important;
   }
 
@@ -454,17 +463,24 @@
   main,
   .bg-background,
   .bg-card,
-  .bg-muted {
+  .bg-muted,
+  .bg-sidebar {
     background: white !important;
     color: black !important;
   }
 
   /* Ensure content fills the page */
-  main {
+  main,
+  [data-testid="document-page"] {
     width: 100% !important;
     max-width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+
+  /* Make the editor content full width */
+  [data-testid="document-page"] .flex-1 {
+    width: 100% !important;
   }
 
   /* Make cards visible without shadows */
@@ -482,9 +498,20 @@
     print-color-adjust: exact !important;
   }
 
+  /* Keep links styled but readable */
+  a {
+    text-decoration: underline !important;
+  }
+
+  /* Code blocks should have visible backgrounds */
+  pre, code {
+    background-color: #f5f5f5 !important;
+    border: 1px solid #ddd !important;
+  }
+
   /* Page setup */
   @page {
-    margin: 1cm;
+    margin: 1.5cm;
     size: A4;
   }
 
@@ -498,5 +525,10 @@
   p {
     orphans: 3;
     widows: 3;
+  }
+
+  /* Hide status text */
+  [data-testid="text-page-creator"] {
+    display: none !important;
   }
 }

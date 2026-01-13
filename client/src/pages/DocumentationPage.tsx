@@ -32,8 +32,7 @@ import {
   FolderPlus,
   Trash2,
   LayoutGrid,
-  List,
-  Printer
+  List
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -158,14 +157,6 @@ export default function DocumentationPage() {
               <List className="h-4 w-4" />
             </Button>
           </div>
-          <Button 
-            variant="outline"
-            onClick={() => window.print()}
-            data-testid="button-print"
-          >
-            <Printer className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Print</span>
-          </Button>
           <Button 
             onClick={() => { setFolderName(""); setFolderDescription(""); setShowCreateFolderDialog(true); }} 
             data-testid="button-create-folder"

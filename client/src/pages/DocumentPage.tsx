@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Save, PanelLeftClose, PanelLeft, Menu } from "lucide-react";
+import { Save, PanelLeftClose, PanelLeft, Menu, Printer } from "lucide-react";
 import type { Document, Project, DocumentWithCreator, SafeUser } from "@shared/schema";
 import { useDebouncedCallback } from "@/hooks/useDebounce";
 
@@ -295,6 +295,15 @@ export default function DocumentPage() {
             <span className="hidden sm:inline text-sm text-muted-foreground whitespace-nowrap">
               {isSaving ? "Saving..." : hasUnsavedChanges ? "Unsaved" : ""}
             </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              data-testid="button-print"
+            >
+              <Printer className="w-4 h-4 md:mr-1" />
+              <span className="hidden md:inline">Print</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
