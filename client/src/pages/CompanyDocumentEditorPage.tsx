@@ -181,9 +181,9 @@ export default function CompanyDocumentEditorPage() {
           <Textarea
             value={description}
             onChange={handleDescriptionChange}
-            className="text-sm text-muted-foreground border-none shadow-none focus-visible:ring-0 px-0 resize-none min-h-[40px] max-w-full sm:max-w-lg"
+            className="text-sm text-muted-foreground border-none shadow-none focus-visible:ring-0 px-0 resize-y min-h-[40px] max-w-full sm:max-w-lg overflow-auto"
             placeholder="Add a description (optional)"
-            rows={1}
+            rows={2}
             data-testid="input-document-description"
           />
         </div>
