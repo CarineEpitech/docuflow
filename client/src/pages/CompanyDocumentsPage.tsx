@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -82,10 +82,33 @@ export default function CompanyDocumentsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchParams = useSearch();
   
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(() => {
+    // Initialize from URL query parameter
+    const params = new URLSearchParams(searchParams);
+    return params.get("folder");
+  });
+  
+  // Sync currentFolderId with URL query parameter
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    const folderFromUrl = params.get("folder");
+    if (folderFromUrl !== currentFolderId) {
+      setCurrentFolderId(folderFromUrl);
+    }
+  }, [searchParams]);
+  
+  // Navigate to folder using URL (enables browser back/forward navigation)
+  const navigateToFolder = (folderId: string | null) => {
+    if (folderId) {
+      navigate(`/company-documents?folder=${folderId}`);
+    } else {
+      navigate("/company-documents");
+    }
+  };
   
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showCreateDocDialog, setShowCreateDocDialog] = useState(false);
@@ -193,7 +216,7 @@ export default function CompanyDocumentsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/company-documents"] });
       setDeleteConfirmId(null);
       if (currentFolderId === deleteConfirmId) {
-        setCurrentFolderId(null);
+        navigateToFolder(null);
       }
       toast({ title: "Folder deleted" });
     },
@@ -395,7 +418,7 @@ export default function CompanyDocumentsPage() {
               <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
               <span className="truncate">{currentFolder ? currentFolder.name : "Company Documents"}</span>
               {currentFolderId && (
-                <Button variant="ghost" size="icon" onClick={() => setCurrentFolderId(null)} className="shrink-0 sm:hidden" data-testid="button-back">
+                <Button variant="ghost" size="icon" onClick={() => navigateToFolder(null)} className="shrink-0 sm:hidden" data-testid="button-back">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               )}
@@ -445,7 +468,7 @@ export default function CompanyDocumentsPage() {
             <Button 
               variant="ghost"
               size="sm"
-              onClick={() => setCurrentFolderId(null)} 
+              onClick={() => navigateToFolder(null)} 
               className="gap-1.5 text-muted-foreground"
               data-testid="link-root"
             >
@@ -482,7 +505,7 @@ export default function CompanyDocumentsPage() {
                 <h3 className="text-sm font-medium text-muted-foreground mb-3">Folders ({searchResults.folders.length})</h3>
                 <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
                   {searchResults.folders.map((folder) => (
-                    <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onOpen={() => { setSearchQuery(""); setCurrentFolderId(folder.id); }} onRename={() => openRenameFolder(folder)} onDelete={() => confirmDelete(folder.id, "folder")} />
+                    <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onOpen={() => { setSearchQuery(""); navigateToFolder(folder.id); }} onRename={() => openRenameFolder(folder)} onDelete={() => confirmDelete(folder.id, "folder")} />
                   ))}
                 </div>
               </div>
@@ -519,7 +542,7 @@ export default function CompanyDocumentsPage() {
         ) : (
           <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
             {folders.map((folder) => (
-              <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onOpen={() => setCurrentFolderId(folder.id)} onRename={() => openRenameFolder(folder)} onDelete={() => confirmDelete(folder.id, "folder")} />
+              <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onOpen={() => navigateToFolder(folder.id)} onRename={() => openRenameFolder(folder)} onDelete={() => confirmDelete(folder.id, "folder")} />
             ))}
           </div>
         )
