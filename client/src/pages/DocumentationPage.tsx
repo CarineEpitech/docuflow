@@ -185,7 +185,7 @@ export default function DocumentationPage() {
               {paginatedProjects.map((project) => (
                 <Card
                   key={project.id}
-                  className="hover-elevate cursor-pointer transition-all group"
+                  className="hover-elevate cursor-pointer transition-all group overflow-hidden"
                   onClick={() => setLocation(`/project/${project.id}`)}
                   data-testid={`row-doc-project-${project.id}`}
                 >
@@ -198,9 +198,9 @@ export default function DocumentationPage() {
                           <FolderOpen className="w-4 h-4 text-primary" />
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="flex items-start gap-1">
-                          <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight break-words flex-1">{project.name}</h3>
+                          <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight break-all flex-1">{project.name}</h3>
                           <Button
                             variant="ghost"
                             size="icon"
