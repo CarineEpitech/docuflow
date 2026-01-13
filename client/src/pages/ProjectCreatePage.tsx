@@ -32,7 +32,7 @@ import {
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { CrmClient, CrmProjectStatus } from "@shared/schema";
+import type { CrmClient, CrmProjectStatus, CrmProjectType } from "@shared/schema";
 
 const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   lead: { label: "Lead", variant: "secondary" },
@@ -64,6 +64,14 @@ const statusOptions: CrmProjectStatus[] = [
   "won_cancelled"
 ];
 
+const projectTypeConfig: Record<CrmProjectType, { label: string; description: string }> = {
+  one_time: { label: "One-Time Project", description: "1 week duration" },
+  monthly: { label: "Monthly Project", description: "1 month duration" },
+  hourly_budget: { label: "Hourly Budget", description: "Based on budgeted hours" },
+};
+
+const projectTypeOptions: CrmProjectType[] = ["one_time", "monthly", "hourly_budget"];
+
 export default function ProjectCreatePage() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -74,6 +82,7 @@ export default function ProjectCreatePage() {
     description: "",
     clientId: "",
     status: "lead" as CrmProjectStatus,
+    projectType: "one_time" as CrmProjectType,
     startDate: null as Date | null,
     budgetedHours: "",
     actualHours: "",
@@ -89,14 +98,31 @@ export default function ProjectCreatePage() {
     [clients, formData.clientId]
   );
 
-  // Calculate estimated end date based on start date, budgeted hours, and hours per day
+  // Calculate due date based on project type and start date
   const hoursPerDay = user?.hoursPerDay || 8;
-  const estimatedEndDate = formData.startDate && formData.budgetedHours 
-    ? addDays(formData.startDate, Math.ceil(parseInt(formData.budgetedHours) / hoursPerDay))
-    : null;
+  const calculateDueDate = useMemo(() => {
+    if (!formData.startDate) return null;
+    
+    switch (formData.projectType) {
+      case "one_time":
+        // 1 week duration
+        return addDays(formData.startDate, 7);
+      case "monthly":
+        // 1 month duration (30 days)
+        return addDays(formData.startDate, 30);
+      case "hourly_budget":
+        // Based on budgeted hours
+        if (formData.budgetedHours) {
+          return addDays(formData.startDate, Math.ceil(parseInt(formData.budgetedHours) / hoursPerDay));
+        }
+        return null;
+      default:
+        return null;
+    }
+  }, [formData.startDate, formData.projectType, formData.budgetedHours, hoursPerDay]);
 
   const createProjectMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null; startDate?: string | null; budgetedHours?: number | null; actualHours?: number | null }) => {
+    mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null; projectType?: string | null; startDate?: string | null; dueDate?: string | null; budgetedHours?: number | null; actualHours?: number | null }) => {
       return apiRequest("POST", "/api/crm/projects", data);
     },
     onSuccess: (response) => {
@@ -149,7 +175,9 @@ export default function ProjectCreatePage() {
       description: formData.description || null,
       clientId: formData.clientId || null,
       status: formData.status || "lead",
+      projectType: formData.projectType || "one_time",
       startDate: formData.startDate?.toISOString() || null,
+      dueDate: calculateDueDate?.toISOString() || null,
       budgetedHours: formData.budgetedHours ? parseInt(formData.budgetedHours) : null,
       actualHours: formData.actualHours ? parseInt(formData.actualHours) : null,
     });
@@ -291,6 +319,28 @@ export default function ProjectCreatePage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="projectType">Project Type</Label>
+              <Select 
+                value={formData.projectType} 
+                onValueChange={(v) => setFormData({ ...formData, projectType: v as CrmProjectType })}
+              >
+                <SelectTrigger data-testid="select-project-type">
+                  <SelectValue placeholder="Select project type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projectTypeOptions.map(type => (
+                    <SelectItem key={type} value={type}>
+                      <div className="flex flex-col">
+                        <span>{projectTypeConfig[type].label}</span>
+                        <span className="text-xs text-muted-foreground">{projectTypeConfig[type].description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Start Date <span className="text-destructive">*</span></Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -341,13 +391,21 @@ export default function ProjectCreatePage() {
               </div>
             </div>
 
-            {estimatedEndDate && (
+            {calculateDueDate && (
               <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <div className="text-sm">
-                  <span className="text-muted-foreground">Estimated End Date: </span>
-                  <span className="font-medium" data-testid="text-estimated-end-date">{format(estimatedEndDate, "PPP")}</span>
-                  <span className="text-xs text-muted-foreground ml-2">({hoursPerDay}h/day)</span>
+                  <span className="text-muted-foreground">Due Date: </span>
+                  <span className="font-medium" data-testid="text-due-date">{format(calculateDueDate, "PPP")}</span>
+                  {formData.projectType === "hourly_budget" && (
+                    <span className="text-xs text-muted-foreground ml-2">({hoursPerDay}h/day)</span>
+                  )}
+                  {formData.projectType === "one_time" && (
+                    <span className="text-xs text-muted-foreground ml-2">(1 week)</span>
+                  )}
+                  {formData.projectType === "monthly" && (
+                    <span className="text-xs text-muted-foreground ml-2">(1 month)</span>
+                  )}
                 </div>
               </div>
             )}

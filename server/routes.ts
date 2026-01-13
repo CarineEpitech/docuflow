@@ -13,7 +13,8 @@ import {
   insertCrmClientSchema,
   insertCrmContactSchema,
   insertCrmProjectSchema,
-  crmProjectStatusValues 
+  crmProjectStatusValues,
+  crmProjectTypeValues
 } from "@shared/schema";
 import OpenAI from "openai";
 import {
@@ -1345,6 +1346,7 @@ Instructions:
         icon: z.string().optional(),
         clientId: z.string().nullable().optional(),
         status: z.enum(crmProjectStatusValues).optional(),
+        projectType: z.enum(crmProjectTypeValues).optional(),
         assigneeId: z.string().nullable().optional(),
         startDate: z.string().nullable().optional(),
         dueDate: z.string().nullable().optional(),
@@ -1372,6 +1374,7 @@ Instructions:
         {
           clientId: parsed.data.clientId || null,
           status: parsed.data.status || "lead",
+          projectType: parsed.data.projectType || "one_time",
           assigneeId: parsed.data.assigneeId || null,
           startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : null,
           dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
@@ -1434,6 +1437,7 @@ Instructions:
         projectName: z.string().optional(),
         clientId: z.string().nullable().optional(),
         status: z.enum(crmProjectStatusValues).optional(),
+        projectType: z.enum(crmProjectTypeValues).optional(),
         assigneeId: z.string().nullable().optional(),
         startDate: z.string().nullable().optional(),
         dueDate: z.string().nullable().optional(),

@@ -59,6 +59,7 @@ import type {
   CrmContact, 
   SafeUser,
   CrmProjectStatus,
+  CrmProjectType,
   CrmProjectNoteWithCreator
 } from "@shared/schema";
 import { NoteInput } from "@/components/NoteInput";
@@ -80,6 +81,14 @@ const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "defau
 
 const statusOptions: CrmProjectStatus[] = ["lead", "discovering_call_completed", "proposal_sent", "follow_up", "in_negotiation", "won", "won_not_started", "won_in_progress", "won_in_review", "won_completed", "lost", "won_cancelled"];
 
+const projectTypeConfig: Record<CrmProjectType, { label: string; description: string }> = {
+  one_time: { label: "One-Time Project", description: "1 week duration" },
+  monthly: { label: "Monthly Project", description: "1 month duration" },
+  hourly_budget: { label: "Hourly Budget", description: "Based on budgeted hours" },
+};
+
+const projectTypeOptions: CrmProjectType[] = ["one_time", "monthly", "hourly_budget"];
+
 export default function CrmProjectPage() {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
@@ -90,6 +99,7 @@ export default function CrmProjectPage() {
   const [formData, setFormData] = useState<{
     name: string;
     status: CrmProjectStatus;
+    projectType: CrmProjectType;
     clientId: string | null;
     assigneeId: string | null;
     startDate: Date | null;
@@ -136,6 +146,7 @@ export default function CrmProjectPage() {
       setFormData({
         name: project.project?.name || "",
         status: project.status as CrmProjectStatus,
+        projectType: (project.projectType as CrmProjectType) || "one_time",
         clientId: project.clientId,
         assigneeId: project.assigneeId,
         startDate,
@@ -312,6 +323,7 @@ export default function CrmProjectPage() {
       setFormData({
         name: project.project?.name || "",
         status: project.status as CrmProjectStatus,
+        projectType: (project.projectType as CrmProjectType) || "one_time",
         clientId: project.clientId,
         assigneeId: project.assigneeId,
         startDate,
@@ -353,6 +365,7 @@ export default function CrmProjectPage() {
     const updateData: Record<string, unknown> = {
       projectName: formData.name,
       status: formData.status,
+      projectType: formData.projectType,
       clientId: formData.clientId,
       assigneeId: formData.assigneeId,
       startDate: formData.startDate?.toISOString() || null,
@@ -527,6 +540,28 @@ export default function CrmProjectPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm font-medium">Project Type</label>
+                  <Select 
+                    value={formData?.projectType || "one_time"} 
+                    onValueChange={(v) => updateFormField("projectType", v as CrmProjectType)}
+                  >
+                    <SelectTrigger data-testid="select-project-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projectTypeOptions.map(type => (
+                        <SelectItem key={type} value={type}>
+                          <div className="flex flex-col">
+                            <span>{projectTypeConfig[type].label}</span>
+                            <span className="text-xs text-muted-foreground">{projectTypeConfig[type].description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium">Assigned To</label>
                   <Select 
                     value={formData?.assigneeId || "_none"} 
@@ -669,6 +704,14 @@ export default function CrmProjectPage() {
                   {formData?.budgetedHours && formData?.actualHours && formData.actualHours > formData.budgetedHours && (
                     <Badge variant="destructive" className="text-xs">Over Budget</Badge>
                   )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Project Type:</span>
+                  <Badge variant="outline" className="text-xs" data-testid="badge-project-type">
+                    {formData?.projectType ? projectTypeConfig[formData.projectType].label : "One-Time Project"}
+                  </Badge>
                 </div>
 
                 {formData?.description && (

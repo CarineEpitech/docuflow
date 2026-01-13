@@ -254,6 +254,15 @@ export const crmProjectStatusValues = [
 
 export type CrmProjectStatus = typeof crmProjectStatusValues[number];
 
+// CRM Project Type enum values
+export const crmProjectTypeValues = [
+  "one_time",
+  "monthly",
+  "hourly_budget"
+] as const;
+
+export type CrmProjectType = typeof crmProjectTypeValues[number];
+
 // Contact Status enum values
 export const contactStatusValues = [
   "lead",
@@ -348,6 +357,7 @@ export const crmProjects = pgTable("crm_projects", {
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   clientId: varchar("client_id").references(() => crmClients.id, { onDelete: "set null" }),
   status: varchar("status", { length: 50 }).notNull().default("lead"),
+  projectType: varchar("project_type", { length: 50 }).default("one_time"),
   assigneeId: varchar("assignee_id").references(() => users.id, { onDelete: "set null" }),
   startDate: timestamp("start_date"),
   dueDate: timestamp("due_date"),
