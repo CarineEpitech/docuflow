@@ -441,7 +441,7 @@ export default function CrmPage() {
                                                 )}
                                                 <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
                                                   {project.startDate && (
-                                                    <span>Start: {format(new Date(project.startDate), "MMM d")}</span>
+                                                    <span>Start: {format(new Date(project.startDate), "MMM d, yyyy")}</span>
                                                   )}
                                                   {project.budgetedHours ? (
                                                     <span>{project.budgetedHours}h budgeted</span>
@@ -449,7 +449,7 @@ export default function CrmPage() {
                                                 </div>
                                                 {project.dueDate && (
                                                   <p className={`text-xs mt-1 ${new Date(project.dueDate) < new Date() && project.status !== "finished" ? "text-destructive" : "text-muted-foreground"}`}>
-                                                    Due: {format(new Date(project.dueDate), "MMM d")}
+                                                    Due: {format(new Date(project.dueDate), "MMM d, yyyy")}
                                                   </p>
                                                 )}
                                                 {project.assignee && (
@@ -665,7 +665,7 @@ export default function CrmPage() {
                                   <TooltipContent side="left" className="max-w-[300px]">
                                     <p className="text-sm whitespace-pre-wrap">{crmProject.latestNote.content}</p>
                                     <p className="text-xs text-muted-foreground mt-1">
-                                      — {crmProject.latestNote.createdBy?.firstName} {crmProject.latestNote.createdBy?.lastName}{crmProject.latestNote.createdAt ? `, ${format(new Date(crmProject.latestNote.createdAt), "MMM d")}` : ""}
+                                      — {crmProject.latestNote.createdBy?.firstName} {crmProject.latestNote.createdBy?.lastName}{crmProject.latestNote.createdAt ? `, ${format(new Date(crmProject.latestNote.createdAt), "MMM d, yyyy")}` : ""}
                                     </p>
                                   </TooltipContent>
                                 </Tooltip>
