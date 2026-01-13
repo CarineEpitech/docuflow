@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -77,10 +77,14 @@ export default function ProjectCreatePage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
 
+  // Read clientId from URL query params
+  const urlParams = new URLSearchParams(window.location.search);
+  const preselectedClientId = urlParams.get("clientId") || "";
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    clientId: "",
+    clientId: preselectedClientId,
     status: "lead" as CrmProjectStatus,
     projectType: "one_time" as CrmProjectType,
     startDate: null as Date | null,
@@ -92,6 +96,16 @@ export default function ProjectCreatePage() {
   const { data: clients = [] } = useQuery<CrmClient[]>({
     queryKey: ["/api/crm/clients"],
   });
+
+  // Update formData.clientId when URL param is present and clients are loaded
+  useEffect(() => {
+    if (preselectedClientId && clients.length > 0 && !formData.clientId) {
+      const clientExists = clients.find(c => c.id === preselectedClientId);
+      if (clientExists) {
+        setFormData(prev => ({ ...prev, clientId: preselectedClientId }));
+      }
+    }
+  }, [preselectedClientId, clients, formData.clientId]);
 
   const selectedClient = useMemo(() => 
     clients.find(c => c.id === formData.clientId),

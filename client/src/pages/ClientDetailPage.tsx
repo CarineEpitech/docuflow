@@ -721,16 +721,28 @@ export default function ClientDetailPage() {
               <Badge variant="secondary">{totalProjects}</Badge>
             )}
           </CardTitle>
-          <Button
-            size="sm"
-            onClick={() => setShowLinkProjectDialog(true)}
-            disabled={availableProjects.length === 0}
-            className="w-full sm:w-auto"
-            data-testid="button-link-project"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Link Project
-          </Button>
+          <div className="flex flex-col gap-2 w-full sm:flex-row sm:w-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(`/crm/project/new?clientId=${id}`)}
+              className="w-full sm:w-auto"
+              data-testid="button-add-project"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Project
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowLinkProjectDialog(true)}
+              disabled={availableProjects.length === 0}
+              className="w-full sm:w-auto"
+              data-testid="button-link-project"
+            >
+              <Link2 className="h-4 w-4 mr-2" />
+              Link Project
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
           {clientProjects.length === 0 ? (
