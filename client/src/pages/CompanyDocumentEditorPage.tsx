@@ -150,53 +150,63 @@ export default function CompanyDocumentEditorPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="sticky top-0 z-20 bg-background border-b px-4 sm:px-6 py-2 sm:pt-3">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-          <Input
-            value={title}
-            onChange={handleTitleChange}
-            className="text-lg sm:text-xl font-semibold border-none shadow-none focus-visible:ring-0 px-0 flex-1 min-w-0 max-w-full sm:max-w-lg"
-            placeholder="Untitled"
-            data-testid="input-document-title"
-          />
-          <div className="flex items-center gap-2 ml-auto">
+      <div className="sticky top-0 z-20 bg-background border-b">
+        <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-to-docs">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <span className="text-sm text-muted-foreground truncate">
+              {companyDoc?.name || "Document"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline text-sm text-muted-foreground">
+              {saveMutation.isPending ? "Saving..." : hasUnsavedChanges ? "Unsaved" : ""}
+            </span>
             <Button
+              variant="outline"
+              size="sm"
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending || !hasUnsavedChanges}
-              size="sm"
               data-testid="button-save-document"
             >
               {saveMutation.isPending ? (
-                <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 md:mr-1 animate-spin" />
               ) : (
-                <Save className="h-4 w-4 sm:mr-2" />
+                <Save className="h-4 w-4 md:mr-1" />
               )}
-              <span className="hidden sm:inline">{hasUnsavedChanges ? "Save" : "Saved"}</span>
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleBack} data-testid="button-back-to-docs">
-              <ArrowLeft className="h-5 w-5" />
+              <span className="hidden md:inline">Save</span>
             </Button>
           </div>
         </div>
-        <div className="mt-2">
-          <Textarea
-            value={description}
-            onChange={handleDescriptionChange}
-            className="text-sm text-muted-foreground border-none shadow-none focus-visible:ring-0 px-0 resize-y min-h-[40px] max-w-full sm:max-w-lg overflow-auto"
-            placeholder="Add a description (optional)"
-            rows={2}
-            data-testid="input-document-description"
-          />
-        </div>
       </div>
-      <div className="flex-1 overflow-hidden px-4 sm:px-6">
-        <div className="max-w-3xl mx-auto h-full">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="px-4 md:px-6 max-w-3xl">
+          <div className="py-6">
+            <Input
+              value={title}
+              onChange={handleTitleChange}
+              className="text-2xl md:text-3xl font-bold border-none shadow-none focus-visible:ring-0 px-0 h-auto"
+              placeholder="Untitled"
+              data-testid="input-document-title"
+            />
+            <Textarea
+              value={description}
+              onChange={handleDescriptionChange}
+              className="text-sm text-muted-foreground border-none shadow-none focus-visible:ring-0 px-0 resize-y min-h-[24px] mt-2"
+              placeholder="Add a description..."
+              rows={1}
+              data-testid="input-document-description"
+            />
+          </div>
           <BlockEditor
             content={content}
             onChange={handleContentChange}
             onImageUpload={handleImageUpload}
             editable={true}
           />
+          <div className="pb-8" />
         </div>
       </div>
     </div>
