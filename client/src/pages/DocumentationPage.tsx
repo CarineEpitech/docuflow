@@ -185,12 +185,12 @@ export default function DocumentationPage() {
               {paginatedProjects.map((project) => (
                 <Card
                   key={project.id}
-                  className="hover-elevate cursor-pointer transition-all group h-24"
+                  className="hover-elevate cursor-pointer transition-all group"
                   onClick={() => setLocation(`/project/${project.id}`)}
                   data-testid={`row-doc-project-${project.id}`}
                 >
-                  <CardContent className="p-3 h-full">
-                    <div className="flex items-start gap-2 h-full">
+                  <CardContent className="p-3">
+                    <div className="flex items-start gap-2">
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
                         {project.icon && project.icon !== "folder" ? (
                           <span className="text-sm">{project.icon}</span>
@@ -198,9 +198,9 @@ export default function DocumentationPage() {
                           <FolderOpen className="w-4 h-4 text-primary" />
                         )}
                       </div>
-                      <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-start gap-1">
-                          <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight line-clamp-2 flex-1">{project.name}</h3>
+                          <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight break-words flex-1">{project.name}</h3>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -215,7 +215,7 @@ export default function DocumentationPage() {
                           </Button>
                         </div>
                         {project.description && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{project.description}</p>
+                          <p className="text-xs text-muted-foreground mt-1 break-words line-clamp-2">{project.description}</p>
                         )}
                       </div>
                     </div>
