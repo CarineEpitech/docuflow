@@ -200,7 +200,7 @@ export default function DocumentationPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start gap-1">
-                          <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight break-words flex-1">{project.name}</h3>
+                          <h3 className="text-sm font-medium group-hover:text-primary transition-colors leading-tight line-clamp-2 flex-1">{project.name}</h3>
                           <Button
                             variant="ghost"
                             size="icon"
