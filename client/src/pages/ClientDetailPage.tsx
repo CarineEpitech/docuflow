@@ -957,45 +957,6 @@ export default function ClientDetailPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-contact-status">Status</Label>
-              <Select
-                value={newContactForm.status}
-                onValueChange={(value) => setNewContactForm(f => ({ ...f, status: value }))}
-              >
-                <SelectTrigger data-testid="select-new-contact-status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {contactStatusOptions.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {contactStatusConfig[status]?.label || status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="new-contact-source">Source</Label>
-              <Select
-                value={newContactForm.source || "_none"}
-                onValueChange={(value) => setNewContactForm(f => ({ ...f, source: value === "_none" ? "" : value }))}
-              >
-                <SelectTrigger data-testid="select-new-contact-source">
-                  <SelectValue placeholder="Select a source" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">None</SelectItem>
-                  {clientSourceOptions.map((source) => (
-                    <SelectItem key={source} value={source}>
-                      {clientSourceConfig[source]?.label || source}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="new-contact-notes">Notes</Label>
               <Textarea
                 id="new-contact-notes"
