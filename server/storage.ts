@@ -72,6 +72,7 @@ export interface IStorage {
   updateDocument(id: string, data: Partial<InsertDocument>): Promise<Document | undefined>;
   deleteDocument(id: string): Promise<void>;
   duplicateDocument(id: string): Promise<Document | undefined>;
+  reorderDocument(id: string, newParentId: string | null, newPosition: number): Promise<void>;
   
   search(userId: string, query: string): Promise<Array<{ type: string; id: string; title: string; projectName?: string }>>;
   
@@ -460,6 +461,59 @@ export class DatabaseStorage implements IStorage {
         .where(eq(projects.id, original.projectId));
 
       return duplicatedDoc;
+    });
+  }
+
+  async reorderDocument(id: string, newParentId: string | null, newPosition: number): Promise<void> {
+    const doc = await this.getDocument(id);
+    if (!doc) return;
+
+    await db.transaction(async (tx) => {
+      // Get siblings at the new location
+      const siblings = await tx
+        .select()
+        .from(documents)
+        .where(
+          and(
+            eq(documents.projectId, doc.projectId),
+            newParentId
+              ? eq(documents.parentId, newParentId)
+              : isNull(documents.parentId),
+            sql`${documents.id} != ${id}`
+          )
+        )
+        .orderBy(asc(documents.position));
+
+      // Reassign positions for all siblings at new location
+      for (let i = 0; i < siblings.length; i++) {
+        const sibling = siblings[i];
+        let targetPosition = i;
+        if (i >= newPosition) {
+          targetPosition = i + 1;
+        }
+        if (sibling.position !== targetPosition) {
+          await tx
+            .update(documents)
+            .set({ position: targetPosition })
+            .where(eq(documents.id, sibling.id));
+        }
+      }
+
+      // Update the moved document
+      await tx
+        .update(documents)
+        .set({
+          parentId: newParentId,
+          position: newPosition,
+          updatedAt: new Date(),
+        })
+        .where(eq(documents.id, id));
+
+      // Update project timestamp
+      await tx
+        .update(projects)
+        .set({ updatedAt: new Date() })
+        .where(eq(projects.id, doc.projectId));
     });
   }
 

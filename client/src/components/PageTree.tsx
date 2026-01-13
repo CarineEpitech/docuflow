@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import {
   ChevronRight,
   ChevronDown,
@@ -12,6 +13,7 @@ import {
   Copy,
   X,
   Check,
+  GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,6 +148,18 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
     },
   });
 
+  const reorderDocumentMutation = useMutation({
+    mutationFn: async (data: { documentId: string; newParentId: string | null; newPosition: number }) => {
+      return await apiRequest("POST", `/api/projects/${projectId}/documents/reorder`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "documents"] });
+    },
+    onError: () => {
+      toast({ title: "Failed to reorder page", variant: "destructive" });
+    },
+  });
+
   const buildTree = (docs: Document[]): DocumentWithChildren[] => {
     const map = new Map<string, DocumentWithChildren>();
     const roots: DocumentWithChildren[] = [];
@@ -175,6 +189,40 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
     sortNodes(roots);
     return roots;
   };
+
+  // Flatten tree to get all nodes with their parent info for drag and drop
+  const flattenTree = useCallback((nodes: DocumentWithChildren[], parentId: string | null = null): Array<{ node: DocumentWithChildren; parentId: string | null; index: number }> => {
+    const result: Array<{ node: DocumentWithChildren; parentId: string | null; index: number }> = [];
+    nodes.forEach((node, index) => {
+      result.push({ node, parentId, index });
+      if (node.children && node.children.length > 0 && expandedIds.has(node.id)) {
+        result.push(...flattenTree(node.children, node.id));
+      }
+    });
+    return result;
+  }, [expandedIds]);
+
+  const handleDragEnd = useCallback((result: DropResult) => {
+    const { source, destination, draggableId } = result;
+    
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    // Parse the droppable IDs - format is "parent-{parentId}" or "parent-root" for root level
+    const sourceParentId = source.droppableId === "parent-root" ? null : source.droppableId.replace("parent-", "");
+    const destParentId = destination.droppableId === "parent-root" ? null : destination.droppableId.replace("parent-", "");
+
+    reorderDocumentMutation.mutate({
+      documentId: draggableId,
+      newParentId: destParentId,
+      newPosition: destination.index,
+    });
+
+    // Expand destination parent if moving to a new parent
+    if (destParentId && destParentId !== sourceParentId) {
+      setExpandedIds((prev) => new Set(Array.from(prev).concat(destParentId)));
+    }
+  }, [reorderDocumentMutation]);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -304,6 +352,148 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           <X className="w-3 h-3" />
         </Button>
       </div>
+    );
+  };
+
+  const renderDraggableNode = (node: DocumentWithChildren, depth: number = 0, index: number) => {
+    const hasChildren = node.children && node.children.length > 0;
+    const isExpanded = expandedIds.has(node.id);
+    const isActive = currentDocumentId === node.id;
+
+    return (
+      <Draggable key={node.id} draggableId={node.id} index={index}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+          >
+            <div
+              className={cn(
+                "page-tree-item group flex items-center gap-1 py-1 px-2 rounded-md hover-elevate",
+                isActive && "bg-accent",
+                snapshot.isDragging && "shadow-lg bg-background border"
+              )}
+              style={{ paddingLeft: `${depth * 20 + 8}px` }}
+            >
+              <div
+                {...provided.dragHandleProps}
+                className="cursor-grab active:cursor-grabbing"
+              >
+                <GripVertical className="w-3 h-3 text-muted-foreground" />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 flex-shrink-0"
+                onClick={() => hasChildren && toggleExpand(node.id)}
+                data-testid={`button-expand-${node.id}`}
+              >
+                {hasChildren ? (
+                  isExpanded ? (
+                    <ChevronDown className="w-3 h-3" />
+                  ) : (
+                    <ChevronRight className="w-3 h-3" />
+                  )
+                ) : (
+                  <span className="w-3" />
+                )}
+              </Button>
+
+              <Link
+                href={`/document/${node.id}`}
+                className="flex items-center gap-2 flex-1 min-w-0 py-1"
+                data-testid={`link-page-${node.id}`}
+              >
+                <span className="text-base flex-shrink-0">
+                  {node.icon || "📄"}
+                </span>
+                <span className="text-sm break-words">{node.title}</span>
+              </Link>
+
+              <div className="actions flex items-center gap-0.5">
+                <Popover 
+                  open={activePopover === `subpage-${node.id}`} 
+                  onOpenChange={(open) => {
+                    if (open) openPopover(`subpage-${node.id}`);
+                    else closePopover();
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={(e) => e.stopPropagation()}
+                      data-testid={`button-add-subpage-${node.id}`}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-56 p-1" sideOffset={4}>
+                    <div className="text-xs font-medium text-muted-foreground px-2 py-1.5">
+                      Choose a template
+                    </div>
+                    {pageTemplates.map((template) => (
+                      <button
+                        key={template.id}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover-elevate text-left"
+                        onClick={() => selectTemplateAndStartInline(template, node.id)}
+                        data-testid={`button-template-${template.id}`}
+                      >
+                        <span className="text-base">{template.icon}</span>
+                        <span>{template.name}</span>
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      data-testid={`button-page-menu-${node.id}`}
+                    >
+                      <MoreHorizontal className="w-3 h-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => openEditDialog(node)}>
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDuplicate(node)}>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Duplicate
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => openDeleteDialog(node)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            {/* Children */}
+            {hasChildren && isExpanded && (
+              <Droppable droppableId={`parent-${node.id}`}>
+                {(childProvided) => (
+                  <div ref={childProvided.innerRef} {...childProvided.droppableProps}>
+                    {node.children!.map((child, childIndex) => renderDraggableNode(child, depth + 1, childIndex))}
+                    {childProvided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            )}
+            {/* Show inline create row for this parent */}
+            {inlineCreateParentId === node.id && renderInlineCreateRow(depth + 1)}
+          </div>
+        )}
+      </Draggable>
     );
   };
 
@@ -515,11 +705,17 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
             </Popover>
           </div>
         ) : (
-          <>
-            {tree.map((node) => renderNode(node, 0))}
-            {/* Show inline create row at root level */}
-            {inlineCreateParentId === null && renderInlineCreateRow(0)}
-          </>
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="parent-root">
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.droppableProps}>
+                  {tree.map((node, index) => renderDraggableNode(node, 0, index))}
+                  {provided.placeholder}
+                  {inlineCreateParentId === null && renderInlineCreateRow(0)}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         )}
       </div>
 

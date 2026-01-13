@@ -560,6 +560,34 @@ export async function registerRoutes(
     }
   });
 
+  // Reorder documents within a project
+  app.post("/api/projects/:projectId/documents/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const { documentId, newParentId, newPosition } = req.body;
+
+      if (!documentId || typeof newPosition !== "number") {
+        return res.status(400).json({ message: "documentId and newPosition are required" });
+      }
+
+      const document = await storage.getDocument(documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      if (document.projectId !== projectId) {
+        return res.status(400).json({ message: "Document does not belong to this project" });
+      }
+
+      // Update the document's parent and position
+      await storage.reorderDocument(documentId, newParentId, newPosition);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error reordering document:", error);
+      res.status(500).json({ message: "Failed to reorder document" });
+    }
+  });
+
   app.get("/api/search", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req)!;
