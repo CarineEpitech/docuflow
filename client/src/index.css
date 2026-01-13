@@ -429,3 +429,74 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Print styles */
+@media print {
+  /* Hide non-essential elements */
+  [data-sidebar],
+  [data-testid="button-sidebar-toggle"],
+  [data-testid="button-print"],
+  [data-testid="button-create-folder"],
+  [data-testid="input-search-docs"],
+  [data-testid="button-view-grid"],
+  [data-testid="button-view-table"],
+  [data-testid^="button-delete"],
+  .no-print,
+  button,
+  nav,
+  aside {
+    display: none !important;
+  }
+
+  /* Reset backgrounds for printing */
+  body,
+  html,
+  main,
+  .bg-background,
+  .bg-card,
+  .bg-muted {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Ensure content fills the page */
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Make cards visible without shadows */
+  .card,
+  [class*="Card"] {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
+  }
+
+  /* Ensure text is readable */
+  * {
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Page setup */
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+
+  /* Keep titles and headers together with content */
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Prevent orphans and widows */
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+}
