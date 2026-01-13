@@ -45,6 +45,7 @@ const contactFormSchema = z.object({
   phoneFormat: z.string().default("us"),
   status: z.string().default("lead"),
   source: z.string().optional(),
+  fiverrUsername: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -64,6 +65,7 @@ export default function ContactCreatePage() {
       phoneFormat: "us",
       status: "lead",
       source: "",
+      fiverrUsername: "",
       notes: "",
     },
   });
@@ -78,6 +80,7 @@ export default function ContactCreatePage() {
         phoneFormat: data.phoneFormat || "us",
         status: data.status,
         source: data.source && data.source !== "_none" ? data.source : null,
+        fiverrUsername: data.source === "fiverr" ? (data.fiverrUsername || null) : null,
         notes: data.notes || null,
       });
     },
@@ -256,6 +259,21 @@ export default function ContactCreatePage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {form.watch("source") === "fiverr" && (
+                <div className="space-y-2">
+                  <Label htmlFor="fiverrUsername" className="flex items-center gap-2">
+                    <Hash className="h-4 w-4 text-muted-foreground" />
+                    Fiverr Username
+                  </Label>
+                  <Input
+                    id="fiverrUsername"
+                    {...form.register("fiverrUsername")}
+                    placeholder="username (without @)"
+                    data-testid="input-fiverr-username"
+                  />
+                </div>
+              )}
 
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="notes" className="flex items-center gap-2">

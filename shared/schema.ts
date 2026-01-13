@@ -293,6 +293,7 @@ export const crmClients = pgTable("crm_clients", {
   notes: text("notes"),
   status: varchar("status", { length: 50 }).notNull().default("lead"),
   source: varchar("source", { length: 50 }),
+  fiverrUsername: varchar("fiverr_username", { length: 100 }),
   ownerId: varchar("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

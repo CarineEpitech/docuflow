@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Building2, Mail, Phone, FileText, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus, Pencil, X, Save, Globe, Users } from "lucide-react";
+import { ArrowLeft, Building2, Mail, Phone, FileText, FolderOpen, Trash2, ChevronLeft, ChevronRight, Link2, Plus, Pencil, X, Save, Globe, Users, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +80,7 @@ interface CrmClient {
   phoneFormat: string | null;
   status: string | null;
   source: string | null;
+  fiverrUsername: string | null;
   notes: string | null;
   ownerId: string;
   createdAt: string;
@@ -123,6 +124,7 @@ export default function ClientDetailPage() {
     phoneFormat: "us",
     status: "lead",
     source: "",
+    fiverrUsername: "",
     notes: "",
   });
   const [newContactForm, setNewContactForm] = useState({
@@ -234,7 +236,7 @@ export default function ClientDetailPage() {
   });
 
   const updateClientMutation = useMutation({
-    mutationFn: async (data: { name: string; email?: string | null; company?: string | null; phone?: string | null; phoneFormat?: string | null; status?: string; source?: string | null; notes?: string | null }) => {
+    mutationFn: async (data: { name: string; email?: string | null; company?: string | null; phone?: string | null; phoneFormat?: string | null; status?: string; source?: string | null; fiverrUsername?: string | null; notes?: string | null }) => {
       await apiRequest("PATCH", `/api/crm/clients/${id}`, data);
     },
     onSuccess: () => {
@@ -298,6 +300,7 @@ export default function ClientDetailPage() {
         phoneFormat: client.phoneFormat || "us",
         status: client.status || "lead",
         source: client.source || "",
+        fiverrUsername: client.fiverrUsername || "",
         notes: client.notes || "",
       });
       setIsEditing(true);
@@ -315,6 +318,7 @@ export default function ClientDetailPage() {
         phoneFormat: client.phoneFormat || "us",
         status: client.status || "lead",
         source: client.source || "",
+        fiverrUsername: client.fiverrUsername || "",
         notes: client.notes || "",
       });
     }
@@ -333,6 +337,7 @@ export default function ClientDetailPage() {
       phoneFormat: editForm.phoneFormat || "us",
       status: editForm.status,
       source: editForm.source && editForm.source !== "_none" ? editForm.source : null,
+      fiverrUsername: editForm.source === "fiverr" ? (editForm.fiverrUsername || null) : null,
       notes: editForm.notes || null,
     });
   };
@@ -569,6 +574,22 @@ export default function ClientDetailPage() {
                 </Select>
               </div>
 
+              {editForm.source === "fiverr" && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-fiverr-username" className="flex items-center gap-2">
+                    <Hash className="h-4 w-4 text-muted-foreground" />
+                    Fiverr Username
+                  </Label>
+                  <Input
+                    id="edit-fiverr-username"
+                    value={editForm.fiverrUsername}
+                    onChange={(e) => setEditForm({ ...editForm, fiverrUsername: e.target.value })}
+                    placeholder="username (without @)"
+                    data-testid="input-edit-fiverr-username"
+                  />
+                </div>
+              )}
+
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="edit-notes" className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
@@ -642,6 +663,28 @@ export default function ClientDetailPage() {
                     </p>
                   </div>
                 </div>
+
+                {client.source === "fiverr" && (
+                  <div className="flex items-start gap-3">
+                    <Hash className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm text-muted-foreground">Fiverr Username</p>
+                      {client.fiverrUsername ? (
+                        <a 
+                          href={`https://www.fiverr.com/${client.fiverrUsername}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-primary hover:underline"
+                          data-testid="link-fiverr-username"
+                        >
+                          @{client.fiverrUsername}
+                        </a>
+                      ) : (
+                        <p className="font-medium text-muted-foreground italic" data-testid="text-fiverr-username">Not provided</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-start gap-3">
                   <FileText className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
