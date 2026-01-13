@@ -223,6 +223,7 @@ export default function CrmProjectPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
       setHasChanges(false);
       setIsEditing(false);
