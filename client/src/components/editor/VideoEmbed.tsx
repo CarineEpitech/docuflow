@@ -1,15 +1,20 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewWrapper, NodeViewProps, ReactNodeViewRenderer } from "@tiptap/react";
-import { useState } from "react";
-import { Play, ExternalLink, Trash2, Video, Cloud } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Play, ExternalLink, Trash2, Video, Cloud, GripHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+const MIN_HEIGHT = 150;
+const MAX_HEIGHT = 800;
+const DEFAULT_HEIGHT = 315;
 
 interface VideoEmbedAttributes {
   src: string;
   provider: "youtube" | "loom" | "zoom" | "fathom" | "onedrive" | "unknown";
   title?: string;
   embedUrl?: string;
+  height?: number;
 }
 
 function extractVideoInfo(url: string): VideoEmbedAttributes | null {
@@ -178,10 +183,13 @@ function getLoomThumbnail(embedUrl: string): string | null {
   }
 }
 
-function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
+function VideoEmbedComponent({ node, deleteNode, selected, updateAttributes }: NodeViewProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [iframeError, setIframeError] = useState(false);
-  const { src, provider, embedUrl } = node.attrs as VideoEmbedAttributes;
+  const [isResizing, setIsResizing] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { src, provider, embedUrl, height } = node.attrs as VideoEmbedAttributes;
+  const currentHeight = height || DEFAULT_HEIGHT;
   
   const thumbnail = provider === "youtube" ? getYouTubeThumbnail(src) : 
                     provider === "loom" && embedUrl ? getLoomThumbnail(embedUrl) : null;
@@ -203,6 +211,31 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
   const config = providerConfig[provider] || providerConfig.unknown;
   const ProviderIcon = config.icon;
 
+  // Resize handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    
+    const startY = e.clientY;
+    const startHeight = currentHeight;
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      const newHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, startHeight + deltaY));
+      updateAttributes({ height: Math.round(newHeight) });
+    };
+    
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [currentHeight, updateAttributes]);
+
   // Check if we can embed this video
   const canEmbed = config.supportsEmbed && embedUrl && !iframeError;
 
@@ -222,7 +255,8 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
   const renderPlayButton = () => (
     <button 
       type="button"
-      className="aspect-video relative cursor-pointer w-full bg-muted"
+      className="relative cursor-pointer w-full bg-muted"
+      style={{ height: `${currentHeight}px` }}
       onClick={handlePlayClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -278,7 +312,7 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
     }
     
     return (
-      <div className="aspect-video relative">
+      <div className="relative w-full" style={{ height: `${currentHeight}px` }}>
         <iframe
           src={iframeSrc}
           className="w-full h-full absolute inset-0"
@@ -307,7 +341,7 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
   const renderOneDrivePlayer = () => {
     // For OneDrive, try iframe embed first
     return (
-      <div className="aspect-video relative bg-black">
+      <div className="relative w-full bg-black" style={{ height: `${currentHeight}px` }}>
         <iframe
           src={embedUrl}
           className="w-full h-full absolute inset-0"
@@ -375,9 +409,11 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
   return (
     <NodeViewWrapper className="video-embed my-4">
       <div 
+        ref={containerRef}
         className={cn(
           "relative rounded-lg overflow-hidden border bg-muted/30 group",
-          selected && "ring-2 ring-primary"
+          selected && "ring-2 ring-primary",
+          isResizing && "select-none"
         )}
         data-testid="video-embed-container"
       >
@@ -406,6 +442,17 @@ function VideoEmbedComponent({ node, deleteNode, selected }: NodeViewProps) {
           >
             <Trash2 className="w-4 h-4" />
           </Button>
+        </div>
+        
+        {/* Resize handle */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/20 to-transparent"
+          onMouseDown={handleResizeStart}
+          data-testid="video-resize-handle"
+        >
+          <div className="flex items-center justify-center bg-background/80 backdrop-blur-sm rounded px-2 py-0.5">
+            <GripHorizontal className="w-4 h-3 text-muted-foreground" />
+          </div>
         </div>
       </div>
     </NodeViewWrapper>
@@ -440,6 +487,9 @@ export const VideoEmbed = Node.create({
       },
       embedUrl: {
         default: "",
+      },
+      height: {
+        default: DEFAULT_HEIGHT,
       },
     };
   },
