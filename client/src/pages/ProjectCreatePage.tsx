@@ -96,8 +96,9 @@ export default function ProjectCreatePage() {
       return apiRequest("POST", "/api/crm/projects", data);
     },
     onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all"] });
       toast({
         title: "Project Created",
         description: "The project has been created successfully.",
