@@ -109,6 +109,7 @@ export default function ClientDetailPage() {
   const { toast } = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLinkProjectDialog, setShowLinkProjectDialog] = useState(false);
+  const [showAddContactDialog, setShowAddContactDialog] = useState(false);
   const [selectedProjectToLink, setSelectedProjectToLink] = useState<string>("");
   const [projectsPage, setProjectsPage] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
@@ -116,6 +117,15 @@ export default function ClientDetailPage() {
     name: "",
     email: "",
     company: "",
+    phone: "",
+    phoneFormat: "us",
+    status: "lead",
+    source: "",
+    notes: "",
+  });
+  const [newContactForm, setNewContactForm] = useState({
+    name: "",
+    email: "",
     phone: "",
     phoneFormat: "us",
     status: "lead",
@@ -235,6 +245,46 @@ export default function ClientDetailPage() {
       toast({ title: "Failed to update contact", variant: "destructive" });
     },
   });
+
+  const createContactMutation = useMutation({
+    mutationFn: async (data: { name: string; company: string; email?: string | null; phone?: string | null; phoneFormat?: string | null; status?: string; source?: string | null; notes?: string | null }) => {
+      await apiRequest("POST", "/api/crm/clients", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Contact created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
+      setShowAddContactDialog(false);
+      setNewContactForm({
+        name: "",
+        email: "",
+        phone: "",
+        phoneFormat: "us",
+        status: "lead",
+        source: "",
+        notes: "",
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to create contact", variant: "destructive" });
+    },
+  });
+
+  const handleCreateContact = () => {
+    if (!newContactForm.name.trim()) {
+      toast({ title: "Name is required", variant: "destructive" });
+      return;
+    }
+    createContactMutation.mutate({
+      name: newContactForm.name,
+      company: client?.company || "",
+      email: newContactForm.email || null,
+      phone: newContactForm.phone || null,
+      phoneFormat: newContactForm.phoneFormat || "us",
+      status: newContactForm.status,
+      source: newContactForm.source && newContactForm.source !== "_none" ? newContactForm.source : null,
+      notes: newContactForm.notes || null,
+    });
+  };
 
   const startEditing = () => {
     if (client) {
@@ -712,57 +762,64 @@ export default function ClientDetailPage() {
         </CardContent>
       </Card>
 
-      {client.company && (
-        <Card>
-          <CardHeader className="p-4 md:p-6">
-            <CardTitle className="text-base md:text-lg flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              <span>Other Contacts at {client.company}</span>
-              {relatedContacts.length > 0 && (
-                <Badge variant="secondary">{relatedContacts.length}</Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
-            {relatedContacts.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No other contacts at this company</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {relatedContacts.map((contact) => (
-                  <div
-                    key={contact.id}
-                    className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/30 sm:flex-row sm:items-center sm:justify-between cursor-pointer hover-elevate"
-                    onClick={() => navigate(`/crm/contacts/${contact.id}`)}
-                    data-testid={`card-related-contact-${contact.id}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-medium text-primary">
-                          {contact.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{contact.name}</p>
-                        {contact.email && (
-                          <p className="text-sm text-muted-foreground truncate">{contact.email}</p>
-                        )}
-                      </div>
+      <Card>
+        <CardHeader className="p-4 md:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-base md:text-lg flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            <span>{client.company ? `Other Contacts at ${client.company}` : "Related Contacts"}</span>
+            {relatedContacts.length > 0 && (
+              <Badge variant="secondary">{relatedContacts.length}</Badge>
+            )}
+          </CardTitle>
+          <Button
+            size="sm"
+            onClick={() => setShowAddContactDialog(true)}
+            className="w-full sm:w-auto"
+            data-testid="button-add-contact"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Contact
+          </Button>
+        </CardHeader>
+        <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+          {relatedContacts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>{client.company ? "No other contacts at this company" : "Add contacts to this page"}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {relatedContacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/30 sm:flex-row sm:items-center sm:justify-between cursor-pointer hover-elevate"
+                  onClick={() => navigate(`/crm/contacts/${contact.id}`)}
+                  data-testid={`card-related-contact-${contact.id}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-medium text-primary">
+                        {contact.name.charAt(0).toUpperCase()}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 justify-between sm:justify-end flex-shrink-0">
-                      <Badge variant={contactStatusConfig[contact.status || "lead"]?.variant || "secondary"}>
-                        {contactStatusConfig[contact.status || "lead"]?.label || contact.status}
-                      </Badge>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{contact.name}</p>
+                      {contact.email && (
+                        <p className="text-sm text-muted-foreground truncate">{contact.email}</p>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                  <div className="flex items-center gap-2 justify-between sm:justify-end flex-shrink-0">
+                    <Badge variant={contactStatusConfig[contact.status || "lead"]?.variant || "secondary"}>
+                      {contactStatusConfig[contact.status || "lead"]?.label || contact.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
@@ -832,6 +889,151 @@ export default function ClientDetailPage() {
               data-testid="button-confirm-link"
             >
               Link Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Contact{client.company && ` at ${client.company}`}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-contact-name">Name *</Label>
+              <Input
+                id="new-contact-name"
+                value={newContactForm.name}
+                onChange={(e) => setNewContactForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Contact name"
+                data-testid="input-new-contact-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-contact-email">Email</Label>
+              <Input
+                id="new-contact-email"
+                type="email"
+                value={newContactForm.email}
+                onChange={(e) => setNewContactForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="email@example.com"
+                data-testid="input-new-contact-email"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-contact-phone">Phone</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={newContactForm.phoneFormat}
+                  onValueChange={(value) => setNewContactForm(f => ({ ...f, phoneFormat: value }))}
+                >
+                  <SelectTrigger className="w-[140px]" data-testid="select-new-contact-phone-format">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {phoneFormatOptions.map((format) => (
+                      <SelectItem key={format} value={format}>
+                        {phoneFormatConfig[format]?.label || format}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="new-contact-phone"
+                  type="tel"
+                  value={newContactForm.phone}
+                  onChange={(e) => setNewContactForm(f => ({ 
+                    ...f, 
+                    phone: formatPhoneAsYouType(e.target.value, f.phoneFormat as PhoneFormat)
+                  }))}
+                  placeholder={phoneFormatConfig[newContactForm.phoneFormat as PhoneFormat]?.example || "Phone number"}
+                  className="flex-1"
+                  data-testid="input-new-contact-phone"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-contact-status">Status</Label>
+              <Select
+                value={newContactForm.status}
+                onValueChange={(value) => setNewContactForm(f => ({ ...f, status: value }))}
+              >
+                <SelectTrigger data-testid="select-new-contact-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {contactStatusOptions.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {contactStatusConfig[status]?.label || status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-contact-source">Source</Label>
+              <Select
+                value={newContactForm.source || "_none"}
+                onValueChange={(value) => setNewContactForm(f => ({ ...f, source: value === "_none" ? "" : value }))}
+              >
+                <SelectTrigger data-testid="select-new-contact-source">
+                  <SelectValue placeholder="Select a source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">None</SelectItem>
+                  {clientSourceOptions.map((source) => (
+                    <SelectItem key={source} value={source}>
+                      {clientSourceConfig[source]?.label || source}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-contact-notes">Notes</Label>
+              <Textarea
+                id="new-contact-notes"
+                value={newContactForm.notes}
+                onChange={(e) => setNewContactForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Add notes about this contact..."
+                rows={3}
+                data-testid="textarea-new-contact-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setShowAddContactDialog(false);
+                setNewContactForm({
+                  name: "",
+                  email: "",
+                  phone: "",
+                  phoneFormat: "us",
+                  status: "lead",
+                  source: "",
+                  notes: "",
+                });
+              }}
+              data-testid="button-cancel-add-contact"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={handleCreateContact}
+              disabled={!newContactForm.name.trim() || createContactMutation.isPending}
+              data-testid="button-confirm-add-contact"
+            >
+              {createContactMutation.isPending ? "Creating..." : "Add Contact"}
             </Button>
           </DialogFooter>
         </DialogContent>
