@@ -242,11 +242,11 @@ export default function DocumentationPage() {
                       {paginatedProjects.map((project) => (
                         <tr
                           key={project.id}
-                          className="hover:bg-muted/50 cursor-pointer whitespace-nowrap transition-colors"
+                          className="hover:bg-muted/50 cursor-pointer transition-colors"
                           onClick={() => setLocation(`/project/${project.id}`)}
                           data-testid={`row-doc-project-${project.id}`}
                         >
-                          <td className="px-4 py-2">
+                          <td className="px-4 py-2 whitespace-nowrap">
                             <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                               {project.icon && project.icon !== "folder" ? (
                                 <span className="text-sm">{project.icon}</span>
@@ -256,7 +256,7 @@ export default function DocumentationPage() {
                             </div>
                           </td>
                           <td className="px-4 py-2">
-                            <span className="font-medium text-sm">{project.name}</span>
+                            <span className="font-medium text-sm break-words">{project.name}</span>
                           </td>
                           <td className="px-4 py-2 max-w-[300px]">
                             <span className="text-muted-foreground text-sm line-clamp-1">
