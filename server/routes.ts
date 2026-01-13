@@ -680,6 +680,32 @@ export async function registerRoutes(
     }
   });
 
+  app.put("/api/document-attachments", isAuthenticated, async (req: Request, res) => {
+    if (!req.body.fileURL) {
+      return res.status(400).json({ error: "fileURL is required" });
+    }
+
+    const userId = getUserId(req)!;
+
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.fileURL,
+        {
+          owner: userId,
+          visibility: "public",
+        }
+      );
+
+      res.status(200).json({
+        objectPath: objectPath,
+      });
+    } catch (error) {
+      console.error("Error setting document attachment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Rebuild embeddings for all user documents
   // This is useful for initial setup or after bulk imports
   app.post("/api/embeddings/rebuild", isAuthenticated, async (req: any, res) => {

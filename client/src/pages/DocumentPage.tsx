@@ -183,6 +183,77 @@ export default function DocumentPage() {
     });
   }, [toast]);
 
+  const handleDocumentUpload = useCallback(async (): Promise<{ url: string; filename: string; filesize: number; filetype: string } | null> => {
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      input.style.display = "none";
+      document.body.appendChild(input);
+      
+      const cleanup = () => {
+        try {
+          if (input.parentNode) {
+            input.parentNode.removeChild(input);
+          }
+        } catch (e) {
+        }
+      };
+      
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) {
+          cleanup();
+          resolve(null);
+          return;
+        }
+
+        try {
+          const response = await apiRequest("POST", "/api/objects/upload");
+          const { uploadURL } = response as { uploadURL: string };
+          
+          await fetch(uploadURL, {
+            method: "PUT",
+            body: file,
+            headers: {
+              "Content-Type": file.type,
+            },
+          });
+
+          const updateResponse = await apiRequest("PUT", "/api/document-attachments", {
+            fileURL: uploadURL,
+            filename: file.name,
+            filesize: file.size,
+            filetype: file.type,
+          }) as { objectPath: string };
+
+          toast({ 
+            title: "Document attached", 
+            description: `${file.name} added to your document`,
+          });
+          cleanup();
+          resolve({
+            url: updateResponse.objectPath,
+            filename: file.name,
+            filesize: file.size,
+            filetype: file.type,
+          });
+        } catch (error) {
+          toast({ title: "Failed to attach document", variant: "destructive" });
+          cleanup();
+          resolve(null);
+        }
+      };
+      
+      input.addEventListener("cancel", () => {
+        cleanup();
+        resolve(null);
+      });
+      
+      input.click();
+    });
+  }, [toast]);
+
   if (authLoading || documentLoading) {
     return (
       <div className="flex h-full">
@@ -323,6 +394,7 @@ export default function DocumentPage() {
               content={content}
               onChange={handleContentChange}
               onImageUpload={handleImageUpload}
+              onDocumentUpload={handleDocumentUpload}
               title={title}
               onTitleChange={handleTitleChange}
               titlePlaceholder="Untitled"

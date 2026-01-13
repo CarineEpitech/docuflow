@@ -11,6 +11,7 @@ import { Color } from "@tiptap/extension-color";
 import Link from "@tiptap/extension-link";
 import { ResizableImage } from "./ResizableImage";
 import { VideoEmbed, extractVideoInfo } from "./VideoEmbed";
+import { FileAttachment } from "./FileAttachment";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Dropcursor from "@tiptap/extension-dropcursor";
 import { common, createLowlight } from "lowlight";
@@ -36,6 +37,7 @@ import {
   Link as LinkIcon,
   Video,
   Loader2,
+  Paperclip,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -57,6 +59,7 @@ interface BlockEditorProps {
   content: any;
   onChange: (content: any) => void;
   onImageUpload?: () => Promise<string | null>;
+  onDocumentUpload?: () => Promise<{ url: string; filename: string; filesize: number; filetype: string } | null>;
   editable?: boolean;
   title?: string;
   onTitleChange?: (title: string) => void;
@@ -80,7 +83,7 @@ const SLASH_COMMANDS = [
   { title: "Callout", icon: AlertCircle, description: "Info callout box", type: "callout", group: "Blocks" },
 ];
 
-export function BlockEditor({ content, onChange, onImageUpload, editable = true, title, onTitleChange, titlePlaceholder = "Untitled", isFullWidth = false }: BlockEditorProps) {
+export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload, editable = true, title, onTitleChange, titlePlaceholder = "Untitled", isFullWidth = false }: BlockEditorProps) {
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 });
   const [slashFilter, setSlashFilter] = useState("");
@@ -91,6 +94,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true,
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
@@ -132,6 +136,7 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true,
       }),
       ResizableImage,
       VideoEmbed,
+      FileAttachment,
       CodeBlockLowlight.configure({
         lowlight,
         defaultLanguage: "javascript",
@@ -710,6 +715,45 @@ export function BlockEditor({ content, onChange, onImageUpload, editable = true,
           data-testid="button-video"
         >
           <Video className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          disabled={isUploadingDocument}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={async () => {
+            if (onDocumentUpload && !isUploadingDocument) {
+              const { from, to } = editor.state.selection;
+              savedSelectionRef.current = { from, to };
+              setIsUploadingDocument(true);
+              try {
+                const result = await onDocumentUpload();
+                if (result && savedSelectionRef.current) {
+                  editor.chain()
+                    .focus(undefined, { scrollIntoView: false })
+                    .setTextSelection(savedSelectionRef.current.from)
+                    .setFileAttachment({
+                      src: result.url,
+                      filename: result.filename,
+                      filesize: result.filesize,
+                      filetype: result.filetype,
+                    })
+                    .run();
+                }
+              } finally {
+                setIsUploadingDocument(false);
+                savedSelectionRef.current = null;
+              }
+            }
+          }}
+          data-testid="button-attach"
+        >
+          {isUploadingDocument ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Paperclip className="w-4 h-4" />
+          )}
         </Button>
         </div>
       </div>
