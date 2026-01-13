@@ -19,7 +19,7 @@ export function Breadcrumbs({ project, document, ancestors = [] }: BreadcrumbsPr
             data-testid="breadcrumb-project"
           >
             <span className="text-base">{getProjectIcon(project.icon)}</span>
-            <span className="max-w-[80px] md:max-w-[120px] truncate">{project.name}</span>
+            <span>{project.name}</span>
           </Link>
         </>
       )}
