@@ -1,13 +1,16 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewWrapper, NodeViewProps, ReactNodeViewRenderer } from "@tiptap/react";
 import { useState, useRef, useCallback } from "react";
-import { Play, ExternalLink, Trash2, Video, Cloud, GripHorizontal } from "lucide-react";
+import { Play, ExternalLink, Trash2, Video, Cloud, GripHorizontal, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const MIN_HEIGHT = 150;
 const MAX_HEIGHT = 800;
 const DEFAULT_HEIGHT = 315;
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 100; // percentage
+const DEFAULT_WIDTH = 100; // percentage
 
 interface VideoEmbedAttributes {
   src: string;
@@ -15,6 +18,7 @@ interface VideoEmbedAttributes {
   title?: string;
   embedUrl?: string;
   height?: number;
+  width?: number; // percentage 0-100
 }
 
 function extractVideoInfo(url: string): VideoEmbedAttributes | null {
@@ -188,8 +192,9 @@ function VideoEmbedComponent({ node, deleteNode, selected, updateAttributes }: N
   const [iframeError, setIframeError] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { src, provider, embedUrl, height } = node.attrs as VideoEmbedAttributes;
+  const { src, provider, embedUrl, height, width } = node.attrs as VideoEmbedAttributes;
   const currentHeight = height || DEFAULT_HEIGHT;
+  const currentWidth = width || DEFAULT_WIDTH;
   
   const thumbnail = provider === "youtube" ? getYouTubeThumbnail(src) : 
                     provider === "loom" && embedUrl ? getLoomThumbnail(embedUrl) : null;
@@ -235,6 +240,33 @@ function VideoEmbedComponent({ node, deleteNode, selected, updateAttributes }: N
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   }, [currentHeight, updateAttributes]);
+
+  // Width resize handler (from right edge)
+  const handleWidthResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    
+    const containerWidth = containerRef.current?.parentElement?.clientWidth || 800;
+    const startX = e.clientX;
+    const startWidthPercent = currentWidth;
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaPercent = (deltaX / containerWidth) * 100;
+      const newWidth = Math.min(100, Math.max(30, startWidthPercent + deltaPercent));
+      updateAttributes({ width: Math.round(newWidth) });
+    };
+    
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [currentWidth, updateAttributes]);
 
   // Check if we can embed this video
   const canEmbed = config.supportsEmbed && embedUrl && !iframeError;
@@ -415,6 +447,7 @@ function VideoEmbedComponent({ node, deleteNode, selected, updateAttributes }: N
           selected && "ring-2 ring-primary",
           isResizing && "select-none"
         )}
+        style={{ width: `${currentWidth}%` }}
         data-testid="video-embed-container"
       >
         {renderContent()}
@@ -444,14 +477,25 @@ function VideoEmbedComponent({ node, deleteNode, selected, updateAttributes }: N
           </Button>
         </div>
         
-        {/* Resize handle */}
+        {/* Height resize handle (bottom) */}
         <div
           className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/20 to-transparent"
           onMouseDown={handleResizeStart}
-          data-testid="video-resize-handle"
+          data-testid="video-height-resize-handle"
         >
           <div className="flex items-center justify-center bg-background/80 backdrop-blur-sm rounded px-2 py-0.5">
             <GripHorizontal className="w-4 h-3 text-muted-foreground" />
+          </div>
+        </div>
+        
+        {/* Width resize handle (right side) */}
+        <div
+          className="absolute top-0 right-0 bottom-3 w-3 cursor-ew-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-l from-black/20 to-transparent"
+          onMouseDown={handleWidthResizeStart}
+          data-testid="video-width-resize-handle"
+        >
+          <div className="flex items-center justify-center bg-background/80 backdrop-blur-sm rounded py-2 px-0.5">
+            <GripVertical className="w-3 h-4 text-muted-foreground" />
           </div>
         </div>
       </div>
@@ -490,6 +534,9 @@ export const VideoEmbed = Node.create({
       },
       height: {
         default: DEFAULT_HEIGHT,
+      },
+      width: {
+        default: DEFAULT_WIDTH,
       },
     };
   },
