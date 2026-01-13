@@ -202,15 +202,15 @@
 }
 
 .tiptap-editor pre {
-  @apply bg-muted rounded-lg p-4 my-4 overflow-x-auto font-mono text-sm;
+  @apply bg-muted rounded-lg p-4 my-4 overflow-x-auto font-mono text-sm text-foreground;
 }
 
 .tiptap-editor code {
-  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono;
+  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground;
 }
 
 .tiptap-editor pre code {
-  @apply bg-transparent p-0;
+  @apply bg-transparent p-0 text-foreground;
 }
 
 .tiptap-editor hr {
