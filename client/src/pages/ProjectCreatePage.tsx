@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -12,14 +12,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { format, addDays } from "date-fns";
 import { 
   ArrowLeft,
   FolderKanban,
   Save,
   CalendarDays,
-  Clock
+  Clock,
+  Check,
+  ChevronsUpDown,
+  X
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { CrmClient, CrmProjectStatus } from "@shared/schema";
 
 const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -62,10 +74,16 @@ export default function ProjectCreatePage() {
     budgetedHours: "",
     actualHours: "",
   });
+  const [contactOpen, setContactOpen] = useState(false);
 
   const { data: clients = [] } = useQuery<CrmClient[]>({
     queryKey: ["/api/crm/clients"],
   });
+
+  const selectedClient = useMemo(() => 
+    clients.find(c => c.id === formData.clientId),
+    [clients, formData.clientId]
+  );
 
   // Calculate estimated end date based on start date, budgeted hours, and hours per day
   const hoursPerDay = user?.hoursPerDay || 8;
@@ -184,22 +202,68 @@ export default function ProjectCreatePage() {
 
             <div className="space-y-2">
               <Label htmlFor="client">Contact (Optional)</Label>
-              <Select 
-                value={formData.clientId} 
-                onValueChange={(v) => setFormData({ ...formData, clientId: v })}
-              >
-                <SelectTrigger data-testid="select-project-contact">
-                  <SelectValue placeholder="Select a contact" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">No contact</SelectItem>
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name} {client.company ? `(${client.company})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={contactOpen} onOpenChange={setContactOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={contactOpen}
+                    className="w-full justify-between font-normal"
+                    data-testid="select-project-contact"
+                  >
+                    {selectedClient 
+                      ? `${selectedClient.name}${selectedClient.company ? ` (${selectedClient.company})` : ""}`
+                      : "Search for a contact..."
+                    }
+                    <div className="flex items-center gap-1">
+                      {selectedClient && (
+                        <X 
+                          className="h-4 w-4 opacity-50 hover:opacity-100" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData({ ...formData, clientId: "" });
+                          }}
+                        />
+                      )}
+                      <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                    </div>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search contacts by name or company..." data-testid="input-search-contact" />
+                    <CommandList>
+                      <CommandEmpty>No contact found.</CommandEmpty>
+                      <CommandGroup>
+                        {clients.map((client) => (
+                          <CommandItem
+                            key={client.id}
+                            value={`${client.name} ${client.company || ""}`}
+                            onSelect={() => {
+                              setFormData({ ...formData, clientId: client.id });
+                              setContactOpen(false);
+                            }}
+                            data-testid={`option-contact-${client.id}`}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.clientId === client.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col">
+                              <span>{client.name}</span>
+                              {client.company && (
+                                <span className="text-xs text-muted-foreground">{client.company}</span>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">

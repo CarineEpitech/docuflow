@@ -105,7 +105,7 @@ export default function ContactCreatePage() {
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigate("/crm")}
+          onClick={() => navigate("/crm?tab=clients")}
           data-testid="button-back-to-crm"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -276,7 +276,7 @@ export default function ContactCreatePage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate("/crm")}
+                onClick={() => navigate("/crm?tab=clients")}
                 className="w-full sm:w-auto"
                 data-testid="button-cancel-create"
               >
