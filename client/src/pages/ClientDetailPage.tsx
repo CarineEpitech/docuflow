@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
+import { phoneFormatConfig, phoneFormatOptions, formatPhoneNumber, formatPhoneAsYouType, type PhoneFormat } from "@/lib/phoneFormat";
 
 const contactStatusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   lead: { label: "Lead", variant: "secondary" },
@@ -74,6 +75,7 @@ interface CrmClient {
   company: string | null;
   email: string | null;
   phone: string | null;
+  phoneFormat: string | null;
   status: string | null;
   source: string | null;
   notes: string | null;
@@ -115,6 +117,7 @@ export default function ClientDetailPage() {
     email: "",
     company: "",
     phone: "",
+    phoneFormat: "us",
     status: "lead",
     source: "",
     notes: "",
@@ -202,7 +205,7 @@ export default function ClientDetailPage() {
   });
 
   const updateClientMutation = useMutation({
-    mutationFn: async (data: { name: string; email?: string | null; company?: string | null; phone?: string | null; status?: string; source?: string | null; notes?: string | null }) => {
+    mutationFn: async (data: { name: string; email?: string | null; company?: string | null; phone?: string | null; phoneFormat?: string | null; status?: string; source?: string | null; notes?: string | null }) => {
       await apiRequest("PATCH", `/api/crm/clients/${id}`, data);
     },
     onSuccess: () => {
@@ -223,6 +226,7 @@ export default function ClientDetailPage() {
         email: client.email || "",
         company: client.company || "",
         phone: client.phone || "",
+        phoneFormat: client.phoneFormat || "us",
         status: client.status || "lead",
         source: client.source || "",
         notes: client.notes || "",
@@ -239,6 +243,7 @@ export default function ClientDetailPage() {
         email: client.email || "",
         company: client.company || "",
         phone: client.phone || "",
+        phoneFormat: client.phoneFormat || "us",
         status: client.status || "lead",
         source: client.source || "",
         notes: client.notes || "",
@@ -256,6 +261,7 @@ export default function ClientDetailPage() {
       email: editForm.email || null,
       company: editForm.company || null,
       phone: editForm.phone || null,
+      phoneFormat: editForm.phoneFormat || "us",
       status: editForm.status,
       source: editForm.source && editForm.source !== "_none" ? editForm.source : null,
       notes: editForm.notes || null,
@@ -416,13 +422,40 @@ export default function ClientDetailPage() {
                   <Phone className="h-4 w-4 text-muted-foreground" />
                   Phone
                 </Label>
-                <Input
-                  id="edit-phone"
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  placeholder="+1 234 567 8900"
-                  data-testid="input-edit-phone"
-                />
+                <div className="flex gap-2">
+                  <Select
+                    value={editForm.phoneFormat || "us"}
+                    onValueChange={(value) => {
+                      setEditForm(prev => ({
+                        ...prev,
+                        phoneFormat: value,
+                        phone: prev.phone ? formatPhoneAsYouType(prev.phone, value as PhoneFormat) : prev.phone,
+                      }));
+                    }}
+                  >
+                    <SelectTrigger className="w-[140px]" data-testid="select-edit-phone-format">
+                      <SelectValue placeholder="Format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {phoneFormatOptions.map((format) => (
+                        <SelectItem key={format} value={format}>
+                          {phoneFormatConfig[format].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="edit-phone"
+                    value={editForm.phone}
+                    onChange={(e) => {
+                      const formatted = formatPhoneAsYouType(e.target.value, editForm.phoneFormat as PhoneFormat);
+                      setEditForm({ ...editForm, phone: formatted });
+                    }}
+                    placeholder={phoneFormatConfig[editForm.phoneFormat as PhoneFormat]?.example || "(123) 456-7890"}
+                    className="flex-1"
+                    data-testid="input-edit-phone"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -519,11 +552,11 @@ export default function ClientDetailPage() {
                     <p className="text-sm text-muted-foreground">Phone</p>
                     {client.phone ? (
                       <a 
-                        href={`tel:${client.phone}`} 
+                        href={`tel:${client.phone.replace(/\D/g, '')}`} 
                         className="font-medium text-primary hover:underline"
                         data-testid="link-client-phone"
                       >
-                        {client.phone}
+                        {formatPhoneNumber(client.phone, (client.phoneFormat || "us") as PhoneFormat)}
                       </a>
                     ) : (
                       <p className="font-medium text-muted-foreground italic" data-testid="text-client-phone">Not provided</p>

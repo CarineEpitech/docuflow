@@ -278,6 +278,7 @@ export const crmClients = pgTable("crm_clients", {
   company: varchar("company", { length: 255 }),
   email: varchar("email", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
+  phoneFormat: varchar("phone_format", { length: 20 }).default("us"),
   notes: text("notes"),
   status: varchar("status", { length: 50 }).notNull().default("lead"),
   source: varchar("source", { length: 50 }),

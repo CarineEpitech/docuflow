@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, User, Building2, Mail, Phone, FileText, Globe } from "lucide-react";
+import { ArrowLeft, User, Building2, Mail, Phone, FileText, Globe, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { phoneFormatConfig, phoneFormatOptions, formatPhoneAsYouType, type PhoneFormat } from "@/lib/phoneFormat";
 
 const contactStatusConfig: Record<string, { label: string }> = {
   lead: { label: "Lead" },
@@ -41,6 +42,7 @@ const contactFormSchema = z.object({
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   company: z.string().optional(),
   phone: z.string().optional(),
+  phoneFormat: z.string().default("us"),
   status: z.string().default("lead"),
   source: z.string().optional(),
   notes: z.string().optional(),
@@ -59,6 +61,7 @@ export default function ContactCreatePage() {
       email: "",
       company: "",
       phone: "",
+      phoneFormat: "us",
       status: "lead",
       source: "",
       notes: "",
@@ -72,6 +75,7 @@ export default function ContactCreatePage() {
         email: data.email || null,
         company: data.company || null,
         phone: data.phone || null,
+        phoneFormat: data.phoneFormat || "us",
         status: data.status,
         source: data.source && data.source !== "_none" ? data.source : null,
         notes: data.notes || null,
@@ -159,12 +163,40 @@ export default function ContactCreatePage() {
                   <Phone className="h-4 w-4 text-muted-foreground" />
                   Phone
                 </Label>
-                <Input
-                  id="phone"
-                  {...form.register("phone")}
-                  placeholder="+1 234 567 8900"
-                  data-testid="input-contact-phone"
-                />
+                <div className="flex gap-2">
+                  <Select
+                    value={form.watch("phoneFormat") || "us"}
+                    onValueChange={(value) => {
+                      form.setValue("phoneFormat", value);
+                      const currentPhone = form.watch("phone") || "";
+                      if (currentPhone) {
+                        form.setValue("phone", formatPhoneAsYouType(currentPhone, value as PhoneFormat));
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[140px]" data-testid="select-phone-format">
+                      <SelectValue placeholder="Format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {phoneFormatOptions.map((format) => (
+                        <SelectItem key={format} value={format}>
+                          {phoneFormatConfig[format].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="phone"
+                    value={form.watch("phone") || ""}
+                    onChange={(e) => {
+                      const formatted = formatPhoneAsYouType(e.target.value, form.watch("phoneFormat") as PhoneFormat);
+                      form.setValue("phone", formatted);
+                    }}
+                    placeholder={phoneFormatConfig[form.watch("phoneFormat") as PhoneFormat]?.example || "(123) 456-7890"}
+                    className="flex-1"
+                    data-testid="input-contact-phone"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
