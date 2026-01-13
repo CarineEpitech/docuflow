@@ -67,6 +67,8 @@ const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "defau
   lead: { label: "Lead", variant: "secondary" },
   discovering_call_completed: { label: "Discovery Call Completed", variant: "outline" },
   proposal_sent: { label: "Proposal Sent", variant: "outline" },
+  follow_up: { label: "Follow Up", variant: "outline" },
+  in_negotiation: { label: "In Negotiation", variant: "outline" },
   won: { label: "Won", variant: "default" },
   won_not_started: { label: "Won - Not Started", variant: "default" },
   won_in_progress: { label: "Won - In Progress", variant: "default" },
@@ -76,7 +78,7 @@ const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "defau
   won_cancelled: { label: "Won-Cancelled", variant: "destructive" },
 };
 
-const statusOptions: CrmProjectStatus[] = ["lead", "discovering_call_completed", "proposal_sent", "won", "won_not_started", "won_in_progress", "won_in_review", "won_completed", "lost", "won_cancelled"];
+const statusOptions: CrmProjectStatus[] = ["lead", "discovering_call_completed", "proposal_sent", "follow_up", "in_negotiation", "won", "won_not_started", "won_in_progress", "won_in_review", "won_completed", "lost", "won_cancelled"];
 
 export default function CrmProjectPage() {
   const { toast } = useToast();

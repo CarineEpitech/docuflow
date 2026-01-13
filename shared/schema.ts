@@ -241,6 +241,8 @@ export const crmProjectStatusValues = [
   "lead",
   "discovering_call_completed",
   "proposal_sent",
+  "follow_up",
+  "in_negotiation",
   "won",
   "won_not_started",
   "won_in_progress",

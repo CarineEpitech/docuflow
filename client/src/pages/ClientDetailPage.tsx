@@ -50,6 +50,8 @@ const projectStatusConfig: Record<string, { label: string; variant: "default" | 
   lead: { label: "Lead", variant: "secondary" },
   discovering_call_completed: { label: "Discovery Call Completed", variant: "outline" },
   proposal_sent: { label: "Proposal Sent", variant: "outline" },
+  follow_up: { label: "Follow Up", variant: "outline" },
+  in_negotiation: { label: "In Negotiation", variant: "outline" },
   won: { label: "Won", variant: "default" },
   won_not_started: { label: "Won - Not Started", variant: "default" },
   won_in_progress: { label: "Won - In Progress", variant: "default" },
