@@ -483,25 +483,25 @@ export default function CrmProjectPage() {
                 {crmStatusConfig[formData.status]?.label || formData.status}
               </Badge>
             )}
+            {/* Documentation Toggle on same line as project name */}
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={formData?.documentationEnabled || false}
+                onCheckedChange={(checked) => handleDocumentationToggle(checked)}
+                data-testid="switch-documentation"
+              />
+              {formData?.documentationEnabled && (
+                <Link href={`/project/${project.projectId}`}>
+                  <Button variant="outline" size="sm" data-testid="button-view-docs-header">
+                    <FileText className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">View Documentation</span>
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Documentation Toggle and Button in Header */}
-          <div className="flex items-center gap-2 mr-2">
-            {formData?.documentationEnabled && (
-              <Link href={`/project/${project.projectId}`}>
-                <Button variant="outline" size="sm" data-testid="button-view-docs-header">
-                  <FileText className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">View Documentation</span>
-                </Button>
-              </Link>
-            )}
-            <Switch
-              checked={formData?.documentationEnabled || false}
-              onCheckedChange={(checked) => handleDocumentationToggle(checked)}
-              data-testid="switch-documentation"
-            />
-          </div>
           <Button
             variant="outline"
             size="icon"
