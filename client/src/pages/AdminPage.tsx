@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useRoute, Link } from "wouter";
+import { format, formatDistanceToNow } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ interface AdminUserDetails {
   profileImageUrl: string | null;
   role: string | null;
   lastGeneratedPassword: string | null;
+  lastLoginAt: Date | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -301,7 +303,7 @@ function UserListPage() {
                       />
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-4">
                       <Avatar className="w-8 h-8">
                         <AvatarImage src={u.profileImageUrl || undefined} />
                         <AvatarFallback className="text-xs">
@@ -316,6 +318,10 @@ function UserListPage() {
                           <Mail className="w-3 h-3" />
                           {u.email}
                         </div>
+                      </div>
+                      <div className="hidden sm:block text-xs text-muted-foreground" title={u.lastLoginAt ? format(new Date(u.lastLoginAt), "PPpp") : "Never logged in"}>
+                        <span className="text-muted-foreground/60">Last login:</span>{" "}
+                        {u.lastLoginAt ? formatDistanceToNow(new Date(u.lastLoginAt), { addSuffix: true }) : "Never"}
                       </div>
                     </div>
                   )}

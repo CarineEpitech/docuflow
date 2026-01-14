@@ -133,6 +133,7 @@ export interface IStorage {
   // Admin user management
   updateUser(userId: string, data: { firstName?: string; lastName?: string; email?: string }): Promise<SafeUser | undefined>;
   updateUserPassword(userId: string, hashedPassword: string, plainPassword?: string): Promise<SafeUser | undefined>;
+  updateUserLastLogin(userId: string): Promise<void>;
   getAdminUserDetails(userId: string): Promise<User | undefined>;
   deleteUser(userId: string): Promise<void>;
   getUserWithPassword(userId: string): Promise<User | undefined>;
@@ -1046,6 +1047,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  async updateUserLastLogin(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(users.id, userId));
   }
 
   async getAdminUserDetails(userId: string): Promise<User | undefined> {

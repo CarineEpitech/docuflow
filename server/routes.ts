@@ -170,6 +170,9 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
+      // Update last login timestamp
+      await storage.updateUserLastLogin(user.id);
+
       // Regenerate session to prevent fixation attacks, then set userId
       await regenerateSession(req);
       (req.session as any).userId = user.id;
