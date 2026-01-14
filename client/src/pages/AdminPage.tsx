@@ -24,7 +24,6 @@ interface AdminUserDetails {
   profileImageUrl: string | null;
   role: string | null;
   lastGeneratedPassword: string | null;
-  lastLoginAt: Date | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -302,38 +301,20 @@ function UserListPage() {
                       />
                     </div>
                   ) : (
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="w-8 h-8">
-                          <AvatarImage src={u.profileImageUrl || undefined} />
-                          <AvatarFallback className="text-xs">
-                            {u.firstName?.[0]}{u.lastName?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium text-sm">
-                            {u.firstName} {u.lastName}
-                          </div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {u.email}
-                          </div>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={u.profileImageUrl || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {u.firstName?.[0]}{u.lastName?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium text-sm">
+                          {u.firstName} {u.lastName}
                         </div>
-                      </div>
-                      <div className="hidden md:block text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          <span>
-                            {u.lastLoginAt 
-                              ? new Date(u.lastLoginAt).toLocaleString('fr-FR', { 
-                                  day: '2-digit', 
-                                  month: '2-digit', 
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })
-                              : 'Never'}
-                          </span>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          {u.email}
                         </div>
                       </div>
                     </div>
