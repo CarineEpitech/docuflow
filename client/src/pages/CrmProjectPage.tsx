@@ -57,7 +57,8 @@ import {
   Pause,
   Loader2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Tag
 } from "lucide-react";
 import { AudioRecorder } from "@/components/editor/AudioRecorder";
 import { NoteAudioPlayer } from "@/components/NoteAudioPlayer";
@@ -73,6 +74,8 @@ import type {
   CrmProjectStageHistoryWithUser
 } from "@shared/schema";
 import { NoteInput } from "@/components/NoteInput";
+import { CrmTagSelector } from "@/components/CrmTagSelector";
+import type { CrmTag } from "@shared/schema";
 
 const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   lead: { label: "Lead", variant: "secondary" },
@@ -145,6 +148,11 @@ export default function CrmProjectPage() {
 
   const { data: users = [] } = useQuery<SafeUser[]>({
     queryKey: ["/api/users"],
+  });
+
+  const { data: projectTags = [] } = useQuery<CrmTag[]>({
+    queryKey: ["/api/crm/projects", projectId, "tags"],
+    enabled: !!projectId,
   });
 
   useEffect(() => {
@@ -612,6 +620,15 @@ export default function CrmProjectPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm font-medium">Tags</label>
+                  <CrmTagSelector 
+                    crmProjectId={projectId!} 
+                    projectTags={projectTags}
+                    onTagsChange={() => queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId, "tags"] })}
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium">Project Type</label>
                   <Select 
                     value={formData?.projectType || "one_time"} 
@@ -781,6 +798,18 @@ export default function CrmProjectPage() {
                   <Badge variant="outline" className="text-xs" data-testid="badge-project-type">
                     {formData?.projectType ? projectTypeConfig[formData.projectType].label : "One-Time Project"}
                   </Badge>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Tags:</span>
+                  </div>
+                  <CrmTagSelector 
+                    crmProjectId={projectId!} 
+                    projectTags={projectTags}
+                    onTagsChange={() => queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId, "tags"] })}
+                  />
                 </div>
 
                 {formData?.description && (
