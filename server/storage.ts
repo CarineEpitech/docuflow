@@ -755,6 +755,22 @@ export class DatabaseStorage implements IStorage {
     const crmProjectIds = crmProjectRows.map((cp) => cp.id);
     const latestNotesMap = new Map<string, CrmProjectNoteWithCreator>();
     
+    // Get tags for each CRM project
+    const tagsMap = new Map<string, CrmTag[]>();
+    if (crmProjectIds.length > 0) {
+      const projectTagsData = await db
+        .select({ projectTag: crmProjectTags, tag: crmTags })
+        .from(crmProjectTags)
+        .innerJoin(crmTags, eq(crmProjectTags.tagId, crmTags.id))
+        .where(or(...crmProjectIds.map(id => eq(crmProjectTags.crmProjectId, id))));
+      
+      projectTagsData.forEach(({ projectTag, tag }) => {
+        const existing = tagsMap.get(projectTag.crmProjectId) || [];
+        existing.push(tag);
+        tagsMap.set(projectTag.crmProjectId, existing);
+      });
+    }
+    
     if (crmProjectIds.length > 0) {
       // Get all notes and group by project, keeping only the latest
       const allNotes = await db
@@ -799,6 +815,7 @@ export class DatabaseStorage implements IStorage {
       const clientContacts = cp.clientId ? contactsByClient.get(cp.clientId) : undefined;
       const assignee = cp.assigneeId ? assigneeMap.get(cp.assigneeId) : undefined;
       const latestNote = latestNotesMap.get(cp.id);
+      const tags = tagsMap.get(cp.id) || [];
 
       return {
         ...cp,
@@ -806,6 +823,7 @@ export class DatabaseStorage implements IStorage {
         client: client ? { ...client, contacts: clientContacts } : undefined,
         assignee,
         latestNote,
+        tags,
       };
     });
 

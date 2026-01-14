@@ -48,7 +48,8 @@ import { Link } from "wouter";
 import type { 
   CrmProjectWithDetails, 
   CrmClient, 
-  CrmProjectStatus
+  CrmProjectStatus,
+  CrmTag
 } from "@shared/schema";
 
 const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -469,6 +470,25 @@ export default function CrmPage() {
                                                     </span>
                                                   </div>
                                                 )}
+                                                {project.tags && project.tags.length > 0 && (
+                                                  <div className="flex flex-wrap gap-1 mt-2">
+                                                    {project.tags.slice(0, 3).map((tag) => (
+                                                      <Badge 
+                                                        key={tag.id}
+                                                        className="text-[10px] px-1.5 py-0"
+                                                        style={{ backgroundColor: tag.color, color: "white" }}
+                                                        data-testid={`kanban-tag-${tag.id}`}
+                                                      >
+                                                        {tag.name}
+                                                      </Badge>
+                                                    ))}
+                                                    {project.tags.length > 3 && (
+                                                      <span className="text-[10px] text-muted-foreground">
+                                                        +{project.tags.length - 3}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                )}
                                               </div>
                                               <Button
                                                 variant="ghost"
@@ -515,6 +535,7 @@ export default function CrmPage() {
                         <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Project</th>
                         <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Client</th>
                         <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
+                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Tags</th>
                         <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Assigned</th>
                         <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Start</th>
                         <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Due</th>
@@ -527,13 +548,13 @@ export default function CrmPage() {
                     <tbody className="divide-y divide-border">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={10} className="p-8 text-center text-muted-foreground">
+                          <td colSpan={11} className="p-8 text-center text-muted-foreground">
                             Loading projects...
                           </td>
                         </tr>
                       ) : !crmProjectsData?.data.length ? (
                         <tr>
-                          <td colSpan={10} className="p-8 text-center text-muted-foreground">
+                          <td colSpan={11} className="p-8 text-center text-muted-foreground">
                             No projects found. Add your first project to get started.
                           </td>
                         </tr>
@@ -580,6 +601,29 @@ export default function CrmPage() {
                               <Badge variant={crmStatusConfig[crmProject.status as CrmProjectStatus].variant} className="text-xs">
                                 {crmStatusConfig[crmProject.status as CrmProjectStatus].label}
                               </Badge>
+                            </td>
+                            <td className="px-4 py-3">
+                              {crmProject.tags && crmProject.tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {crmProject.tags.slice(0, 2).map((tag) => (
+                                    <Badge 
+                                      key={tag.id}
+                                      className="text-[10px] px-1.5 py-0"
+                                      style={{ backgroundColor: tag.color, color: "white" }}
+                                      data-testid={`table-tag-${tag.id}`}
+                                    >
+                                      {tag.name}
+                                    </Badge>
+                                  ))}
+                                  {crmProject.tags.length > 2 && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      +{crmProject.tags.length - 2}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
                             </td>
                             <td className="px-4 py-3">
                               {crmProject.assignee ? (
