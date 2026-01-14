@@ -411,6 +411,42 @@ export type CrmProjectWithDetails = CrmProject & {
   latestNote?: CrmProjectNoteWithCreator;
 };
 
+// CRM Project Stage History table - tracks status changes over time
+export const crmProjectStageHistory = pgTable("crm_project_stage_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  crmProjectId: varchar("crm_project_id").notNull().references(() => crmProjects.id, { onDelete: "cascade" }),
+  fromStatus: varchar("from_status", { length: 50 }),
+  toStatus: varchar("to_status", { length: 50 }).notNull(),
+  changedById: varchar("changed_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  changedAt: timestamp("changed_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_stage_history_project").on(table.crmProjectId),
+  index("idx_crm_stage_history_changed_at").on(table.changedAt),
+]);
+
+export const crmProjectStageHistoryRelations = relations(crmProjectStageHistory, ({ one }) => ({
+  crmProject: one(crmProjects, {
+    fields: [crmProjectStageHistory.crmProjectId],
+    references: [crmProjects.id],
+  }),
+  changedBy: one(users, {
+    fields: [crmProjectStageHistory.changedById],
+    references: [users.id],
+  }),
+}));
+
+export const insertCrmProjectStageHistorySchema = createInsertSchema(crmProjectStageHistory).omit({
+  id: true,
+  changedAt: true,
+});
+
+export type CrmProjectStageHistory = typeof crmProjectStageHistory.$inferSelect;
+export type InsertCrmProjectStageHistory = z.infer<typeof insertCrmProjectStageHistorySchema>;
+
+export type CrmProjectStageHistoryWithUser = CrmProjectStageHistory & {
+  changedBy?: SafeUser;
+};
+
 // Company Document Folders table - folders for organizing company documents
 export const companyDocumentFolders = pgTable("company_document_folders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
