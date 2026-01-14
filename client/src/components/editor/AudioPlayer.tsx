@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Play, Pause, FileText, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,14 +10,48 @@ interface AudioPlayerAttrs {
   transcript?: string;
   transcriptStatus?: 'pending' | 'processing' | 'completed' | 'error';
   duration?: number;
+  recordingId?: string;
 }
 
-function AudioPlayerComponent({ node }: { node: { attrs: AudioPlayerAttrs } }) {
-  const { src, transcript, transcriptStatus = 'completed', duration } = node.attrs;
+function AudioPlayerComponent({ node }: { node: any }) {
+  const { src, transcript: initialTranscript, transcriptStatus: initialStatus = 'completed', duration, recordingId } = node.attrs as AudioPlayerAttrs;
+  const [transcript, setTranscript] = useState(initialTranscript);
+  const [transcriptStatus, setTranscriptStatus] = useState(initialStatus);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(duration || 0);
+
+  // Poll for transcript updates when processing
+  useEffect(() => {
+    if (!recordingId || (transcriptStatus !== 'processing' && transcriptStatus !== 'pending')) {
+      return;
+    }
+
+    const checkTranscript = async () => {
+      try {
+        const res = await fetch(`/api/audio/${recordingId}`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.transcriptStatus === 'completed' && data.transcript) {
+            setTranscript(data.transcript);
+            setTranscriptStatus('completed');
+          } else if (data.transcriptStatus === 'error') {
+            setTranscriptStatus('error');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching transcript:', error);
+      }
+    };
+
+    // Check immediately
+    checkTranscript();
+
+    // Then poll every 2 seconds
+    const interval = setInterval(checkTranscript, 2000);
+    return () => clearInterval(interval);
+  }, [recordingId, transcriptStatus]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
