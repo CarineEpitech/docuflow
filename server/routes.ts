@@ -1692,6 +1692,108 @@ Instructions:
     }
   });
 
+  // ==================== CRM Tags ====================
+
+  // Get all tags
+  app.get("/api/crm/tags", isAuthenticated, async (req: any, res) => {
+    try {
+      const tags = await storage.getAllCrmTags();
+      res.json(tags);
+    } catch (error) {
+      console.error("Error fetching CRM tags:", error);
+      res.status(500).json({ message: "Failed to fetch tags" });
+    }
+  });
+
+  // Create a new tag
+  app.post("/api/crm/tags", isAuthenticated, async (req: any, res) => {
+    try {
+      const createSchema = z.object({
+        name: z.string().min(1, "Tag name is required"),
+        color: z.string().optional(),
+      });
+      
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const tag = await storage.createCrmTag(parsed.data);
+      res.status(201).json(tag);
+    } catch (error) {
+      console.error("Error creating CRM tag:", error);
+      res.status(500).json({ message: "Failed to create tag" });
+    }
+  });
+
+  // Update a tag
+  app.patch("/api/crm/tags/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const updateSchema = z.object({
+        name: z.string().min(1).optional(),
+        color: z.string().optional(),
+      });
+      
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+      }
+      
+      const tag = await storage.updateCrmTag(req.params.id, parsed.data);
+      if (!tag) {
+        return res.status(404).json({ message: "Tag not found" });
+      }
+      res.json(tag);
+    } catch (error) {
+      console.error("Error updating CRM tag:", error);
+      res.status(500).json({ message: "Failed to update tag" });
+    }
+  });
+
+  // Delete a tag
+  app.delete("/api/crm/tags/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteCrmTag(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting CRM tag:", error);
+      res.status(500).json({ message: "Failed to delete tag" });
+    }
+  });
+
+  // Get tags for a specific project
+  app.get("/api/crm/projects/:id/tags", isAuthenticated, async (req: any, res) => {
+    try {
+      const tags = await storage.getCrmProjectTags(req.params.id);
+      res.json(tags);
+    } catch (error) {
+      console.error("Error fetching project tags:", error);
+      res.status(500).json({ message: "Failed to fetch project tags" });
+    }
+  });
+
+  // Add tag to project
+  app.post("/api/crm/projects/:id/tags/:tagId", isAuthenticated, async (req: any, res) => {
+    try {
+      const projectTag = await storage.addTagToProject(req.params.id, req.params.tagId);
+      res.status(201).json(projectTag);
+    } catch (error) {
+      console.error("Error adding tag to project:", error);
+      res.status(500).json({ message: "Failed to add tag to project" });
+    }
+  });
+
+  // Remove tag from project
+  app.delete("/api/crm/projects/:id/tags/:tagId", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.removeTagFromProject(req.params.id, req.params.tagId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing tag from project:", error);
+      res.status(500).json({ message: "Failed to remove tag from project" });
+    }
+  });
+
   // ==================== CRM Project Stage History ====================
 
   // Get stage history for a CRM project
