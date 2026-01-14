@@ -77,14 +77,24 @@ export function CrmTagSelector({ crmProjectId, projectTags, onTagsChange }: CrmT
 
   const createTagMutation = useMutation({
     mutationFn: async (data: { name: string; color: string }) => {
-      return await apiRequest("POST", "/api/crm/tags", data);
+      const response = await apiRequest("POST", "/api/crm/tags", data);
+      return response;
     },
-    onSuccess: () => {
+    onSuccess: async (newTag: CrmTag) => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/tags"] });
       setNewTagName("");
       setNewTagColor(TAG_COLORS[10]);
       setShowCreateDialog(false);
-      toast({ title: "Tag created" });
+      
+      // Automatically assign the new tag to the current project
+      if (newTag?.id) {
+        await apiRequest("POST", `/api/crm/projects/${crmProjectId}/tags/${newTag.id}`);
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", crmProjectId, "tags"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+        onTagsChange?.();
+      }
+      
+      toast({ title: "Tag created and assigned" });
     },
     onError: () => {
       toast({ title: "Failed to create tag", variant: "destructive" });
