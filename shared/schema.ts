@@ -258,7 +258,8 @@ export type CrmProjectStatus = typeof crmProjectStatusValues[number];
 export const crmProjectTypeValues = [
   "one_time",
   "monthly",
-  "hourly_budget"
+  "hourly_budget",
+  "internal"
 ] as const;
 
 export type CrmProjectType = typeof crmProjectTypeValues[number];

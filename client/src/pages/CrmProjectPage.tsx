@@ -85,9 +85,10 @@ const projectTypeConfig: Record<CrmProjectType, { label: string; description: st
   one_time: { label: "One-Time Project", description: "1 week duration" },
   monthly: { label: "Monthly Project", description: "1 month duration" },
   hourly_budget: { label: "Hourly Budget", description: "Based on budgeted hours" },
+  internal: { label: "Internal", description: "Internal project" },
 };
 
-const projectTypeOptions: CrmProjectType[] = ["one_time", "monthly", "hourly_budget"];
+const projectTypeOptions: CrmProjectType[] = ["one_time", "monthly", "hourly_budget", "internal"];
 
 export default function CrmProjectPage() {
   const { toast } = useToast();
