@@ -725,6 +725,11 @@ export const crmProjectNotes = pgTable("crm_project_notes", {
   content: text("content").notNull(),
   createdById: varchar("created_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   mentionedUserIds: text("mentioned_user_ids").array(),
+  // Audio note fields
+  audioUrl: text("audio_url"),
+  audioTranscript: text("audio_transcript"),
+  transcriptStatus: varchar("transcript_status", { length: 20 }), // pending, processing, completed, error
+  audioRecordingId: varchar("audio_recording_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

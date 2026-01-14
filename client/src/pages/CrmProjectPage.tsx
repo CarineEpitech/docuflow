@@ -51,8 +51,16 @@ import {
   StickyNote,
   X,
   Send,
-  History
+  History,
+  Mic,
+  Play,
+  Pause,
+  Loader2,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
+import { AudioRecorder } from "@/components/editor/AudioRecorder";
+import { NoteAudioPlayer } from "@/components/NoteAudioPlayer";
 import { Link } from "wouter";
 import type { 
   CrmProjectWithDetails, 
@@ -288,6 +296,9 @@ export default function CrmProjectPage() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteContent, setEditNoteContent] = useState("");
   const [editNoteMentions, setEditNoteMentions] = useState<string[]>([]);
+  // Audio recording state for notes
+  const [isRecordingNote, setIsRecordingNote] = useState(false);
+  const [isUploadingAudioNote, setIsUploadingAudioNote] = useState(false);
 
   const { data: notes = [], isLoading: notesLoading } = useQuery<CrmProjectNoteWithCreator[]>({
     queryKey: ["/api/crm/projects", projectId, "notes"],
@@ -310,7 +321,7 @@ export default function CrmProjectPage() {
   });
 
   const createNoteMutation = useMutation({
-    mutationFn: async (data: { content: string; mentionedUserIds?: string[] }) => {
+    mutationFn: async (data: { content: string; mentionedUserIds?: string[]; audioUrl?: string; audioRecordingId?: string; transcriptStatus?: string }) => {
       return apiRequest("POST", `/api/crm/projects/${projectId}/notes`, data);
     },
     onSuccess: () => {
@@ -1071,15 +1082,25 @@ export default function CrmProjectPage() {
                                 : 'bg-muted rounded-bl-md'
                             }`}
                           >
-                            <p className="text-sm whitespace-pre-wrap">
-                              {note.content.split(/(@[\w-]+(?:\s+[\w-]+)?)/g).map((part, i) => 
-                                part.startsWith('@') ? (
-                                  <span key={i} className={`font-semibold ${isCurrentUser ? 'text-primary-foreground/90' : 'text-primary'}`}>{part}</span>
-                                ) : (
-                                  <span key={i}>{part}</span>
-                                )
-                              )}
-                            </p>
+                            {note.audioUrl ? (
+                              <NoteAudioPlayer
+                                audioUrl={note.audioUrl}
+                                audioRecordingId={note.audioRecordingId || undefined}
+                                transcriptStatus={note.transcriptStatus || undefined}
+                                audioTranscript={note.audioTranscript || undefined}
+                                isCurrentUser={isCurrentUser}
+                              />
+                            ) : (
+                              <p className="text-sm whitespace-pre-wrap">
+                                {note.content.split(/(@[\w-]+(?:\s+[\w-]+)?)/g).map((part, i) => 
+                                  part.startsWith('@') ? (
+                                    <span key={i} className={`font-semibold ${isCurrentUser ? 'text-primary-foreground/90' : 'text-primary'}`}>{part}</span>
+                                  ) : (
+                                    <span key={i}>{part}</span>
+                                  )
+                                )}
+                              </p>
+                            )}
                             <div className={`absolute top-1 ${isCurrentUser ? '-left-14' : '-right-14'} flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity`}>
                               <Button
                                 size="icon"
@@ -1119,33 +1140,91 @@ export default function CrmProjectPage() {
           
           {/* Chat Input Area */}
           <div className="p-4 bg-muted/30">
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <NoteInput
-                  value={newNoteContent}
-                  onChange={setNewNoteContent}
-                  users={users}
-                  mentionedUserIds={newNoteMentions}
-                  onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
-                  onSubmit={handleAddNote}
-                  placeholder="Type a message... (@ to mention)"
-                  testId="textarea-new-note"
-                />
+            {isRecordingNote ? (
+              <AudioRecorder
+                isUploading={isUploadingAudioNote}
+                onCancel={() => setIsRecordingNote(false)}
+                onRecordingComplete={async (audioBlob) => {
+                  setIsUploadingAudioNote(true);
+                  try {
+                    const uploadUrlRes = await fetch("/api/objects/upload", {
+                      method: "POST",
+                      credentials: "include",
+                    });
+                    if (!uploadUrlRes.ok) throw new Error("Failed to get upload URL");
+                    const { uploadURL } = await uploadUrlRes.json();
+
+                    const uploadRes = await fetch(uploadURL, {
+                      method: "PUT",
+                      body: audioBlob,
+                      headers: { "Content-Type": "audio/webm" },
+                    });
+                    if (!uploadRes.ok) throw new Error("Failed to upload audio");
+
+                    const audioRes = await fetch("/api/audio/upload", {
+                      method: "POST",
+                      credentials: "include",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ audioUrl: uploadURL.split("?")[0] }),
+                    });
+                    if (!audioRes.ok) throw new Error("Failed to save audio");
+                    const audioData = await audioRes.json();
+
+                    // Create note with audio
+                    createNoteMutation.mutate({
+                      content: "🎤 Voice message",
+                      audioUrl: audioData.audioUrl,
+                      audioRecordingId: audioData.id,
+                      transcriptStatus: "processing",
+                    });
+
+                    setIsRecordingNote(false);
+                  } catch (error) {
+                    console.error("Error uploading audio:", error);
+                    toast({ title: "Failed to upload audio", variant: "destructive" });
+                  } finally {
+                    setIsUploadingAudioNote(false);
+                  }
+                }}
+              />
+            ) : (
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <NoteInput
+                    value={newNoteContent}
+                    onChange={setNewNoteContent}
+                    users={users}
+                    mentionedUserIds={newNoteMentions}
+                    onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
+                    onSubmit={handleAddNote}
+                    placeholder="Type a message... (@ to mention)"
+                    testId="textarea-new-note"
+                  />
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setIsRecordingNote(true)}
+                  className="h-10 w-10 flex-shrink-0 rounded-full"
+                  data-testid="button-record-note"
+                >
+                  <Mic className="w-5 h-5" />
+                </Button>
+                <Button
+                  size="icon"
+                  onClick={handleAddNote}
+                  disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                  data-testid="button-add-note"
+                  className="h-10 w-10 flex-shrink-0 rounded-full"
+                >
+                  {createNoteMutation.isPending ? (
+                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </Button>
               </div>
-              <Button
-                size="icon"
-                onClick={handleAddNote}
-                disabled={!newNoteContent.trim() || createNoteMutation.isPending}
-                data-testid="button-add-note"
-                className="h-10 w-10 flex-shrink-0 rounded-full"
-              >
-                {createNoteMutation.isPending ? (
-                  <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </Button>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>

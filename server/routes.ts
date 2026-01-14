@@ -1725,6 +1725,9 @@ Instructions:
       const createSchema = z.object({
         content: z.string().min(1, "Note content is required"),
         mentionedUserIds: z.array(z.string()).optional(),
+        audioUrl: z.string().optional(),
+        audioRecordingId: z.string().optional(),
+        transcriptStatus: z.string().optional(),
       });
       
       const parsed = createSchema.safeParse(req.body);
@@ -1737,6 +1740,9 @@ Instructions:
         content: parsed.data.content,
         createdById: userId,
         mentionedUserIds: parsed.data.mentionedUserIds || null,
+        audioUrl: parsed.data.audioUrl || null,
+        audioRecordingId: parsed.data.audioRecordingId || null,
+        transcriptStatus: parsed.data.transcriptStatus || null,
       });
       
       // Create notifications for mentioned users (excluding the note author)
