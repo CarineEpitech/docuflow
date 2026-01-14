@@ -135,6 +135,25 @@ Preferred communication style: Simple, everyday language.
 - Supports text extraction from uploaded files: PDF (pdf-parse), Word (mammoth), and text files
 - Semantic search via cosine similarity for AI chatbot knowledge base
 
+**CRM Modules Table**
+- Customizable modules for CRM/project management system
+- Fields: id (UUID), name, slug (unique), description, icon, sortOrder (int), isEnabled (int 0/1), isSystem (int 0/1), timestamps
+- System modules cannot be deleted (isSystem flag)
+- Modules can be enabled/disabled independently
+
+**CRM Module Fields Table**
+- Custom fields within each CRM module
+- Fields: id (UUID), moduleId (FK), name, slug, fieldType (enum: text, number, date, datetime, select, multiselect, checkbox, textarea, email, phone, url, currency), description, placeholder, defaultValue, options (text array for select/multiselect), isRequired (int 0/1), isEnabled (int 0/1), isSystem (int 0/1), sortOrder (int), timestamps
+- 12 supported field types with validation
+- Options array for dropdown and multi-select fields
+- Cascade deletion when parent module is deleted
+
+**CRM Custom Field Values Table**
+- Stores actual values for custom fields per CRM project
+- Fields: id (UUID), crmProjectId (FK), fieldId (FK), value (text), timestamps
+- Unique constraint on crmProjectId + fieldId combination
+- Cascade deletion when project or field is deleted
+
 **Object Storage**
 - **Google Cloud Storage** integration via `@google-cloud/storage`
 - Authentication using Replit Sidecar OAuth2 flow
