@@ -61,6 +61,7 @@ import {
 } from "lucide-react";
 import { AudioRecorder } from "@/components/editor/AudioRecorder";
 import { NoteAudioPlayer } from "@/components/NoteAudioPlayer";
+import { CrmTagManager } from "@/components/CrmTagManager";
 import { Link } from "wouter";
 import type { 
   CrmProjectWithDetails, 
@@ -509,6 +510,9 @@ export default function CrmProjectPage() {
                 {crmStatusConfig[formData.status]?.label || formData.status}
               </Badge>
             )}
+          </div>
+          <div className="mt-2">
+            <CrmTagManager crmProjectId={project.id} />
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
