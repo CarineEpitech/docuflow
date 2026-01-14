@@ -861,3 +861,123 @@ export type NotificationWithDetails = Notification & {
   fromUser?: SafeUser;
   crmProject?: { id: string; project?: { name: string } };
 };
+
+// CRM Module field type enum values
+export const crmFieldTypeValues = [
+  "text",
+  "number",
+  "date",
+  "datetime",
+  "select",
+  "multiselect",
+  "checkbox",
+  "textarea",
+  "email",
+  "phone",
+  "url",
+  "currency"
+] as const;
+
+export type CrmFieldType = typeof crmFieldTypeValues[number];
+
+// CRM Modules table - customizable modules for project management
+export const crmModules = pgTable("crm_modules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  description: text("description"),
+  icon: varchar("icon", { length: 50 }),
+  isSystem: integer("is_system").notNull().default(0),
+  isEnabled: integer("is_enabled").notNull().default(1),
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_modules_slug").on(table.slug),
+  index("idx_crm_modules_enabled").on(table.isEnabled),
+]);
+
+export const insertCrmModuleSchema = createInsertSchema(crmModules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CrmModule = typeof crmModules.$inferSelect;
+export type InsertCrmModule = z.infer<typeof insertCrmModuleSchema>;
+
+// CRM Module Fields table - custom fields for each module
+export const crmModuleFields = pgTable("crm_module_fields", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  moduleId: varchar("module_id").notNull().references(() => crmModules.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 100 }).notNull(),
+  slug: varchar("slug", { length: 100 }).notNull(),
+  fieldType: varchar("field_type", { length: 50 }).notNull().default("text"),
+  description: text("description"),
+  placeholder: varchar("placeholder", { length: 255 }),
+  defaultValue: text("default_value"),
+  options: jsonb("options").$type<string[]>(),
+  isRequired: integer("is_required").notNull().default(0),
+  isSystem: integer("is_system").notNull().default(0),
+  isEnabled: integer("is_enabled").notNull().default(1),
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_module_fields_module").on(table.moduleId),
+  index("idx_crm_module_fields_slug").on(table.slug),
+]);
+
+export const crmModuleFieldsRelations = relations(crmModuleFields, ({ one }) => ({
+  module: one(crmModules, {
+    fields: [crmModuleFields.moduleId],
+    references: [crmModules.id],
+  }),
+}));
+
+export const insertCrmModuleFieldSchema = createInsertSchema(crmModuleFields).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CrmModuleField = typeof crmModuleFields.$inferSelect;
+export type InsertCrmModuleField = z.infer<typeof insertCrmModuleFieldSchema>;
+
+// CRM Module with fields
+export type CrmModuleWithFields = CrmModule & {
+  fields?: CrmModuleField[];
+};
+
+// CRM Custom Field Values table - stores custom field values for projects
+export const crmCustomFieldValues = pgTable("crm_custom_field_values", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  crmProjectId: varchar("crm_project_id").notNull().references(() => crmProjects.id, { onDelete: "cascade" }),
+  fieldId: varchar("field_id").notNull().references(() => crmModuleFields.id, { onDelete: "cascade" }),
+  value: text("value"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_custom_field_values_project").on(table.crmProjectId),
+  index("idx_crm_custom_field_values_field").on(table.fieldId),
+]);
+
+export const crmCustomFieldValuesRelations = relations(crmCustomFieldValues, ({ one }) => ({
+  crmProject: one(crmProjects, {
+    fields: [crmCustomFieldValues.crmProjectId],
+    references: [crmProjects.id],
+  }),
+  field: one(crmModuleFields, {
+    fields: [crmCustomFieldValues.fieldId],
+    references: [crmModuleFields.id],
+  }),
+}));
+
+export const insertCrmCustomFieldValueSchema = createInsertSchema(crmCustomFieldValues).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CrmCustomFieldValue = typeof crmCustomFieldValues.$inferSelect;
+export type InsertCrmCustomFieldValue = z.infer<typeof insertCrmCustomFieldValueSchema>;
