@@ -170,13 +170,16 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
+      // Update last login timestamp
+      await storage.updateUserLastLogin(user.id);
+
       // Regenerate session to prevent fixation attacks, then set userId
       await regenerateSession(req);
       (req.session as any).userId = user.id;
 
       // Return user without password
       const { password: _, ...safeUser } = user;
-      res.json(safeUser);
+      res.json({ ...safeUser, lastLoginAt: new Date() });
     } catch (error) {
       console.error("Error logging in:", error);
       res.status(500).json({ message: "Failed to login" });
