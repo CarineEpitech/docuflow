@@ -707,6 +707,110 @@ export async function registerRoutes(
     }
   });
 
+  // Audio recording upload and transcription endpoints
+  app.post("/api/audio/upload", isAuthenticated, async (req: Request, res) => {
+    const userId = getUserId(req)!;
+    const { audioUrl, documentId, companyDocumentId } = req.body;
+
+    if (!audioUrl) {
+      return res.status(400).json({ error: "audioUrl is required" });
+    }
+
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        audioUrl,
+        {
+          owner: userId,
+          visibility: "public",
+        }
+      );
+
+      // Create audio recording record
+      const recording = await storage.createAudioRecording({
+        documentId: documentId || null,
+        companyDocumentId: companyDocumentId || null,
+        ownerId: userId,
+        audioUrl: objectPath,
+        transcriptStatus: "pending",
+      });
+
+      // Start transcription in background
+      transcribeAudioInBackground(recording.id, objectPath);
+
+      res.status(200).json({
+        id: recording.id,
+        audioUrl: objectPath,
+        transcriptStatus: "pending",
+      });
+    } catch (error) {
+      console.error("Error uploading audio:", error);
+      res.status(500).json({ error: "Failed to upload audio" });
+    }
+  });
+
+  // Get audio recording by ID (for polling transcript status)
+  app.get("/api/audio/:id", isAuthenticated, async (req: Request, res) => {
+    const userId = getUserId(req)!;
+    const { id } = req.params;
+
+    try {
+      const recording = await storage.getAudioRecording(id);
+      if (!recording) {
+        return res.status(404).json({ error: "Audio recording not found" });
+      }
+
+      if (recording.ownerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json(recording);
+    } catch (error) {
+      console.error("Error fetching audio recording:", error);
+      res.status(500).json({ error: "Failed to fetch audio recording" });
+    }
+  });
+
+  // Helper function to transcribe audio in background
+  async function transcribeAudioInBackground(recordingId: string, audioUrl: string) {
+    try {
+      await storage.updateAudioRecording(recordingId, { transcriptStatus: "processing" });
+
+      const objectStorageService = new ObjectStorageService();
+      
+      // Get the audio file from storage
+      const normalizedPath = objectStorageService.normalizeObjectEntityPath(audioUrl);
+      const file = await objectStorageService.getObjectEntityFile(normalizedPath);
+      
+      if (!file) {
+        throw new Error("Audio file not found");
+      }
+
+      // Download the audio file to a buffer
+      const [buffer] = await file.download();
+      
+      // Create a File object for OpenAI
+      const audioFile = new File([buffer], "audio.webm", { type: "audio/webm" });
+
+      // Transcribe using OpenAI Whisper
+      const openai = getOpenAIClient();
+      const transcription = await openai.audio.transcriptions.create({
+        file: audioFile,
+        model: "whisper-1",
+      });
+
+      await storage.updateAudioRecording(recordingId, {
+        transcript: transcription.text,
+        transcriptStatus: "completed",
+      });
+
+      console.log(`Transcription completed for recording ${recordingId}`);
+    } catch (error) {
+      console.error(`Error transcribing audio ${recordingId}:`, error);
+      await storage.updateAudioRecording(recordingId, { transcriptStatus: "error" });
+    }
+  }
+
   // Rebuild embeddings for all user documents
   // This is useful for initial setup or after bulk imports
   app.post("/api/embeddings/rebuild", isAuthenticated, async (req: any, res) => {

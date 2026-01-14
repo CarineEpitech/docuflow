@@ -236,6 +236,45 @@ export type VideoTranscript = typeof videoTranscripts.$inferSelect;
 export type InsertVideoTranscript = z.infer<typeof insertVideoTranscriptSchema>;
 export type VideoTranscriptStatus = "pending" | "processing" | "completed" | "error";
 
+// Audio recordings table - stores voice recordings with transcripts
+export const audioRecordings = pgTable("audio_recordings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").references(() => documents.id, { onDelete: "cascade" }),
+  companyDocumentId: varchar("company_document_id"),
+  ownerId: varchar("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  audioUrl: varchar("audio_url", { length: 2000 }).notNull(),
+  transcript: text("transcript"),
+  transcriptStatus: varchar("transcript_status", { length: 50 }).notNull().default("pending"),
+  duration: integer("duration"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_audio_recordings_document").on(table.documentId),
+  index("idx_audio_recordings_company_document").on(table.companyDocumentId),
+  index("idx_audio_recordings_owner").on(table.ownerId),
+]);
+
+export const audioRecordingsRelations = relations(audioRecordings, ({ one }) => ({
+  document: one(documents, {
+    fields: [audioRecordings.documentId],
+    references: [documents.id],
+  }),
+  owner: one(users, {
+    fields: [audioRecordings.ownerId],
+    references: [users.id],
+  }),
+}));
+
+export const insertAudioRecordingSchema = createInsertSchema(audioRecordings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type AudioRecording = typeof audioRecordings.$inferSelect;
+export type InsertAudioRecording = z.infer<typeof insertAudioRecordingSchema>;
+export type AudioTranscriptStatus = "pending" | "processing" | "completed" | "error";
+
 // CRM Project Status enum values
 export const crmProjectStatusValues = [
   "lead",

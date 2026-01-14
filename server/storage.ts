@@ -14,6 +14,7 @@ import {
   teamMembers,
   teamInvites,
   notifications,
+  audioRecordings,
   type User,
   type SafeUser,
   type InsertUser,
@@ -52,6 +53,8 @@ import {
   type Notification,
   type InsertNotification,
   type NotificationWithDetails,
+  type AudioRecording,
+  type InsertAudioRecording,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, like, or, isNull, sql, gt, asc, count } from "drizzle-orm";
@@ -183,6 +186,11 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: string, userId: string): Promise<void>;
   markAllNotificationsRead(userId: string): Promise<void>;
+  
+  // Audio Recordings
+  getAudioRecording(id: string): Promise<AudioRecording | undefined>;
+  createAudioRecording(recording: InsertAudioRecording): Promise<AudioRecording>;
+  updateAudioRecording(id: string, data: Partial<InsertAudioRecording>): Promise<AudioRecording | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1529,6 +1537,28 @@ export class DatabaseStorage implements IStorage {
 
   async markAllNotificationsRead(userId: string): Promise<void> {
     await db.update(notifications).set({ isRead: 1 }).where(eq(notifications.userId, userId));
+  }
+
+  async getAudioRecording(id: string): Promise<AudioRecording | undefined> {
+    const [recording] = await db.select().from(audioRecordings).where(eq(audioRecordings.id, id));
+    return recording;
+  }
+
+  async createAudioRecording(recording: InsertAudioRecording): Promise<AudioRecording> {
+    const [newRecording] = await db.insert(audioRecordings).values({
+      ...recording,
+      id: randomUUID(),
+    }).returning();
+    return newRecording;
+  }
+
+  async updateAudioRecording(id: string, data: Partial<InsertAudioRecording>): Promise<AudioRecording | undefined> {
+    const [updated] = await db
+      .update(audioRecordings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(audioRecordings.id, id))
+      .returning();
+    return updated;
   }
 }
 
