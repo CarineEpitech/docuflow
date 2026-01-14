@@ -12,6 +12,8 @@ import Link from "@tiptap/extension-link";
 import { ResizableImage } from "./ResizableImage";
 import { VideoEmbed, extractVideoInfo } from "./VideoEmbed";
 import { FileAttachment } from "./FileAttachment";
+import { AudioPlayer, setAudioPlayer } from "./AudioPlayer";
+import { AudioRecorder } from "./AudioRecorder";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Dropcursor from "@tiptap/extension-dropcursor";
 import { common, createLowlight } from "lowlight";
@@ -38,6 +40,7 @@ import {
   Video,
   Loader2,
   Paperclip,
+  Mic,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -95,6 +98,8 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
   const [videoUrl, setVideoUrl] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
@@ -137,6 +142,7 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
       ResizableImage,
       VideoEmbed,
       FileAttachment,
+      AudioPlayer,
       CodeBlockLowlight.configure({
         lowlight,
         defaultLanguage: "javascript",
@@ -755,8 +761,75 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
             <Paperclip className="w-4 h-4" />
           )}
         </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("h-8 w-8", isRecordingAudio && "bg-accent")}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            savedSelectionRef.current = { from: editor.state.selection.from, to: editor.state.selection.to };
+            setIsRecordingAudio(true);
+          }}
+          data-testid="button-record-audio"
+        >
+          <Mic className="w-4 h-4" />
+        </Button>
         </div>
       </div>
+
+      {isRecordingAudio && (
+        <div className="px-4 pb-2">
+          <AudioRecorder
+            isUploading={isUploadingAudio}
+            onCancel={() => {
+              setIsRecordingAudio(false);
+              savedSelectionRef.current = null;
+            }}
+            onRecordingComplete={async (audioBlob) => {
+              setIsUploadingAudio(true);
+              try {
+                const uploadUrlRes = await fetch("/api/objects/upload", {
+                  method: "POST",
+                  credentials: "include",
+                });
+                if (!uploadUrlRes.ok) throw new Error("Failed to get upload URL");
+                const { uploadURL } = await uploadUrlRes.json();
+
+                const uploadRes = await fetch(uploadURL, {
+                  method: "PUT",
+                  body: audioBlob,
+                  headers: { "Content-Type": "audio/webm" },
+                });
+                if (!uploadRes.ok) throw new Error("Failed to upload audio");
+
+                const audioRes = await fetch("/api/audio/upload", {
+                  method: "POST",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ audioUrl: uploadURL.split("?")[0] }),
+                });
+                if (!audioRes.ok) throw new Error("Failed to save audio");
+                const audioData = await audioRes.json();
+
+                if (savedSelectionRef.current) {
+                  setAudioPlayer(editor, {
+                    src: audioData.audioUrl,
+                    transcriptStatus: "processing",
+                    recordingId: audioData.id,
+                  });
+                }
+
+                setIsRecordingAudio(false);
+              } catch (error) {
+                console.error("Error uploading audio:", error);
+              } finally {
+                setIsUploadingAudio(false);
+                savedSelectionRef.current = null;
+              }
+            }}
+          />
+        </div>
+      )}
 
       <div className="relative flex-1 overflow-auto pt-4">
         <EditorContent editor={editor} />
