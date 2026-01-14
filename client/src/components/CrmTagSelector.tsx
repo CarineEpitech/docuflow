@@ -53,6 +53,7 @@ export function CrmTagSelector({ crmProjectId, projectTags, onTagsChange }: CrmT
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", crmProjectId, "tags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       onTagsChange?.();
     },
     onError: () => {
@@ -66,6 +67,7 @@ export function CrmTagSelector({ crmProjectId, projectTags, onTagsChange }: CrmT
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", crmProjectId, "tags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       onTagsChange?.();
     },
     onError: () => {
@@ -96,6 +98,7 @@ export function CrmTagSelector({ crmProjectId, projectTags, onTagsChange }: CrmT
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/tags"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", crmProjectId, "tags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       setEditingTag(null);
       onTagsChange?.();
       toast({ title: "Tag updated" });
@@ -112,6 +115,7 @@ export function CrmTagSelector({ crmProjectId, projectTags, onTagsChange }: CrmT
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/tags"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", crmProjectId, "tags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       onTagsChange?.();
       toast({ title: "Tag deleted" });
     },
