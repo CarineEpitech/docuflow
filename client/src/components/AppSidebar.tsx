@@ -147,7 +147,7 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    isActive={location === "/company-documents"}
+                    isActive={location === "/company-documents" || location.startsWith("/company-documents/")}
                     className="h-9 rounded-md"
                   >
                     <Link
@@ -196,7 +196,7 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={location === "/admin"}
+                      isActive={location === "/admin" || location.startsWith("/admin/")}
                       className="h-9 rounded-md"
                     >
                       <Link
