@@ -7,6 +7,7 @@ import {
   crmClients,
   crmContacts,
   crmProjectNotes,
+  crmProjectStageHistory,
   companyDocuments,
   companyDocumentFolders,
   teams,
@@ -30,6 +31,9 @@ import {
   type CrmProjectNote,
   type InsertCrmProjectNote,
   type CrmProjectNoteWithCreator,
+  type CrmProjectStageHistory,
+  type InsertCrmProjectStageHistory,
+  type CrmProjectStageHistoryWithUser,
   type CompanyDocument,
   type InsertCompanyDocument,
   type CompanyDocumentWithUploader,
@@ -168,6 +172,10 @@ export interface IStorage {
   createCrmProjectNote(note: InsertCrmProjectNote): Promise<CrmProjectNote>;
   updateCrmProjectNote(id: string, data: Partial<InsertCrmProjectNote>): Promise<CrmProjectNote | undefined>;
   deleteCrmProjectNote(id: string): Promise<void>;
+  
+  // CRM Project Stage History
+  getCrmProjectStageHistory(crmProjectId: string): Promise<CrmProjectStageHistoryWithUser[]>;
+  createCrmProjectStageHistory(history: InsertCrmProjectStageHistory): Promise<CrmProjectStageHistory>;
   
   // Notifications
   getUserNotifications(userId: string): Promise<NotificationWithDetails[]>;
@@ -1431,6 +1439,42 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCrmProjectNote(id: string): Promise<void> {
     await db.delete(crmProjectNotes).where(eq(crmProjectNotes.id, id));
+  }
+
+  async getCrmProjectStageHistory(crmProjectId: string): Promise<CrmProjectStageHistoryWithUser[]> {
+    const history = await db
+      .select()
+      .from(crmProjectStageHistory)
+      .where(eq(crmProjectStageHistory.crmProjectId, crmProjectId))
+      .orderBy(desc(crmProjectStageHistory.changedAt));
+    
+    const historyWithUsers: CrmProjectStageHistoryWithUser[] = [];
+    for (const record of history) {
+      const [user] = await db.select().from(users).where(eq(users.id, record.changedById));
+      historyWithUsers.push({
+        ...record,
+        changedBy: user ? {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImageUrl: user.profileImageUrl,
+          role: user.role,
+          hoursPerDay: user.hoursPerDay,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        } : undefined,
+      });
+    }
+    return historyWithUsers;
+  }
+
+  async createCrmProjectStageHistory(history: InsertCrmProjectStageHistory): Promise<CrmProjectStageHistory> {
+    const [created] = await db
+      .insert(crmProjectStageHistory)
+      .values(history)
+      .returning();
+    return created;
   }
 
   async getUserNotifications(userId: string): Promise<NotificationWithDetails[]> {

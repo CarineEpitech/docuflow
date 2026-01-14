@@ -1486,7 +1486,27 @@ Instructions:
       const newAssigneeId = parsed.data.assigneeId;
       const isNewAssignment = newAssigneeId && newAssigneeId !== oldAssigneeId && newAssigneeId !== userId;
       
+      // Check if status is changing for stage history
+      const oldStatus = crmProject.status;
+      const newStatus = parsed.data.status;
+      const isStatusChange = newStatus !== undefined && newStatus !== oldStatus;
+      
       const updated = await storage.updateCrmProject(req.params.id, updateData);
+      
+      // Record stage history if status changed
+      if (isStatusChange && updated) {
+        try {
+          await storage.createCrmProjectStageHistory({
+            crmProjectId: req.params.id,
+            fromStatus: oldStatus,
+            toStatus: newStatus,
+            changedById: userId,
+          });
+        } catch (historyError) {
+          console.error("Error recording stage history:", historyError);
+          // Don't fail the update if history recording fails
+        }
+      }
       
       // Send notification and email if assignee changed
       if (isNewAssignment && updated) {
@@ -1565,6 +1585,19 @@ Instructions:
     } catch (error) {
       console.error("Error deleting CRM project:", error);
       res.status(500).json({ message: "Failed to delete CRM project" });
+    }
+  });
+
+  // ==================== CRM Project Stage History ====================
+
+  // Get stage history for a CRM project
+  app.get("/api/crm/projects/:id/stage-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const history = await storage.getCrmProjectStageHistory(req.params.id);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching CRM project stage history:", error);
+      res.status(500).json({ message: "Failed to fetch stage history" });
     }
   });
 
