@@ -448,6 +448,7 @@ export type CrmProjectWithDetails = CrmProject & {
   client?: CrmClient & { contacts?: CrmContact[] };
   assignee?: SafeUser;
   latestNote?: CrmProjectNoteWithCreator;
+  tags?: CrmTag[];
 };
 
 // CRM Project Stage History table - tracks status changes over time
@@ -485,6 +486,56 @@ export type InsertCrmProjectStageHistory = z.infer<typeof insertCrmProjectStageH
 export type CrmProjectStageHistoryWithUser = CrmProjectStageHistory & {
   changedBy?: SafeUser;
 };
+
+// CRM Tags table - tags for distinguishing projects (like Zoho CRM)
+export const crmTags = pgTable("crm_tags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  color: varchar("color", { length: 20 }).notNull().default("#6366f1"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_tags_name").on(table.name),
+]);
+
+export const insertCrmTagSchema = createInsertSchema(crmTags).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CrmTag = typeof crmTags.$inferSelect;
+export type InsertCrmTag = z.infer<typeof insertCrmTagSchema>;
+
+// CRM Project Tags junction table - links tags to projects
+export const crmProjectTags = pgTable("crm_project_tags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  crmProjectId: varchar("crm_project_id").notNull().references(() => crmProjects.id, { onDelete: "cascade" }),
+  tagId: varchar("tag_id").notNull().references(() => crmTags.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_project_tags_project").on(table.crmProjectId),
+  index("idx_crm_project_tags_tag").on(table.tagId),
+]);
+
+export const crmProjectTagsRelations = relations(crmProjectTags, ({ one }) => ({
+  crmProject: one(crmProjects, {
+    fields: [crmProjectTags.crmProjectId],
+    references: [crmProjects.id],
+  }),
+  tag: one(crmTags, {
+    fields: [crmProjectTags.tagId],
+    references: [crmTags.id],
+  }),
+}));
+
+export const insertCrmProjectTagSchema = createInsertSchema(crmProjectTags).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type CrmProjectTag = typeof crmProjectTags.$inferSelect;
+export type InsertCrmProjectTag = z.infer<typeof insertCrmProjectTagSchema>;
 
 // Company Document Folders table - folders for organizing company documents
 export const companyDocumentFolders = pgTable("company_document_folders", {
