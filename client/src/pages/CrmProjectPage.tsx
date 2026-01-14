@@ -50,7 +50,8 @@ import {
   Plus,
   StickyNote,
   X,
-  Send
+  Send,
+  History
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
@@ -60,7 +61,8 @@ import type {
   SafeUser,
   CrmProjectStatus,
   CrmProjectType,
-  CrmProjectNoteWithCreator
+  CrmProjectNoteWithCreator,
+  CrmProjectStageHistoryWithUser
 } from "@shared/schema";
 import { NoteInput } from "@/components/NoteInput";
 
@@ -226,6 +228,7 @@ export default function CrmProjectPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId, "stage-history"] });
       setHasChanges(false);
       setIsEditing(false);
       toast({ title: "Project updated successfully" });
@@ -291,6 +294,16 @@ export default function CrmProjectPage() {
     queryFn: async () => {
       const res = await fetch(`/api/crm/projects/${projectId}/notes`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch notes");
+      return res.json();
+    },
+    enabled: !!projectId,
+  });
+
+  const { data: stageHistory = [], isLoading: stageHistoryLoading } = useQuery<CrmProjectStageHistoryWithUser[]>({
+    queryKey: ["/api/crm/projects", projectId, "stage-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/crm/projects/${projectId}/stage-history`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch stage history");
       return res.json();
     },
     enabled: !!projectId,
@@ -924,6 +937,63 @@ export default function CrmProjectPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Stage History Section */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2">
+            <History className="w-5 h-5" />
+            Stage History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stageHistoryLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Loading history...</p>
+          ) : stageHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No stage changes recorded yet.</p>
+          ) : (
+            <div className="space-y-3 max-h-60 overflow-y-auto">
+              {stageHistory.map((record) => (
+                <div 
+                  key={record.id} 
+                  className="flex items-start gap-3 p-3 bg-muted/50 rounded-md"
+                  data-testid={`stage-history-${record.id}`}
+                >
+                  <Avatar className="w-8 h-8 flex-shrink-0 border border-border">
+                    <AvatarImage src={record.changedBy?.profileImageUrl || undefined} />
+                    <AvatarFallback className="text-xs bg-muted">
+                      {record.changedBy?.firstName?.[0]}{record.changedBy?.lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium">
+                        {record.changedBy?.firstName} {record.changedBy?.lastName}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {record.changedAt ? format(new Date(record.changedAt), "PPP 'at' p") : ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {record.fromStatus && (
+                        <>
+                          <Badge variant={crmStatusConfig[record.fromStatus as CrmProjectStatus]?.variant || "outline"} className="text-xs">
+                            {crmStatusConfig[record.fromStatus as CrmProjectStatus]?.label || record.fromStatus}
+                          </Badge>
+                          <span className="text-muted-foreground">→</span>
+                        </>
+                      )}
+                      <Badge variant={crmStatusConfig[record.toStatus as CrmProjectStatus]?.variant || "outline"} className="text-xs">
+                        {crmStatusConfig[record.toStatus as CrmProjectStatus]?.label || record.toStatus}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Project Notes Section - Chat Style */}
       <Card className="flex flex-col">
