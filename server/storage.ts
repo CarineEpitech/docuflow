@@ -10,6 +10,9 @@ import {
   crmProjectStageHistory,
   crmTags,
   crmProjectTags,
+  crmModules,
+  crmModuleFields,
+  crmCustomFieldValues,
   companyDocuments,
   companyDocumentFolders,
   teams,
@@ -40,6 +43,13 @@ import {
   type CrmTag,
   type InsertCrmTag,
   type CrmProjectTag,
+  type CrmModule,
+  type InsertCrmModule,
+  type CrmModuleField,
+  type InsertCrmModuleField,
+  type CrmModuleWithFields,
+  type CrmCustomFieldValue,
+  type InsertCrmCustomFieldValue,
   type CompanyDocument,
   type InsertCompanyDocument,
   type CompanyDocumentWithUploader,
@@ -209,6 +219,24 @@ export interface IStorage {
   getCrmProjectTags(crmProjectId: string): Promise<CrmTag[]>;
   addTagToProject(crmProjectId: string, tagId: string): Promise<CrmProjectTag>;
   removeTagFromProject(crmProjectId: string, tagId: string): Promise<void>;
+  
+  // CRM Modules
+  getCrmModules(): Promise<CrmModuleWithFields[]>;
+  getCrmModule(id: string): Promise<CrmModuleWithFields | undefined>;
+  createCrmModule(module: InsertCrmModule): Promise<CrmModule>;
+  updateCrmModule(id: string, data: Partial<InsertCrmModule>): Promise<CrmModule | undefined>;
+  deleteCrmModule(id: string): Promise<void>;
+  
+  // CRM Module Fields
+  getCrmModuleFields(moduleId: string): Promise<CrmModuleField[]>;
+  getCrmModuleField(id: string): Promise<CrmModuleField | undefined>;
+  createCrmModuleField(field: InsertCrmModuleField): Promise<CrmModuleField>;
+  updateCrmModuleField(id: string, data: Partial<InsertCrmModuleField>): Promise<CrmModuleField | undefined>;
+  deleteCrmModuleField(id: string): Promise<void>;
+  
+  // CRM Custom Field Values
+  getCrmProjectCustomFields(crmProjectId: string): Promise<CrmCustomFieldValue[]>;
+  setCrmProjectCustomField(crmProjectId: string, fieldId: string, value: string | null): Promise<CrmCustomFieldValue>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1662,6 +1690,106 @@ export class DatabaseStorage implements IStorage {
         eq(crmProjectTags.tagId, tagId)
       )
     );
+  }
+
+  // CRM Modules
+  async getCrmModules(): Promise<CrmModuleWithFields[]> {
+    const modules = await db.select().from(crmModules).orderBy(asc(crmModules.displayOrder), asc(crmModules.name));
+    const fields = await db.select().from(crmModuleFields).orderBy(asc(crmModuleFields.displayOrder), asc(crmModuleFields.name));
+    
+    return modules.map(mod => ({
+      ...mod,
+      fields: fields.filter(f => f.moduleId === mod.id),
+    }));
+  }
+
+  async getCrmModule(id: string): Promise<CrmModuleWithFields | undefined> {
+    const [mod] = await db.select().from(crmModules).where(eq(crmModules.id, id));
+    if (!mod) return undefined;
+    
+    const fields = await db.select().from(crmModuleFields).where(eq(crmModuleFields.moduleId, id)).orderBy(asc(crmModuleFields.displayOrder), asc(crmModuleFields.name));
+    return { ...mod, fields };
+  }
+
+  async createCrmModule(module: InsertCrmModule): Promise<CrmModule> {
+    const [newMod] = await db.insert(crmModules).values({
+      ...module,
+      id: randomUUID(),
+    }).returning();
+    return newMod;
+  }
+
+  async updateCrmModule(id: string, data: Partial<InsertCrmModule>): Promise<CrmModule | undefined> {
+    const [updated] = await db
+      .update(crmModules)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(crmModules.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCrmModule(id: string): Promise<void> {
+    await db.delete(crmModules).where(eq(crmModules.id, id));
+  }
+
+  // CRM Module Fields
+  async getCrmModuleFields(moduleId: string): Promise<CrmModuleField[]> {
+    return await db.select().from(crmModuleFields).where(eq(crmModuleFields.moduleId, moduleId)).orderBy(asc(crmModuleFields.displayOrder), asc(crmModuleFields.name));
+  }
+
+  async getCrmModuleField(id: string): Promise<CrmModuleField | undefined> {
+    const [field] = await db.select().from(crmModuleFields).where(eq(crmModuleFields.id, id));
+    return field;
+  }
+
+  async createCrmModuleField(field: InsertCrmModuleField): Promise<CrmModuleField> {
+    const [newField] = await db.insert(crmModuleFields).values({
+      ...field,
+      id: randomUUID(),
+    }).returning();
+    return newField;
+  }
+
+  async updateCrmModuleField(id: string, data: Partial<InsertCrmModuleField>): Promise<CrmModuleField | undefined> {
+    const [updated] = await db
+      .update(crmModuleFields)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(crmModuleFields.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCrmModuleField(id: string): Promise<void> {
+    await db.delete(crmModuleFields).where(eq(crmModuleFields.id, id));
+  }
+
+  // CRM Custom Field Values
+  async getCrmProjectCustomFields(crmProjectId: string): Promise<CrmCustomFieldValue[]> {
+    return await db.select().from(crmCustomFieldValues).where(eq(crmCustomFieldValues.crmProjectId, crmProjectId));
+  }
+
+  async setCrmProjectCustomField(crmProjectId: string, fieldId: string, value: string | null): Promise<CrmCustomFieldValue> {
+    const existing = await db
+      .select()
+      .from(crmCustomFieldValues)
+      .where(and(eq(crmCustomFieldValues.crmProjectId, crmProjectId), eq(crmCustomFieldValues.fieldId, fieldId)));
+    
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(crmCustomFieldValues)
+        .set({ value, updatedAt: new Date() })
+        .where(and(eq(crmCustomFieldValues.crmProjectId, crmProjectId), eq(crmCustomFieldValues.fieldId, fieldId)))
+        .returning();
+      return updated;
+    } else {
+      const [newVal] = await db.insert(crmCustomFieldValues).values({
+        id: randomUUID(),
+        crmProjectId,
+        fieldId,
+        value,
+      }).returning();
+      return newVal;
+    }
   }
 }
 
