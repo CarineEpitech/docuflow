@@ -3029,6 +3029,177 @@ Instructions:
     }
   });
 
+  // ==================== Admin Modules & Fields ====================
+
+  // Get all CRM modules with their fields
+  app.get("/api/admin/modules", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const modules = await storage.getCrmModules();
+      res.json(modules);
+    } catch (error) {
+      console.error("Error fetching modules:", error);
+      res.status(500).json({ message: "Failed to fetch modules" });
+    }
+  });
+
+  // Get a single module with fields
+  app.get("/api/admin/modules/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const mod = await storage.getCrmModule(req.params.id);
+      if (!mod) {
+        return res.status(404).json({ message: "Module not found" });
+      }
+      res.json(mod);
+    } catch (error) {
+      console.error("Error fetching module:", error);
+      res.status(500).json({ message: "Failed to fetch module" });
+    }
+  });
+
+  // Create a new module
+  const createModuleSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    slug: z.string().min(1, "Slug is required"),
+    description: z.string().optional(),
+    icon: z.string().optional(),
+    isEnabled: z.number().optional(),
+    displayOrder: z.number().optional(),
+  });
+
+  app.post("/api/admin/modules", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const parsed = createModuleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0].message });
+      }
+      
+      const newModule = await storage.createCrmModule({
+        ...parsed.data,
+        isSystem: 0,
+      });
+      res.status(201).json(newModule);
+    } catch (error) {
+      console.error("Error creating module:", error);
+      res.status(500).json({ message: "Failed to create module" });
+    }
+  });
+
+  // Update a module
+  app.patch("/api/admin/modules/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const mod = await storage.getCrmModule(req.params.id);
+      if (!mod) {
+        return res.status(404).json({ message: "Module not found" });
+      }
+      
+      const updated = await storage.updateCrmModule(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating module:", error);
+      res.status(500).json({ message: "Failed to update module" });
+    }
+  });
+
+  // Delete a module
+  app.delete("/api/admin/modules/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const mod = await storage.getCrmModule(req.params.id);
+      if (!mod) {
+        return res.status(404).json({ message: "Module not found" });
+      }
+      
+      if (mod.isSystem === 1) {
+        return res.status(403).json({ message: "Cannot delete system module" });
+      }
+      
+      await storage.deleteCrmModule(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting module:", error);
+      res.status(500).json({ message: "Failed to delete module" });
+    }
+  });
+
+  // Get fields for a module
+  app.get("/api/admin/modules/:moduleId/fields", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const fields = await storage.getCrmModuleFields(req.params.moduleId);
+      res.json(fields);
+    } catch (error) {
+      console.error("Error fetching fields:", error);
+      res.status(500).json({ message: "Failed to fetch fields" });
+    }
+  });
+
+  // Create a field for a module
+  const createFieldSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    slug: z.string().min(1, "Slug is required"),
+    fieldType: z.string().default("text"),
+    description: z.string().optional(),
+    placeholder: z.string().optional(),
+    defaultValue: z.string().optional(),
+    options: z.array(z.string()).optional(),
+    isRequired: z.number().optional(),
+    isEnabled: z.number().optional(),
+    displayOrder: z.number().optional(),
+  });
+
+  app.post("/api/admin/modules/:moduleId/fields", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const parsed = createFieldSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0].message });
+      }
+      
+      const newField = await storage.createCrmModuleField({
+        ...parsed.data,
+        moduleId: req.params.moduleId,
+        isSystem: 0,
+      });
+      res.status(201).json(newField);
+    } catch (error) {
+      console.error("Error creating field:", error);
+      res.status(500).json({ message: "Failed to create field" });
+    }
+  });
+
+  // Update a field
+  app.patch("/api/admin/fields/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const field = await storage.getCrmModuleField(req.params.id);
+      if (!field) {
+        return res.status(404).json({ message: "Field not found" });
+      }
+      
+      const updated = await storage.updateCrmModuleField(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating field:", error);
+      res.status(500).json({ message: "Failed to update field" });
+    }
+  });
+
+  // Delete a field
+  app.delete("/api/admin/fields/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const field = await storage.getCrmModuleField(req.params.id);
+      if (!field) {
+        return res.status(404).json({ message: "Field not found" });
+      }
+      
+      if (field.isSystem === 1) {
+        return res.status(403).json({ message: "Cannot delete system field" });
+      }
+      
+      await storage.deleteCrmModuleField(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting field:", error);
+      res.status(500).json({ message: "Failed to delete field" });
+    }
+  });
+
   // ==================== Notifications ====================
   
   app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
