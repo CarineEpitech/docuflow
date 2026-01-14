@@ -8,6 +8,8 @@ import {
   crmContacts,
   crmProjectNotes,
   crmProjectStageHistory,
+  crmTags,
+  crmProjectTags,
   companyDocuments,
   companyDocumentFolders,
   teams,
@@ -35,6 +37,9 @@ import {
   type CrmProjectStageHistory,
   type InsertCrmProjectStageHistory,
   type CrmProjectStageHistoryWithUser,
+  type CrmTag,
+  type InsertCrmTag,
+  type CrmProjectTag,
   type CompanyDocument,
   type InsertCompanyDocument,
   type CompanyDocumentWithUploader,
@@ -191,6 +196,18 @@ export interface IStorage {
   getAudioRecording(id: string): Promise<AudioRecording | undefined>;
   createAudioRecording(recording: InsertAudioRecording): Promise<AudioRecording>;
   updateAudioRecording(id: string, data: Partial<InsertAudioRecording>): Promise<AudioRecording | undefined>;
+  
+  // CRM Tags
+  getAllCrmTags(): Promise<CrmTag[]>;
+  getCrmTag(id: string): Promise<CrmTag | undefined>;
+  createCrmTag(tag: InsertCrmTag): Promise<CrmTag>;
+  updateCrmTag(id: string, data: Partial<InsertCrmTag>): Promise<CrmTag | undefined>;
+  deleteCrmTag(id: string): Promise<void>;
+  
+  // CRM Project Tags
+  getCrmProjectTags(crmProjectId: string): Promise<CrmTag[]>;
+  addTagToProject(crmProjectId: string, tagId: string): Promise<CrmProjectTag>;
+  removeTagFromProject(crmProjectId: string, tagId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1559,6 +1576,66 @@ export class DatabaseStorage implements IStorage {
       .where(eq(audioRecordings.id, id))
       .returning();
     return updated;
+  }
+
+  // CRM Tags
+  async getAllCrmTags(): Promise<CrmTag[]> {
+    return await db.select().from(crmTags).orderBy(asc(crmTags.name));
+  }
+
+  async getCrmTag(id: string): Promise<CrmTag | undefined> {
+    const [tag] = await db.select().from(crmTags).where(eq(crmTags.id, id));
+    return tag;
+  }
+
+  async createCrmTag(tag: InsertCrmTag): Promise<CrmTag> {
+    const [newTag] = await db.insert(crmTags).values({
+      ...tag,
+      id: randomUUID(),
+    }).returning();
+    return newTag;
+  }
+
+  async updateCrmTag(id: string, data: Partial<InsertCrmTag>): Promise<CrmTag | undefined> {
+    const [updated] = await db
+      .update(crmTags)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(crmTags.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCrmTag(id: string): Promise<void> {
+    await db.delete(crmTags).where(eq(crmTags.id, id));
+  }
+
+  // CRM Project Tags
+  async getCrmProjectTags(crmProjectId: string): Promise<CrmTag[]> {
+    const results = await db
+      .select({ tag: crmTags })
+      .from(crmProjectTags)
+      .innerJoin(crmTags, eq(crmProjectTags.tagId, crmTags.id))
+      .where(eq(crmProjectTags.crmProjectId, crmProjectId))
+      .orderBy(asc(crmTags.name));
+    return results.map(r => r.tag);
+  }
+
+  async addTagToProject(crmProjectId: string, tagId: string): Promise<CrmProjectTag> {
+    const [projectTag] = await db.insert(crmProjectTags).values({
+      id: randomUUID(),
+      crmProjectId,
+      tagId,
+    }).returning();
+    return projectTag;
+  }
+
+  async removeTagFromProject(crmProjectId: string, tagId: string): Promise<void> {
+    await db.delete(crmProjectTags).where(
+      and(
+        eq(crmProjectTags.crmProjectId, crmProjectId),
+        eq(crmProjectTags.tagId, tagId)
+      )
+    );
   }
 }
 
