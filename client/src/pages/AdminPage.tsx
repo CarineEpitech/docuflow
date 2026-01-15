@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -1437,6 +1438,53 @@ function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onB
   );
 }
 
+const OPTION_COLORS = [
+  { value: "#6366f1", label: "Indigo" },
+  { value: "#8b5cf6", label: "Violet" },
+  { value: "#a855f7", label: "Purple" },
+  { value: "#d946ef", label: "Fuchsia" },
+  { value: "#ec4899", label: "Pink" },
+  { value: "#f43f5e", label: "Rose" },
+  { value: "#ef4444", label: "Red" },
+  { value: "#f97316", label: "Orange" },
+  { value: "#f59e0b", label: "Amber" },
+  { value: "#eab308", label: "Yellow" },
+  { value: "#84cc16", label: "Lime" },
+  { value: "#22c55e", label: "Green" },
+  { value: "#10b981", label: "Emerald" },
+  { value: "#14b8a6", label: "Teal" },
+  { value: "#06b6d4", label: "Cyan" },
+  { value: "#0ea5e9", label: "Sky" },
+  { value: "#3b82f6", label: "Blue" },
+  { value: "#64748b", label: "Slate" },
+  { value: "#71717a", label: "Zinc" },
+  { value: "#737373", label: "Neutral" },
+];
+
+interface OptionWithColor {
+  label: string;
+  color: string;
+}
+
+function parseOptions(options: string[] | null): OptionWithColor[] {
+  if (!options || options.length === 0) return [];
+  return options.map(opt => {
+    try {
+      const parsed = JSON.parse(opt);
+      if (parsed && typeof parsed === 'object' && parsed.label) {
+        return { label: parsed.label, color: parsed.color || "#64748b" };
+      }
+    } catch {
+      // Legacy format: just a string
+    }
+    return { label: opt, color: "#64748b" };
+  });
+}
+
+function serializeOptions(options: OptionWithColor[]): string[] {
+  return options.map(opt => JSON.stringify({ label: opt.label, color: opt.color }));
+}
+
 function FieldDetailView({ field, module, onBack }: { field: CrmModuleField; module: CrmModuleWithFields; onBack: () => void }) {
   const { toast } = useToast();
   const [fieldForm, setFieldForm] = useState({
@@ -1450,7 +1498,10 @@ function FieldDetailView({ field, module, onBack }: { field: CrmModuleField; mod
     isRequired: field.isRequired,
     isEnabled: field.isEnabled,
   });
-  const [optionsText, setOptionsText] = useState((field.options || []).join("\n"));
+  
+  const [optionItems, setOptionItems] = useState<OptionWithColor[]>(parseOptions(field.options));
+  const [newOptionLabel, setNewOptionLabel] = useState("");
+  const [newOptionColor, setNewOptionColor] = useState("#64748b");
 
   const updateFieldMutation = useMutation({
     mutationFn: async (data: Partial<typeof fieldForm>) => {
@@ -1480,10 +1531,31 @@ function FieldDetailView({ field, module, onBack }: { field: CrmModuleField; mod
     },
   });
 
-  const handleOptionsChange = (text: string) => {
-    setOptionsText(text);
-    const opts = text.split("\n").map(o => o.trim()).filter(o => o.length > 0);
-    setFieldForm(f => ({ ...f, options: opts }));
+  const addOption = () => {
+    if (!newOptionLabel.trim()) return;
+    const newOptions = [...optionItems, { label: newOptionLabel.trim(), color: newOptionColor }];
+    setOptionItems(newOptions);
+    setFieldForm(f => ({ ...f, options: serializeOptions(newOptions) }));
+    setNewOptionLabel("");
+    setNewOptionColor("#64748b");
+  };
+
+  const removeOption = (index: number) => {
+    const newOptions = optionItems.filter((_, i) => i !== index);
+    setOptionItems(newOptions);
+    setFieldForm(f => ({ ...f, options: serializeOptions(newOptions) }));
+  };
+
+  const updateOptionColor = (index: number, color: string) => {
+    const newOptions = optionItems.map((opt, i) => i === index ? { ...opt, color } : opt);
+    setOptionItems(newOptions);
+    setFieldForm(f => ({ ...f, options: serializeOptions(newOptions) }));
+  };
+
+  const updateOptionLabel = (index: number, label: string) => {
+    const newOptions = optionItems.map((opt, i) => i === index ? { ...opt, label } : opt);
+    setOptionItems(newOptions);
+    setFieldForm(f => ({ ...f, options: serializeOptions(newOptions) }));
   };
 
   return (
@@ -1551,16 +1623,104 @@ function FieldDetailView({ field, module, onBack }: { field: CrmModuleField; mod
           </div>
 
           {(fieldForm.fieldType === "select" || fieldForm.fieldType === "multiselect") && (
-            <div className="space-y-2">
+            <div className="space-y-4">
               <Label>Options</Label>
-              <Textarea
-                value={optionsText}
-                onChange={(e) => handleOptionsChange(e.target.value)}
-                placeholder="Enter options, one per line"
-                rows={5}
-                data-testid="input-field-options"
-              />
-              <p className="text-xs text-muted-foreground">Enter each option on a new line</p>
+              
+              {optionItems.length > 0 && (
+                <div className="space-y-2">
+                  {optionItems.map((opt, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 border rounded-lg" data-testid={`option-${index}`}>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="w-8 h-8 rounded-md border shrink-0"
+                            style={{ backgroundColor: opt.color }}
+                            data-testid={`option-color-trigger-${index}`}
+                          />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-3" align="start">
+                          <div className="grid grid-cols-5 gap-2">
+                            {OPTION_COLORS.map((c) => (
+                              <button
+                                key={c.value}
+                                type="button"
+                                className={`w-8 h-8 rounded-md border-2 ${opt.color === c.value ? 'border-foreground' : 'border-transparent'}`}
+                                style={{ backgroundColor: c.value }}
+                                onClick={() => updateOptionColor(index, c.value)}
+                                title={c.label}
+                                data-testid={`color-${c.value}`}
+                              />
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        value={opt.label}
+                        onChange={(e) => updateOptionLabel(index, e.target.value)}
+                        className="flex-1"
+                        data-testid={`option-label-${index}`}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeOption(index)}
+                        data-testid={`option-remove-${index}`}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 p-2 border rounded-lg border-dashed">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-8 h-8 rounded-md border shrink-0"
+                      style={{ backgroundColor: newOptionColor }}
+                      data-testid="new-option-color-trigger"
+                    />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-3" align="start">
+                    <div className="grid grid-cols-5 gap-2">
+                      {OPTION_COLORS.map((c) => (
+                        <button
+                          key={c.value}
+                          type="button"
+                          className={`w-8 h-8 rounded-md border-2 ${newOptionColor === c.value ? 'border-foreground' : 'border-transparent'}`}
+                          style={{ backgroundColor: c.value }}
+                          onClick={() => setNewOptionColor(c.value)}
+                          title={c.label}
+                        />
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Input
+                  value={newOptionLabel}
+                  onChange={(e) => setNewOptionLabel(e.target.value)}
+                  placeholder="Add new option..."
+                  className="flex-1"
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addOption())}
+                  data-testid="new-option-input"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addOption}
+                  disabled={!newOptionLabel.trim()}
+                  data-testid="button-add-option"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Click the color swatch to change the background color of each option</p>
             </div>
           )}
 
