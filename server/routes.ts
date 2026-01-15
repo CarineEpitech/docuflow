@@ -3029,6 +3029,23 @@ Instructions:
     }
   });
 
+  // ==================== Public Module Fields (for frontend consumption) ====================
+  
+  // Get module fields by slug (public endpoint for authenticated users)
+  app.get("/api/modules/:slug/fields", isAuthenticated, async (req: any, res) => {
+    try {
+      const modules = await storage.getCrmModules();
+      const mod = modules.find(m => m.slug === req.params.slug);
+      if (!mod) {
+        return res.status(404).json({ message: "Module not found" });
+      }
+      res.json(mod.fields || []);
+    } catch (error) {
+      console.error("Error fetching module fields:", error);
+      res.status(500).json({ message: "Failed to fetch module fields" });
+    }
+  });
+
   // ==================== Admin Modules & Fields ====================
 
   // Get all CRM modules with their fields

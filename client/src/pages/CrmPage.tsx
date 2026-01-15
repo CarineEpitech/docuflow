@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -49,38 +49,50 @@ import type {
   CrmProjectWithDetails, 
   CrmClient, 
   CrmProjectStatus,
-  CrmTag
+  CrmTag,
+  CrmModuleField
 } from "@shared/schema";
 
-const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  lead: { label: "Lead", variant: "secondary" },
-  discovering_call_completed: { label: "Discovering Call Completed", variant: "outline" },
-  proposal_sent: { label: "Proposal Sent", variant: "outline" },
-  follow_up: { label: "Follow Up", variant: "outline" },
-  in_negotiation: { label: "In Negotiation", variant: "outline" },
-  won: { label: "Won", variant: "default" },
-  won_not_started: { label: "Won - Not Started", variant: "default" },
-  won_in_progress: { label: "Won - In Progress", variant: "default" },
-  won_in_review: { label: "Won - In Review", variant: "default" },
-  won_completed: { label: "Won - Completed", variant: "default" },
-  lost: { label: "Lost", variant: "destructive" },
-  won_cancelled: { label: "Won-Cancelled", variant: "destructive" },
-};
+// Helper to parse field options from database format
+interface ParsedOption {
+  value: string;
+  label: string;
+  color: string;
+}
 
-const statusOptions: CrmProjectStatus[] = [
-  "lead",
-  "discovering_call_completed",
-  "proposal_sent",
-  "follow_up",
-  "in_negotiation",
-  "won",
-  "won_not_started",
-  "won_in_progress",
-  "won_in_review",
-  "won_completed",
-  "lost",
-  "won_cancelled"
-];
+function parseFieldOptions(options: string[] | null): ParsedOption[] {
+  if (!options || options.length === 0) return [];
+  return options.map(opt => {
+    try {
+      const parsed = JSON.parse(opt);
+      if (parsed && typeof parsed === 'object' && parsed.label) {
+        // New JSON format with label and color
+        const value = parsed.label.toLowerCase().replace(/[\s-]+/g, '_').replace(/[^a-z0-9_]/g, '');
+        return { value, label: parsed.label, color: parsed.color || "#64748b" };
+      }
+    } catch {
+      // Legacy format: just a string
+    }
+    const value = opt.toLowerCase().replace(/[\s-]+/g, '_').replace(/[^a-z0-9_]/g, '');
+    return { value, label: opt, color: "#64748b" };
+  });
+}
+
+// Fallback static config (used if API hasn't loaded yet)
+const fallbackStatusConfig: Record<string, { label: string; color: string }> = {
+  lead: { label: "Lead", color: "#64748b" },
+  discovering_call_completed: { label: "Discovering Call Completed", color: "#8b5cf6" },
+  proposal_sent: { label: "Proposal Sent", color: "#f59e0b" },
+  follow_up: { label: "Follow Up", color: "#06b6d4" },
+  in_negotiation: { label: "In Negotiation", color: "#3b82f6" },
+  won: { label: "Won", color: "#22c55e" },
+  won_not_started: { label: "Won - Not Started", color: "#10b981" },
+  won_in_progress: { label: "Won - In Progress", color: "#14b8a6" },
+  won_in_review: { label: "Won - In Review", color: "#0ea5e9" },
+  won_completed: { label: "Won - Completed", color: "#84cc16" },
+  lost: { label: "Lost", color: "#ef4444" },
+  won_cancelled: { label: "Won-Cancelled", color: "#f43f5e" },
+};
 
 // Contact status configuration
 const contactStatusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -143,6 +155,31 @@ export default function CrmPage() {
   const { data: clients = [], isLoading: clientsLoading } = useQuery<CrmClient[]>({
     queryKey: ["/api/crm/clients"],
   });
+
+  // Fetch project module fields for dynamic status options
+  const { data: projectFields = [] } = useQuery<CrmModuleField[]>({
+    queryKey: ["/api/modules/projects/fields"],
+  });
+
+  // Parse status options from database
+  const { statusOptions, statusConfig } = useMemo(() => {
+    const statusField = projectFields.find(f => f.slug === "status");
+    if (statusField && statusField.options && statusField.options.length > 0) {
+      const parsed = parseFieldOptions(statusField.options);
+      const config: Record<string, { label: string; color: string }> = {};
+      const options: string[] = [];
+      parsed.forEach(opt => {
+        config[opt.value] = { label: opt.label, color: opt.color };
+        options.push(opt.value);
+      });
+      return { statusOptions: options, statusConfig: config };
+    }
+    // Fallback to static config
+    return { 
+      statusOptions: Object.keys(fallbackStatusConfig), 
+      statusConfig: fallbackStatusConfig 
+    };
+  }, [projectFields]);
 
   // Fetch all projects for Kanban view
   const { data: allProjectsData } = useQuery<CrmProjectsResponse>({
@@ -329,7 +366,7 @@ export default function CrmPage() {
                     <SelectItem value="all">All Statuses</SelectItem>
                     {statusOptions.map(status => (
                       <SelectItem key={status} value={status}>
-                        {crmStatusConfig[status].label}
+                        {statusConfig[status]?.label || status}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -404,8 +441,10 @@ export default function CrmPage() {
                         <div className="bg-muted rounded-lg p-3">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                              <Badge variant={crmStatusConfig[status].variant}>
-                                {crmStatusConfig[status].label}
+                              <Badge 
+                                style={{ backgroundColor: statusConfig[status]?.color || "#64748b", color: "white" }}
+                              >
+                                {statusConfig[status]?.label || status}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
                                 {projectsInColumn.length}
@@ -598,8 +637,11 @@ export default function CrmPage() {
                               )}
                             </td>
                             <td className="px-4 py-3">
-                              <Badge variant={crmStatusConfig[crmProject.status as CrmProjectStatus].variant} className="text-xs">
-                                {crmStatusConfig[crmProject.status as CrmProjectStatus].label}
+                              <Badge 
+                                className="text-xs"
+                                style={{ backgroundColor: statusConfig[crmProject.status]?.color || "#64748b", color: "white" }}
+                              >
+                                {statusConfig[crmProject.status]?.label || crmProject.status}
                               </Badge>
                             </td>
                             <td className="px-4 py-3">
