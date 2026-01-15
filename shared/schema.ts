@@ -782,6 +782,8 @@ export const crmProjectNotes = pgTable("crm_project_notes", {
   audioTranscript: text("audio_transcript"),
   transcriptStatus: varchar("transcript_status", { length: 20 }), // pending, processing, completed, error
   audioRecordingId: varchar("audio_recording_id"),
+  // File attachments (stored as JSON array: [{url, filename, filesize, filetype}])
+  attachments: text("attachments"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
