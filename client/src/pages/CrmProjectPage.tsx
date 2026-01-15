@@ -818,7 +818,7 @@ export default function CrmProjectPage() {
                       <FileText className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm font-medium">Description:</span>
                     </div>
-                    <p className="text-sm text-muted-foreground pl-6" data-testid="text-project-description">{formData.description}</p>
+                    <p className="text-sm text-muted-foreground pl-6 break-all" data-testid="text-project-description">{formData.description}</p>
                   </div>
                 )}
 
@@ -828,7 +828,7 @@ export default function CrmProjectPage() {
                       <MessageSquare className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm font-medium">Comments:</span>
                     </div>
-                    <p className="text-sm text-muted-foreground pl-6 whitespace-pre-wrap" data-testid="text-project-comments">{formData.comments}</p>
+                    <p className="text-sm text-muted-foreground pl-6 whitespace-pre-wrap break-all" data-testid="text-project-comments">{formData.comments}</p>
                   </div>
                 )}
               </div>
