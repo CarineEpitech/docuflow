@@ -377,6 +377,7 @@ export default function CrmProjectPage() {
   const [newNoteContent, setNewNoteContent] = useState("");
   const [newNoteMentions, setNewNoteMentions] = useState<string[]>([]);
   const [newNoteAttachments, setNewNoteAttachments] = useState<NoteAttachment[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<{id: string; filename: string; filetype: string; progress: number; previewUrl?: string}[]>([]);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteContent, setEditNoteContent] = useState("");
   const [editNoteMentions, setEditNoteMentions] = useState<string[]>([]);
@@ -1368,95 +1369,188 @@ export default function CrmProjectPage() {
                 }}
               />
             ) : (
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <NoteInput
-                    value={newNoteContent}
-                    onChange={setNewNoteContent}
-                    users={users}
-                    mentionedUserIds={newNoteMentions}
-                    onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
-                    onSubmit={handleAddNote}
-                    placeholder="Type a message... (@ to mention)"
-                    testId="textarea-new-note"
-                    attachments={newNoteAttachments}
-                    onAttachmentsChange={setNewNoteAttachments}
-                    showAttachButton={false}
-                  />
-                </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => document.getElementById('note-file-input')?.click()}
-                  className="h-10 w-10 flex-shrink-0 rounded-full"
-                  data-testid="button-attach-file"
-                >
-                  <Paperclip className="w-5 h-5" />
-                </Button>
-                <input
-                  id="note-file-input"
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={async (e) => {
-                    const files = e.target.files;
-                    if (!files || files.length === 0) return;
-                    
-                    for (const file of Array.from(files)) {
-                      try {
-                        const uploadUrlRes = await fetch("/api/objects/upload-public", {
-                          method: "POST",
-                          credentials: "include",
-                        });
-                        if (!uploadUrlRes.ok) throw new Error("Failed to get upload URL");
-                        const { uploadURL } = await uploadUrlRes.json();
+              <div className="flex flex-col gap-2">
+                {/* Uploading files preview - WhatsApp style */}
+                {uploadingFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-2 bg-muted/50 rounded-lg">
+                    {uploadingFiles.map((file) => (
+                      <div 
+                        key={file.id} 
+                        className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted border border-border"
+                        data-testid={`uploading-file-${file.id}`}
+                      >
+                        {file.previewUrl ? (
+                          <img src={file.previewUrl} alt={file.filename} className="w-full h-full object-cover opacity-60" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center opacity-60">
+                            {file.filetype.startsWith("video/") ? <Video className="w-6 h-6" /> :
+                             file.filetype.startsWith("audio/") ? <Music className="w-6 h-6" /> :
+                             file.filetype.includes("pdf") ? <FileText className="w-6 h-6" /> :
+                             <File className="w-6 h-6" />}
+                          </div>
+                        )}
+                        {/* Circular progress overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <svg className="w-10 h-10 transform -rotate-90">
+                            <circle
+                              cx="20"
+                              cy="20"
+                              r="16"
+                              fill="none"
+                              stroke="rgba(255,255,255,0.3)"
+                              strokeWidth="3"
+                            />
+                            <circle
+                              cx="20"
+                              cy="20"
+                              r="16"
+                              fill="none"
+                              stroke="#22c55e"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeDasharray={`${2 * Math.PI * 16}`}
+                              strokeDashoffset={`${2 * Math.PI * 16 * (1 - file.progress / 100)}`}
+                              className="transition-all duration-200"
+                            />
+                          </svg>
+                          <span className="absolute text-[10px] font-medium text-white">
+                            {Math.round(file.progress)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <NoteInput
+                      value={newNoteContent}
+                      onChange={setNewNoteContent}
+                      users={users}
+                      mentionedUserIds={newNoteMentions}
+                      onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
+                      onSubmit={handleAddNote}
+                      placeholder="Type a message... (@ to mention)"
+                      testId="textarea-new-note"
+                      attachments={newNoteAttachments}
+                      onAttachmentsChange={setNewNoteAttachments}
+                      showAttachButton={false}
+                    />
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => document.getElementById('note-file-input')?.click()}
+                    className="h-10 w-10 flex-shrink-0 rounded-full"
+                    data-testid="button-attach-file"
+                    disabled={uploadingFiles.length > 0}
+                  >
+                    <Paperclip className="w-5 h-5" />
+                  </Button>
+                  <input
+                    id="note-file-input"
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = e.target.files;
+                      if (!files || files.length === 0) return;
+                      
+                      for (const file of Array.from(files)) {
+                        const fileId = `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                        const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
                         
-                        const uploadRes = await fetch(uploadURL, {
-                          method: "PUT",
-                          body: file,
-                          headers: { "Content-Type": file.type || "application/octet-stream" },
-                        });
-                        if (!uploadRes.ok) throw new Error("Failed to upload file");
-                        
-                        const fileUrl = uploadURL.split("?")[0];
-                        
-                        setNewNoteAttachments(prev => [...prev, {
-                          url: fileUrl,
+                        // Add to uploading files immediately
+                        setUploadingFiles(prev => [...prev, {
+                          id: fileId,
                           filename: file.name,
-                          filesize: file.size,
                           filetype: file.type || "application/octet-stream",
+                          progress: 0,
+                          previewUrl
                         }]);
-                      } catch (error) {
-                        console.error("Error uploading file:", error);
-                        toast({ title: "Failed to upload file", variant: "destructive" });
+                        
+                        try {
+                          const uploadUrlRes = await fetch("/api/objects/upload-public", {
+                            method: "POST",
+                            credentials: "include",
+                          });
+                          if (!uploadUrlRes.ok) throw new Error("Failed to get upload URL");
+                          const { uploadURL } = await uploadUrlRes.json();
+                          
+                          // Use XMLHttpRequest for progress tracking
+                          await new Promise<void>((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+                            
+                            xhr.upload.addEventListener("progress", (event) => {
+                              if (event.lengthComputable) {
+                                const progress = Math.round((event.loaded / event.total) * 100);
+                                setUploadingFiles(prev => prev.map(f => 
+                                  f.id === fileId ? { ...f, progress } : f
+                                ));
+                              }
+                            });
+                            
+                            xhr.addEventListener("load", () => {
+                              if (xhr.status >= 200 && xhr.status < 300) {
+                                resolve();
+                              } else {
+                                reject(new Error("Upload failed"));
+                              }
+                            });
+                            
+                            xhr.addEventListener("error", () => reject(new Error("Upload failed")));
+                            
+                            xhr.open("PUT", uploadURL);
+                            xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+                            xhr.send(file);
+                          });
+                          
+                          const fileUrl = uploadURL.split("?")[0];
+                          
+                          // Remove from uploading, add to attachments
+                          setUploadingFiles(prev => prev.filter(f => f.id !== fileId));
+                          if (previewUrl) URL.revokeObjectURL(previewUrl);
+                          
+                          setNewNoteAttachments(prev => [...prev, {
+                            url: fileUrl,
+                            filename: file.name,
+                            filesize: file.size,
+                            filetype: file.type || "application/octet-stream",
+                          }]);
+                        } catch (error) {
+                          console.error("Error uploading file:", error);
+                          setUploadingFiles(prev => prev.filter(f => f.id !== fileId));
+                          if (previewUrl) URL.revokeObjectURL(previewUrl);
+                          toast({ title: "Failed to upload file", variant: "destructive" });
+                        }
                       }
-                    }
-                    e.target.value = "";
-                  }}
-                  data-testid="input-note-file"
-                />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setIsRecordingNote(true)}
-                  className="h-10 w-10 flex-shrink-0 rounded-full"
-                  data-testid="button-record-note"
-                >
-                  <Mic className="w-5 h-5" />
-                </Button>
-                <Button
-                  size="icon"
-                  onClick={handleAddNote}
-                  disabled={(!newNoteContent.trim() && newNoteAttachments.length === 0) || createNoteMutation.isPending}
-                  data-testid="button-add-note"
-                  className="h-10 w-10 flex-shrink-0 rounded-full"
-                >
-                  {createNoteMutation.isPending ? (
-                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5" />
-                  )}
-                </Button>
+                      e.target.value = "";
+                    }}
+                    data-testid="input-note-file"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setIsRecordingNote(true)}
+                    className="h-10 w-10 flex-shrink-0 rounded-full"
+                    data-testid="button-record-note"
+                  >
+                    <Mic className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    onClick={handleAddNote}
+                    disabled={(!newNoteContent.trim() && newNoteAttachments.length === 0) || createNoteMutation.isPending || uploadingFiles.length > 0}
+                    data-testid="button-add-note"
+                    className="h-10 w-10 flex-shrink-0 rounded-full"
+                  >
+                    {createNoteMutation.isPending ? (
+                      <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </Button>
+                </div>
               </div>
             )}
           </div>
