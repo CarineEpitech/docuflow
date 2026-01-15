@@ -1,6 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Paperclip, X, FileText, Image as ImageIcon, Video, Music, File } from "lucide-react";
 import type { SafeUser } from "@shared/schema";
+
+export interface NoteAttachment {
+  url: string;
+  filename: string;
+  filesize: number;
+  filetype: string;
+}
 
 interface NoteInputProps {
   value: string;
@@ -13,6 +22,17 @@ interface NoteInputProps {
   className?: string;
   testId?: string;
   autoFocus?: boolean;
+  attachments?: NoteAttachment[];
+  onAttachmentsChange?: (attachments: NoteAttachment[]) => void;
+  showAttachButton?: boolean;
+}
+
+interface StagedFile {
+  file: File;
+  id: string;
+  uploading: boolean;
+  progress: number;
+  error?: string;
 }
 
 export function NoteInput({
@@ -26,14 +46,20 @@ export function NoteInput({
   className = "",
   testId,
   autoFocus = false,
+  attachments = [],
+  onAttachmentsChange,
+  showAttachButton = true,
 }: NoteInputProps) {
   const [isFocused, setIsFocused] = useState(autoFocus);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
   const [mentionStartPos, setMentionStartPos] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const getUserDisplayName = (user: SafeUser) => {
@@ -190,10 +216,9 @@ export function NoteInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    // Handle Enter to submit when dropdown is not showing
     if (e.key === "Enter" && !e.shiftKey && !showMentionDropdown) {
       e.preventDefault();
-      if (onSubmit && value.trim()) {
+      if (onSubmit && (value.trim() || attachments.length > 0 || stagedFiles.length > 0)) {
         onSubmit();
       }
       return;
@@ -272,57 +297,230 @@ export function NoteInput({
     }
   };
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
+  const getFileIcon = (filetype: string) => {
+    if (filetype.startsWith("image/")) return <ImageIcon className="w-4 h-4" />;
+    if (filetype.startsWith("video/")) return <Video className="w-4 h-4" />;
+    if (filetype.startsWith("audio/")) return <Music className="w-4 h-4" />;
+    if (filetype.includes("pdf") || filetype.includes("document") || filetype.includes("word")) {
+      return <FileText className="w-4 h-4" />;
+    }
+    return <File className="w-4 h-4" />;
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const newStagedFiles: StagedFile[] = Array.from(files).map(file => ({
+      file,
+      id: Math.random().toString(36).substring(7),
+      uploading: false,
+      progress: 0,
+    }));
+    
+    setStagedFiles(prev => [...prev, ...newStagedFiles]);
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    setIsUploading(true);
+    const uploadedAttachments: NoteAttachment[] = [];
+    
+    for (const stagedFile of newStagedFiles) {
+      try {
+        setStagedFiles(prev => prev.map(f => 
+          f.id === stagedFile.id ? { ...f, uploading: true } : f
+        ));
+        
+        const uploadUrlRes = await fetch("/api/objects/upload", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!uploadUrlRes.ok) throw new Error("Failed to get upload URL");
+        const { uploadURL } = await uploadUrlRes.json();
+        
+        const uploadRes = await fetch(uploadURL, {
+          method: "PUT",
+          body: stagedFile.file,
+          headers: { "Content-Type": stagedFile.file.type || "application/octet-stream" },
+        });
+        if (!uploadRes.ok) throw new Error("Failed to upload file");
+        
+        const fileUrl = uploadURL.split("?")[0];
+        
+        uploadedAttachments.push({
+          url: fileUrl,
+          filename: stagedFile.file.name,
+          filesize: stagedFile.file.size,
+          filetype: stagedFile.file.type || "application/octet-stream",
+        });
+        
+        setStagedFiles(prev => prev.filter(f => f.id !== stagedFile.id));
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        setStagedFiles(prev => prev.map(f => 
+          f.id === stagedFile.id ? { ...f, uploading: false, error: "Upload failed" } : f
+        ));
+      }
+    }
+    
+    setIsUploading(false);
+    
+    if (uploadedAttachments.length > 0 && onAttachmentsChange) {
+      onAttachmentsChange([...attachments, ...uploadedAttachments]);
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    if (onAttachmentsChange) {
+      onAttachmentsChange(attachments.filter((_, i) => i !== index));
+    }
+  };
+
+  const removeStagedFile = (id: string) => {
+    setStagedFiles(prev => prev.filter(f => f.id !== id));
+  };
+
   return (
     <div className="relative">
-      <div
-        ref={editorRef}
-        contentEditable
-        onInput={handleInput}
-        onKeyDown={handleKeyDown}
-        onFocus={() => setIsFocused(true)}
-        onBlur={handleBlur}
-        data-placeholder={placeholder}
-        className={`min-h-[40px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background 
-          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
-          disabled:cursor-not-allowed disabled:opacity-50 overflow-auto whitespace-pre-wrap
-          empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground
-          transition-all duration-200 ${
-            isFocused || value ? "min-h-[80px]" : "min-h-[40px]"
-          } ${className}`}
-        data-testid={testId}
-        suppressContentEditableWarning
-      />
-      
-      {showMentionDropdown && filteredUsers.length > 0 && (
-        <div
-          ref={dropdownRef}
-          className="absolute left-0 bottom-full mb-1 z-50 w-[240px] rounded-md border bg-popover shadow-md"
-        >
-          <ScrollArea className="max-h-[200px]">
-            <div className="p-1">
-              {filteredUsers.map((user, index) => (
-                <div
-                  key={user.id}
-                  ref={(el) => (itemRefs.current[index] = el)}
-                  onClick={() => handleSelectUser(user)}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  className={`flex flex-col cursor-pointer rounded-sm px-2 py-1.5 text-sm ${
-                    index === selectedIndex
-                      ? "bg-accent text-accent-foreground"
-                      : "hover:bg-accent hover:text-accent-foreground"
-                  }`}
-                  data-testid={`mention-option-${user.id}`}
-                >
-                  <span>{getUserDisplayName(user)}</span>
-                  {user.email && (
-                    <span className="text-xs text-muted-foreground">{user.email}</span>
-                  )}
-                </div>
-              ))}
+      {(attachments.length > 0 || stagedFiles.length > 0) && (
+        <div className="flex flex-wrap gap-2 mb-2 p-2 bg-muted/50 rounded-md">
+          {attachments.map((attachment, index) => (
+            <div 
+              key={`attachment-${index}`}
+              className="flex items-center gap-2 bg-background border rounded-md px-2 py-1 text-sm"
+              data-testid={`attachment-${index}`}
+            >
+              {getFileIcon(attachment.filetype)}
+              <span className="max-w-[120px] truncate">{attachment.filename}</span>
+              <span className="text-xs text-muted-foreground">({formatFileSize(attachment.filesize)})</span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-5 w-5"
+                onClick={() => removeAttachment(index)}
+                data-testid={`button-remove-attachment-${index}`}
+              >
+                <X className="w-3 h-3" />
+              </Button>
             </div>
-          </ScrollArea>
+          ))}
+          {stagedFiles.map((stagedFile) => (
+            <div 
+              key={stagedFile.id}
+              className={`flex items-center gap-2 border rounded-md px-2 py-1 text-sm ${
+                stagedFile.error ? 'bg-destructive/10 border-destructive' : 'bg-background'
+              }`}
+            >
+              {getFileIcon(stagedFile.file.type)}
+              <span className="max-w-[120px] truncate">{stagedFile.file.name}</span>
+              {stagedFile.uploading && (
+                <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              )}
+              {stagedFile.error && (
+                <span className="text-xs text-destructive">{stagedFile.error}</span>
+              )}
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-5 w-5"
+                onClick={() => removeStagedFile(stagedFile.id)}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          ))}
         </div>
       )}
+      
+      <div className="flex gap-2 items-end">
+        <div className="flex-1 relative">
+          <div
+            ref={editorRef}
+            contentEditable
+            onInput={handleInput}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={handleBlur}
+            data-placeholder={placeholder}
+            className={`min-h-[40px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background 
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+              disabled:cursor-not-allowed disabled:opacity-50 overflow-auto whitespace-pre-wrap
+              empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground
+              transition-all duration-200 ${
+                isFocused || value ? "min-h-[80px]" : "min-h-[40px]"
+              } ${className}`}
+            data-testid={testId}
+            suppressContentEditableWarning
+          />
+          
+          {showMentionDropdown && filteredUsers.length > 0 && (
+            <div
+              ref={dropdownRef}
+              className="absolute left-0 bottom-full mb-1 z-50 w-[240px] rounded-md border bg-popover shadow-md"
+            >
+              <ScrollArea className="max-h-[200px]">
+                <div className="p-1">
+                  {filteredUsers.map((user, index) => (
+                    <div
+                      key={user.id}
+                      ref={(el) => (itemRefs.current[index] = el)}
+                      onClick={() => handleSelectUser(user)}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      className={`flex flex-col cursor-pointer rounded-sm px-2 py-1.5 text-sm ${
+                        index === selectedIndex
+                          ? "bg-accent text-accent-foreground"
+                          : "hover:bg-accent hover:text-accent-foreground"
+                      }`}
+                      data-testid={`mention-option-${user.id}`}
+                    >
+                      <span>{getUserDisplayName(user)}</span>
+                      {user.email && (
+                        <span className="text-xs text-muted-foreground">{user.email}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+        </div>
+        
+        {showAttachButton && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+              data-testid="input-file-attachment"
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="h-10 w-10 flex-shrink-0 rounded-full"
+              disabled={isUploading}
+              data-testid="button-attach-file"
+            >
+              {isUploading ? (
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Paperclip className="w-5 h-5" />
+              )}
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
