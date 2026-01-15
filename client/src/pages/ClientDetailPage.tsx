@@ -36,40 +36,62 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { phoneFormatConfig, phoneFormatOptions, formatPhoneNumber, formatPhoneAsYouType, type PhoneFormat } from "@/lib/phoneFormat";
+import type { CrmModuleField } from "@shared/schema";
 
-const contactStatusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  lead: { label: "Lead", variant: "secondary" },
-  prospect: { label: "Prospect", variant: "outline" },
-  client: { label: "Client", variant: "default" },
-  client_recurrent: { label: "Client Récurrent", variant: "default" },
+// Helper to parse field options from database format
+interface ParsedOption {
+  value: string;
+  label: string;
+  color: string;
+}
+
+function parseFieldOptions(options: string[] | null): ParsedOption[] {
+  if (!options || options.length === 0) return [];
+  return options.map(opt => {
+    try {
+      const parsed = JSON.parse(opt);
+      if (parsed && typeof parsed === 'object' && parsed.label) {
+        const value = parsed.label.toLowerCase().replace(/[\s-]+/g, '_').replace(/[^a-z0-9_]/g, '');
+        return { value, label: parsed.label, color: parsed.color || "#64748b" };
+      }
+    } catch {
+      // Legacy format: just a string
+    }
+    const value = opt.toLowerCase().replace(/[\s-]+/g, '_').replace(/[^a-z0-9_]/g, '');
+    return { value, label: opt, color: "#64748b" };
+  });
+}
+
+// Fallback configurations (used if API hasn't loaded yet)
+const fallbackContactStatusConfig: Record<string, { label: string; color: string }> = {
+  lead: { label: "Lead", color: "#64748b" },
+  prospect: { label: "Prospect", color: "#8b5cf6" },
+  client: { label: "Client", color: "#22c55e" },
+  client_recurrent: { label: "Client Récurrent", color: "#14b8a6" },
 };
 
-const projectStatusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  lead: { label: "Lead", variant: "secondary" },
-  discovering_call_completed: { label: "Discovery Call Completed", variant: "outline" },
-  proposal_sent: { label: "Proposal Sent", variant: "outline" },
-  follow_up: { label: "Follow Up", variant: "outline" },
-  in_negotiation: { label: "In Negotiation", variant: "outline" },
-  won: { label: "Won", variant: "default" },
-  won_not_started: { label: "Won - Not Started", variant: "default" },
-  won_in_progress: { label: "Won - In Progress", variant: "default" },
-  won_in_review: { label: "Won - In Review", variant: "outline" },
-  won_completed: { label: "Won - Completed", variant: "default" },
-  lost: { label: "Lost", variant: "destructive" },
-  won_cancelled: { label: "Won - Cancelled", variant: "destructive" },
+const fallbackProjectStatusConfig: Record<string, { label: string; color: string }> = {
+  lead: { label: "Lead", color: "#64748b" },
+  discovering_call_completed: { label: "Discovery Call Completed", color: "#8b5cf6" },
+  proposal_sent: { label: "Proposal Sent", color: "#f59e0b" },
+  follow_up: { label: "Follow Up", color: "#06b6d4" },
+  in_negotiation: { label: "In Negotiation", color: "#3b82f6" },
+  won: { label: "Won", color: "#22c55e" },
+  won_not_started: { label: "Won - Not Started", color: "#10b981" },
+  won_in_progress: { label: "Won - In Progress", color: "#14b8a6" },
+  won_in_review: { label: "Won - In Review", color: "#0ea5e9" },
+  won_completed: { label: "Won - Completed", color: "#84cc16" },
+  lost: { label: "Lost", color: "#ef4444" },
+  won_cancelled: { label: "Won - Cancelled", color: "#f43f5e" },
 };
 
-const contactStatusOptions = ["lead", "prospect", "client", "client_recurrent"];
-
-const clientSourceConfig: Record<string, { label: string }> = {
-  fiverr: { label: "Fiverr" },
-  zoho: { label: "Zoho" },
-  direct: { label: "Direct" },
+const fallbackSourceConfig: Record<string, { label: string; color: string }> = {
+  fiverr: { label: "Fiverr", color: "#1dbf73" },
+  zoho: { label: "Zoho", color: "#e42527" },
+  direct: { label: "Direct", color: "#3b82f6" },
 };
-
-const clientSourceOptions = ["fiverr", "zoho", "direct"];
 
 interface CrmClient {
   id: string;
@@ -166,6 +188,67 @@ export default function ClientDetailPage() {
       return data.data || [];
     },
   });
+
+  // Fetch module fields for dynamic options
+  const { data: contactFields = [] } = useQuery<CrmModuleField[]>({
+    queryKey: ["/api/modules/contacts/fields"],
+  });
+
+  const { data: projectFields = [] } = useQuery<CrmModuleField[]>({
+    queryKey: ["/api/modules/projects/fields"],
+  });
+
+  // Parse contact status options from database
+  const { contactStatusOptions, contactStatusConfig } = useMemo(() => {
+    const statusField = contactFields.find(f => f.slug === "status");
+    if (statusField && statusField.options && statusField.options.length > 0) {
+      const parsed = parseFieldOptions(statusField.options);
+      const config: Record<string, { label: string; color: string }> = {};
+      const options: string[] = [];
+      parsed.forEach(opt => {
+        config[opt.value] = { label: opt.label, color: opt.color };
+        options.push(opt.value);
+      });
+      return { contactStatusOptions: options, contactStatusConfig: config };
+    }
+    return { 
+      contactStatusOptions: Object.keys(fallbackContactStatusConfig), 
+      contactStatusConfig: fallbackContactStatusConfig 
+    };
+  }, [contactFields]);
+
+  // Parse project status options from database
+  const projectStatusConfig = useMemo(() => {
+    const statusField = projectFields.find(f => f.slug === "status");
+    if (statusField && statusField.options && statusField.options.length > 0) {
+      const parsed = parseFieldOptions(statusField.options);
+      const config: Record<string, { label: string; color: string }> = {};
+      parsed.forEach(opt => {
+        config[opt.value] = { label: opt.label, color: opt.color };
+      });
+      return config;
+    }
+    return fallbackProjectStatusConfig;
+  }, [projectFields]);
+
+  // Parse source options from database
+  const { sourceOptions, sourceConfig } = useMemo(() => {
+    const sourceField = contactFields.find(f => f.slug === "source");
+    if (sourceField && sourceField.options && sourceField.options.length > 0) {
+      const parsed = parseFieldOptions(sourceField.options);
+      const config: Record<string, { label: string; color: string }> = {};
+      const options: string[] = [];
+      parsed.forEach(opt => {
+        config[opt.value] = { label: opt.label, color: opt.color };
+        options.push(opt.value);
+      });
+      return { sourceOptions: options, sourceConfig: config };
+    }
+    return { 
+      sourceOptions: Object.keys(fallbackSourceConfig), 
+      sourceConfig: fallbackSourceConfig 
+    };
+  }, [contactFields]);
 
   const relatedContacts = allClients.filter(c => 
     c.id !== id && 
@@ -390,7 +473,7 @@ export default function ClientDetailPage() {
               <h1 className="text-xl md:text-2xl font-bold truncate" data-testid="text-contact-name">{client.name}</h1>
               {client.status && (
                 <Badge 
-                  variant={contactStatusConfig[client.status]?.variant || "secondary"}
+                  style={{ backgroundColor: contactStatusConfig[client.status]?.color || "#64748b", color: "white" }}
                   data-testid="badge-contact-status"
                 >
                   {contactStatusConfig[client.status]?.label || client.status}
@@ -544,7 +627,14 @@ export default function ClientDetailPage() {
                   <SelectContent>
                     {contactStatusOptions.map((status) => (
                       <SelectItem key={status} value={status}>
-                        {contactStatusConfig[status]?.label || status}
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            className="text-xs"
+                            style={{ backgroundColor: contactStatusConfig[status]?.color || "#64748b", color: "white" }}
+                          >
+                            {contactStatusConfig[status]?.label || status}
+                          </Badge>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -565,9 +655,16 @@ export default function ClientDetailPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_none">No source</SelectItem>
-                    {clientSourceOptions.map((source) => (
+                    {sourceOptions.map((source) => (
                       <SelectItem key={source} value={source}>
-                        {clientSourceConfig[source]?.label || source}
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            className="text-xs"
+                            style={{ backgroundColor: sourceConfig[source]?.color || "#64748b", color: "white" }}
+                          >
+                            {sourceConfig[source]?.label || source}
+                          </Badge>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -659,7 +756,7 @@ export default function ClientDetailPage() {
                   <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">Source</p>
                     <p className={`font-medium ${!client.source ? 'text-muted-foreground italic' : ''}`} data-testid="text-client-source">
-                      {client.source ? (clientSourceConfig[client.source]?.label || client.source) : "Not provided"}
+                      {client.source ? (sourceConfig[client.source]?.label || client.source) : "Not provided"}
                     </p>
                   </div>
                 </div>
@@ -768,7 +865,9 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 justify-between sm:justify-end flex-shrink-0">
-                    <Badge variant={projectStatusConfig[crmProject.status]?.variant || "secondary"}>
+                    <Badge 
+                      style={{ backgroundColor: projectStatusConfig[crmProject.status]?.color || "#64748b", color: "white" }}
+                    >
                       {projectStatusConfig[crmProject.status]?.label || crmProject.status}
                     </Badge>
                     <Button
@@ -867,7 +966,9 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 justify-between sm:justify-end flex-shrink-0">
-                    <Badge variant={contactStatusConfig[contact.status || "lead"]?.variant || "secondary"}>
+                    <Badge 
+                      style={{ backgroundColor: contactStatusConfig[contact.status || "lead"]?.color || "#64748b", color: "white" }}
+                    >
                       {contactStatusConfig[contact.status || "lead"]?.label || contact.status}
                     </Badge>
                   </div>
