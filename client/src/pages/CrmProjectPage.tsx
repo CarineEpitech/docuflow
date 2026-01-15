@@ -58,10 +58,17 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
-  Tag
+  Tag,
+  Paperclip,
+  Image as ImageIcon,
+  Video,
+  Music,
+  File,
+  Download
 } from "lucide-react";
 import { AudioRecorder } from "@/components/editor/AudioRecorder";
 import { NoteAudioPlayer } from "@/components/NoteAudioPlayer";
+import type { NoteAttachment } from "@/components/NoteInput";
 import { Link } from "wouter";
 import type { 
   CrmProjectWithDetails, 
@@ -369,6 +376,7 @@ export default function CrmProjectPage() {
   // Notes state and queries
   const [newNoteContent, setNewNoteContent] = useState("");
   const [newNoteMentions, setNewNoteMentions] = useState<string[]>([]);
+  const [newNoteAttachments, setNewNoteAttachments] = useState<NoteAttachment[]>([]);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteContent, setEditNoteContent] = useState("");
   const [editNoteMentions, setEditNoteMentions] = useState<string[]>([]);
@@ -397,7 +405,7 @@ export default function CrmProjectPage() {
   });
 
   const createNoteMutation = useMutation({
-    mutationFn: async (data: { content: string; mentionedUserIds?: string[]; audioUrl?: string; audioRecordingId?: string; transcriptStatus?: string }) => {
+    mutationFn: async (data: { content: string; mentionedUserIds?: string[]; audioUrl?: string; audioRecordingId?: string; transcriptStatus?: string; attachments?: NoteAttachment[] }) => {
       return apiRequest("POST", `/api/crm/projects/${projectId}/notes`, data);
     },
     onSuccess: () => {
@@ -405,6 +413,7 @@ export default function CrmProjectPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId] });
       setNewNoteContent("");
       setNewNoteMentions([]);
+      setNewNoteAttachments([]);
       toast({ title: "Note added" });
     },
     onError: () => {
@@ -489,10 +498,11 @@ export default function CrmProjectPage() {
   };
 
   const handleAddNote = () => {
-    if (!newNoteContent.trim()) return;
+    if (!newNoteContent.trim() && newNoteAttachments.length === 0) return;
     createNoteMutation.mutate({ 
-      content: newNoteContent.trim(),
-      mentionedUserIds: newNoteMentions.length > 0 ? newNoteMentions : undefined
+      content: newNoteContent.trim() || (newNoteAttachments.length > 0 ? "File attachment" : ""),
+      mentionedUserIds: newNoteMentions.length > 0 ? newNoteMentions : undefined,
+      attachments: newNoteAttachments.length > 0 ? newNoteAttachments : undefined
     });
   };
 
@@ -1197,15 +1207,79 @@ export default function CrmProjectPage() {
                                 isCurrentUser={isCurrentUser}
                               />
                             ) : (
-                              <p className="text-sm whitespace-pre-wrap">
-                                {note.content.split(/(@[\w-]+(?:\s+[\w-]+)?)/g).map((part, i) => 
-                                  part.startsWith('@') ? (
-                                    <span key={i} className={`font-semibold ${isCurrentUser ? 'text-primary-foreground/90' : 'text-primary'}`}>{part}</span>
-                                  ) : (
-                                    <span key={i}>{part}</span>
-                                  )
+                              <>
+                                {note.content && note.content !== "File attachment" && (
+                                  <p className="text-sm whitespace-pre-wrap">
+                                    {note.content.split(/(@[\w-]+(?:\s+[\w-]+)?)/g).map((part, i) => 
+                                      part.startsWith('@') ? (
+                                        <span key={i} className={`font-semibold ${isCurrentUser ? 'text-primary-foreground/90' : 'text-primary'}`}>{part}</span>
+                                      ) : (
+                                        <span key={i}>{part}</span>
+                                      )
+                                    )}
+                                  </p>
                                 )}
-                              </p>
+                                {note.attachments && (() => {
+                                  try {
+                                    const attachments: NoteAttachment[] = JSON.parse(note.attachments);
+                                    if (attachments.length === 0) return null;
+                                    
+                                    const formatFileSize = (bytes: number) => {
+                                      if (bytes < 1024) return bytes + " B";
+                                      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+                                      return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+                                    };
+                                    
+                                    const getFileIcon = (filetype: string) => {
+                                      if (filetype.startsWith("image/")) return <ImageIcon className="w-4 h-4" />;
+                                      if (filetype.startsWith("video/")) return <Video className="w-4 h-4" />;
+                                      if (filetype.startsWith("audio/")) return <Music className="w-4 h-4" />;
+                                      if (filetype.includes("pdf") || filetype.includes("document") || filetype.includes("word")) {
+                                        return <FileText className="w-4 h-4" />;
+                                      }
+                                      return <File className="w-4 h-4" />;
+                                    };
+                                    
+                                    return (
+                                      <div className={`flex flex-col gap-2 ${note.content && note.content !== "File attachment" ? 'mt-2 pt-2 border-t border-border/30' : ''}`}>
+                                        {attachments.map((att, idx) => (
+                                          <a
+                                            key={idx}
+                                            href={att.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-colors ${
+                                              isCurrentUser 
+                                                ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' 
+                                                : 'bg-background/50 hover:bg-background/80'
+                                            }`}
+                                            data-testid={`attachment-link-${idx}`}
+                                          >
+                                            {att.filetype.startsWith("image/") ? (
+                                              <img 
+                                                src={att.url} 
+                                                alt={att.filename} 
+                                                className="w-16 h-16 object-cover rounded"
+                                              />
+                                            ) : (
+                                              getFileIcon(att.filetype)
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                              <div className="truncate font-medium">{att.filename}</div>
+                                              <div className={`text-xs ${isCurrentUser ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                                {formatFileSize(att.filesize)}
+                                              </div>
+                                            </div>
+                                            <Download className="w-4 h-4 flex-shrink-0" />
+                                          </a>
+                                        ))}
+                                      </div>
+                                    );
+                                  } catch {
+                                    return null;
+                                  }
+                                })()}
+                              </>
                             )}
                             <div className={`absolute top-1 ${isCurrentUser ? '-left-14' : '-right-14'} flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity`}>
                               <Button
@@ -1294,41 +1368,95 @@ export default function CrmProjectPage() {
                 }}
               />
             ) : (
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <NoteInput
-                    value={newNoteContent}
-                    onChange={setNewNoteContent}
-                    users={users}
-                    mentionedUserIds={newNoteMentions}
-                    onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
-                    onSubmit={handleAddNote}
-                    placeholder="Type a message... (@ to mention)"
-                    testId="textarea-new-note"
+              <div className="flex flex-col gap-2">
+                <NoteInput
+                  value={newNoteContent}
+                  onChange={setNewNoteContent}
+                  users={users}
+                  mentionedUserIds={newNoteMentions}
+                  onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
+                  onSubmit={handleAddNote}
+                  placeholder="Type a message... (@ to mention)"
+                  testId="textarea-new-note"
+                  attachments={newNoteAttachments}
+                  onAttachmentsChange={setNewNoteAttachments}
+                  showAttachButton={false}
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => document.getElementById('note-file-input')?.click()}
+                    className="h-10 w-10 flex-shrink-0 rounded-full"
+                    data-testid="button-attach-file"
+                  >
+                    <Paperclip className="w-5 h-5" />
+                  </Button>
+                  <input
+                    id="note-file-input"
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = e.target.files;
+                      if (!files || files.length === 0) return;
+                      
+                      for (const file of Array.from(files)) {
+                        try {
+                          const uploadUrlRes = await fetch("/api/objects/upload", {
+                            method: "POST",
+                            credentials: "include",
+                          });
+                          if (!uploadUrlRes.ok) throw new Error("Failed to get upload URL");
+                          const { uploadURL } = await uploadUrlRes.json();
+                          
+                          const uploadRes = await fetch(uploadURL, {
+                            method: "PUT",
+                            body: file,
+                            headers: { "Content-Type": file.type || "application/octet-stream" },
+                          });
+                          if (!uploadRes.ok) throw new Error("Failed to upload file");
+                          
+                          const fileUrl = uploadURL.split("?")[0];
+                          
+                          setNewNoteAttachments(prev => [...prev, {
+                            url: fileUrl,
+                            filename: file.name,
+                            filesize: file.size,
+                            filetype: file.type || "application/octet-stream",
+                          }]);
+                        } catch (error) {
+                          console.error("Error uploading file:", error);
+                          toast({ title: "Failed to upload file", variant: "destructive" });
+                        }
+                      }
+                      e.target.value = "";
+                    }}
+                    data-testid="input-note-file"
                   />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setIsRecordingNote(true)}
+                    className="h-10 w-10 flex-shrink-0 rounded-full"
+                    data-testid="button-record-note"
+                  >
+                    <Mic className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    onClick={handleAddNote}
+                    disabled={(!newNoteContent.trim() && newNoteAttachments.length === 0) || createNoteMutation.isPending}
+                    data-testid="button-add-note"
+                    className="h-10 w-10 flex-shrink-0 rounded-full"
+                  >
+                    {createNoteMutation.isPending ? (
+                      <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </Button>
                 </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setIsRecordingNote(true)}
-                  className="h-10 w-10 flex-shrink-0 rounded-full"
-                  data-testid="button-record-note"
-                >
-                  <Mic className="w-5 h-5" />
-                </Button>
-                <Button
-                  size="icon"
-                  onClick={handleAddNote}
-                  disabled={!newNoteContent.trim() || createNoteMutation.isPending}
-                  data-testid="button-add-note"
-                  className="h-10 w-10 flex-shrink-0 rounded-full"
-                >
-                  {createNoteMutation.isPending ? (
-                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5" />
-                  )}
-                </Button>
               </div>
             )}
           </div>
