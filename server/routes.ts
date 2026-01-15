@@ -658,6 +658,17 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/objects/upload-public", isAuthenticated, async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const uploadURL = await objectStorageService.getPublicUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting public upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
   app.put("/api/document-images", isAuthenticated, async (req: Request, res) => {
     if (!req.body.imageURL) {
       return res.status(400).json({ error: "imageURL is required" });

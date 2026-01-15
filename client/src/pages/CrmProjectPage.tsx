@@ -1403,7 +1403,7 @@ export default function CrmProjectPage() {
                       
                       for (const file of Array.from(files)) {
                         try {
-                          const uploadUrlRes = await fetch("/api/objects/upload", {
+                          const uploadUrlRes = await fetch("/api/objects/upload-public", {
                             method: "POST",
                             credentials: "include",
                           });
