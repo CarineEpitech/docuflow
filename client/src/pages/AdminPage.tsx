@@ -1003,18 +1003,6 @@ function ModulesFieldsContent() {
     queryKey: ["/api/admin/modules"],
   });
 
-  const selectedModule = modules?.find(m => m.id === selectedModuleId);
-
-  // If a module is selected, show the detail view
-  if (selectedModuleId && selectedModule) {
-    return (
-      <ModuleDetailView
-        module={selectedModule}
-        onBack={() => setSelectedModuleId(null)}
-      />
-    );
-  }
-
   const createModuleMutation = useMutation({
     mutationFn: async (data: typeof moduleForm) => {
       return await apiRequest("POST", "/api/admin/modules", data);
@@ -1041,6 +1029,18 @@ function ModulesFieldsContent() {
   const handleModuleNameChange = (name: string) => {
     setModuleForm(f => ({ ...f, name, slug: generateSlug(name) }));
   };
+
+  const selectedModule = modules?.find(m => m.id === selectedModuleId);
+
+  // If a module is selected, show the detail view
+  if (selectedModuleId && selectedModule) {
+    return (
+      <ModuleDetailView
+        module={selectedModule}
+        onBack={() => setSelectedModuleId(null)}
+      />
+    );
+  }
 
   if (isLoading) {
     return (
