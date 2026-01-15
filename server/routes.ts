@@ -624,7 +624,8 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
+  app.get("/objects/:objectPath(*)", async (req: any, res) => {
+    // Optional authentication - allows public files to be accessed without login
     const userId = getUserId(req);
     const objectStorageService = new ObjectStorageService();
     try {
