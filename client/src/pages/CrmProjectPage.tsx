@@ -118,14 +118,13 @@ const fallbackStatusConfig: Record<string, { label: string; color: string }> = {
   won_cancelled: { label: "Won-Cancelled", color: "#f43f5e" },
 };
 
-const projectTypeConfig: Record<CrmProjectType, { label: string; description: string }> = {
-  one_time: { label: "One-Time Project", description: "1 week duration" },
-  monthly: { label: "Monthly Project", description: "1 month duration" },
-  hourly_budget: { label: "Hourly Budget", description: "Based on budgeted hours" },
-  internal: { label: "Internal", description: "Internal project" },
+// Fallback project type config
+const fallbackProjectTypeConfig: Record<string, { label: string; color: string; description: string }> = {
+  one_time: { label: "One-Time Project", color: "#3b82f6", description: "1 week duration" },
+  monthly: { label: "Monthly Project", color: "#8b5cf6", description: "1 month duration" },
+  hourly_budget: { label: "Hourly Budget", color: "#f59e0b", description: "Based on budgeted hours" },
+  internal: { label: "Internal", color: "#64748b", description: "Internal project" },
 };
-
-const projectTypeOptions: CrmProjectType[] = ["one_time", "monthly", "hourly_budget", "internal"];
 
 export default function CrmProjectPage() {
   const { toast } = useToast();
@@ -201,6 +200,26 @@ export default function CrmProjectPage() {
     return { 
       statusOptions: Object.keys(fallbackStatusConfig), 
       statusConfig: fallbackStatusConfig 
+    };
+  }, [projectFields]);
+
+  // Parse project type options from database
+  const { projectTypeOptions, projectTypeConfig } = useMemo(() => {
+    const typeField = projectFields.find(f => f.slug === "project_type");
+    if (typeField && typeField.options && typeField.options.length > 0) {
+      const parsed = parseFieldOptions(typeField.options);
+      const config: Record<string, { label: string; color: string; description: string }> = {};
+      const options: string[] = [];
+      parsed.forEach(opt => {
+        config[opt.value] = { label: opt.label, color: opt.color, description: "" };
+        options.push(opt.value);
+      });
+      return { projectTypeOptions: options, projectTypeConfig: config };
+    }
+    // Fallback to static config
+    return { 
+      projectTypeOptions: Object.keys(fallbackProjectTypeConfig), 
+      projectTypeConfig: fallbackProjectTypeConfig 
     };
   }, [projectFields]);
 
