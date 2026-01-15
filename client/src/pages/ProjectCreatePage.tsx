@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,37 +33,47 @@ import {
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { CrmClient, CrmProjectStatus, CrmProjectType } from "@shared/schema";
+import type { CrmClient, CrmProjectStatus, CrmProjectType, CrmModuleField } from "@shared/schema";
 
-const crmStatusConfig: Record<CrmProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  lead: { label: "Lead", variant: "secondary" },
-  discovering_call_completed: { label: "Discovery Call Completed", variant: "outline" },
-  proposal_sent: { label: "Proposal Sent", variant: "outline" },
-  follow_up: { label: "Follow Up", variant: "outline" },
-  in_negotiation: { label: "In Negotiation", variant: "outline" },
-  won: { label: "Won", variant: "default" },
-  won_not_started: { label: "Won - Not Started", variant: "default" },
-  won_in_progress: { label: "Won - In Progress", variant: "default" },
-  won_in_review: { label: "Won - In Review", variant: "outline" },
-  won_completed: { label: "Won - Completed", variant: "default" },
-  lost: { label: "Lost", variant: "destructive" },
-  won_cancelled: { label: "Won-Cancelled", variant: "destructive" },
+// Helper to parse field options from database format
+interface ParsedOption {
+  value: string;
+  label: string;
+  color: string;
+}
+
+function parseFieldOptions(options: string[] | null): ParsedOption[] {
+  if (!options || options.length === 0) return [];
+  return options.map(opt => {
+    try {
+      const parsed = JSON.parse(opt);
+      if (parsed && typeof parsed === 'object' && parsed.label) {
+        const value = parsed.label.toLowerCase().replace(/[\s-]+/g, '_').replace(/[^a-z0-9_]/g, '');
+        return { value, label: parsed.label, color: parsed.color || "#64748b" };
+      }
+    } catch {
+      // Legacy format: just a string
+    }
+    const value = opt.toLowerCase().replace(/[\s-]+/g, '_').replace(/[^a-z0-9_]/g, '');
+    return { value, label: opt, color: "#64748b" };
+  });
+}
+
+// Fallback static config (used if API hasn't loaded yet)
+const fallbackStatusConfig: Record<string, { label: string; color: string }> = {
+  lead: { label: "Lead", color: "#64748b" },
+  discovering_call_completed: { label: "Discovery Call Completed", color: "#8b5cf6" },
+  proposal_sent: { label: "Proposal Sent", color: "#f59e0b" },
+  follow_up: { label: "Follow Up", color: "#06b6d4" },
+  in_negotiation: { label: "In Negotiation", color: "#3b82f6" },
+  won: { label: "Won", color: "#22c55e" },
+  won_not_started: { label: "Won - Not Started", color: "#10b981" },
+  won_in_progress: { label: "Won - In Progress", color: "#14b8a6" },
+  won_in_review: { label: "Won - In Review", color: "#0ea5e9" },
+  won_completed: { label: "Won - Completed", color: "#84cc16" },
+  lost: { label: "Lost", color: "#ef4444" },
+  won_cancelled: { label: "Won-Cancelled", color: "#f43f5e" },
 };
-
-const statusOptions: CrmProjectStatus[] = [
-  "lead",
-  "discovering_call_completed",
-  "proposal_sent",
-  "follow_up",
-  "in_negotiation",
-  "won",
-  "won_not_started",
-  "won_in_progress",
-  "won_in_review",
-  "won_completed",
-  "lost",
-  "won_cancelled"
-];
 
 const projectTypeConfig: Record<CrmProjectType, { label: string; description: string }> = {
   one_time: { label: "One-Time Project", description: "1 week duration" },
@@ -97,6 +108,31 @@ export default function ProjectCreatePage() {
   const { data: clients = [] } = useQuery<CrmClient[]>({
     queryKey: ["/api/crm/clients"],
   });
+
+  // Fetch project module fields for dynamic status options
+  const { data: projectFields = [] } = useQuery<CrmModuleField[]>({
+    queryKey: ["/api/modules/projects/fields"],
+  });
+
+  // Parse status options from database
+  const { statusOptions, statusConfig } = useMemo(() => {
+    const statusField = projectFields.find(f => f.slug === "status");
+    if (statusField && statusField.options && statusField.options.length > 0) {
+      const parsed = parseFieldOptions(statusField.options);
+      const config: Record<string, { label: string; color: string }> = {};
+      const options: string[] = [];
+      parsed.forEach(opt => {
+        config[opt.value] = { label: opt.label, color: opt.color };
+        options.push(opt.value);
+      });
+      return { statusOptions: options, statusConfig: config };
+    }
+    // Fallback to static config
+    return { 
+      statusOptions: Object.keys(fallbackStatusConfig), 
+      statusConfig: fallbackStatusConfig 
+    };
+  }, [projectFields]);
 
   // Update formData.clientId when URL param is present and clients are loaded
   useEffect(() => {
@@ -326,7 +362,14 @@ export default function ProjectCreatePage() {
                 <SelectContent>
                   {statusOptions.map(status => (
                     <SelectItem key={status} value={status}>
-                      {crmStatusConfig[status].label}
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          className="text-xs"
+                          style={{ backgroundColor: statusConfig[status]?.color || "#64748b", color: "white" }}
+                        >
+                          {statusConfig[status]?.label || status}
+                        </Badge>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
