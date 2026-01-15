@@ -94,15 +94,13 @@ const fallbackStatusConfig: Record<string, { label: string; color: string }> = {
   won_cancelled: { label: "Won-Cancelled", color: "#f43f5e" },
 };
 
-// Contact status configuration
-const contactStatusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  lead: { label: "Lead", variant: "secondary" },
-  prospect: { label: "Prospect", variant: "outline" },
-  client: { label: "Client", variant: "default" },
-  client_recurrent: { label: "Client Récurrent", variant: "default" },
+// Fallback contact status configuration (used if API hasn't loaded yet)
+const fallbackContactStatusConfig: Record<string, { label: string; color: string }> = {
+  lead: { label: "Lead", color: "#64748b" },
+  prospect: { label: "Prospect", color: "#8b5cf6" },
+  client: { label: "Client", color: "#22c55e" },
+  client_recurrent: { label: "Client Récurrent", color: "#14b8a6" },
 };
-
-const contactStatusOptions = ["lead", "prospect", "client", "client_recurrent"];
 
 interface CrmProjectsResponse {
   data: CrmProjectWithDetails[];
@@ -161,7 +159,12 @@ export default function CrmPage() {
     queryKey: ["/api/modules/projects/fields"],
   });
 
-  // Parse status options from database
+  // Fetch contacts module fields for dynamic status options
+  const { data: contactFields = [] } = useQuery<CrmModuleField[]>({
+    queryKey: ["/api/modules/contacts/fields"],
+  });
+
+  // Parse project status options from database
   const { statusOptions, statusConfig } = useMemo(() => {
     const statusField = projectFields.find(f => f.slug === "status");
     if (statusField && statusField.options && statusField.options.length > 0) {
@@ -180,6 +183,26 @@ export default function CrmPage() {
       statusConfig: fallbackStatusConfig 
     };
   }, [projectFields]);
+
+  // Parse contact status options from database
+  const { contactStatusOptions, contactStatusConfig } = useMemo(() => {
+    const statusField = contactFields.find(f => f.slug === "status");
+    if (statusField && statusField.options && statusField.options.length > 0) {
+      const parsed = parseFieldOptions(statusField.options);
+      const config: Record<string, { label: string; color: string }> = {};
+      const options: string[] = [];
+      parsed.forEach(opt => {
+        config[opt.value] = { label: opt.label, color: opt.color };
+        options.push(opt.value);
+      });
+      return { contactStatusOptions: options, contactStatusConfig: config };
+    }
+    // Fallback to static config
+    return { 
+      contactStatusOptions: Object.keys(fallbackContactStatusConfig), 
+      contactStatusConfig: fallbackContactStatusConfig 
+    };
+  }, [contactFields]);
 
   // Fetch all projects for Kanban view
   const { data: allProjectsData } = useQuery<CrmProjectsResponse>({
@@ -309,7 +332,14 @@ export default function CrmPage() {
                     <SelectItem value="all">All Statuses</SelectItem>
                     {contactStatusOptions.map(status => (
                       <SelectItem key={status} value={status}>
-                        {contactStatusConfig[status].label}
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            className="text-xs"
+                            style={{ backgroundColor: contactStatusConfig[status]?.color || "#64748b", color: "white" }}
+                          >
+                            {contactStatusConfig[status]?.label || status}
+                          </Badge>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -854,8 +884,8 @@ export default function CrmPage() {
                               </p>
                               {client.status && (
                                 <Badge 
-                                  variant={contactStatusConfig[client.status]?.variant || "secondary"}
                                   className="text-xs py-0"
+                                  style={{ backgroundColor: contactStatusConfig[client.status]?.color || "#64748b", color: "white" }}
                                   data-testid={`badge-client-status-${client.id}`}
                                 >
                                   {contactStatusConfig[client.status]?.label || client.status}
@@ -964,8 +994,8 @@ export default function CrmPage() {
                             <td className="px-3 py-2">
                               {client.status ? (
                                 <Badge 
-                                  variant={contactStatusConfig[client.status]?.variant || "secondary"}
                                   className="text-xs"
+                                  style={{ backgroundColor: contactStatusConfig[client.status]?.color || "#64748b", color: "white" }}
                                   data-testid={`badge-client-table-status-${client.id}`}
                                 >
                                   {contactStatusConfig[client.status]?.label || client.status}
