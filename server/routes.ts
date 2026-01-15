@@ -1833,6 +1833,12 @@ Instructions:
         audioUrl: z.string().optional(),
         audioRecordingId: z.string().optional(),
         transcriptStatus: z.string().optional(),
+        attachments: z.array(z.object({
+          url: z.string(),
+          filename: z.string(),
+          filesize: z.number(),
+          filetype: z.string(),
+        })).optional(),
       });
       
       const parsed = createSchema.safeParse(req.body);
@@ -1848,6 +1854,7 @@ Instructions:
         audioUrl: parsed.data.audioUrl || null,
         audioRecordingId: parsed.data.audioRecordingId || null,
         transcriptStatus: parsed.data.transcriptStatus || null,
+        attachments: parsed.data.attachments ? JSON.stringify(parsed.data.attachments) : null,
       });
       
       // Create notifications for mentioned users (excluding the note author)
@@ -1878,6 +1885,12 @@ Instructions:
       const updateSchema = z.object({
         content: z.string().min(1, "Note content is required").optional(),
         mentionedUserIds: z.array(z.string()).optional().nullable(),
+        attachments: z.array(z.object({
+          url: z.string(),
+          filename: z.string(),
+          filesize: z.number(),
+          filetype: z.string(),
+        })).optional().nullable(),
       });
       
       const parsed = updateSchema.safeParse(req.body);
@@ -1890,7 +1903,13 @@ Instructions:
       const existingNote = existingNotes.find(n => n.id === req.params.noteId);
       const oldMentions = existingNote?.mentionedUserIds || [];
       
-      const note = await storage.updateCrmProjectNote(req.params.noteId, parsed.data);
+      const updateData: { content?: string; mentionedUserIds?: string[] | null; attachments?: string | null } = {
+        ...parsed.data,
+      };
+      if (parsed.data.attachments !== undefined) {
+        updateData.attachments = parsed.data.attachments ? JSON.stringify(parsed.data.attachments) : null;
+      }
+      const note = await storage.updateCrmProjectNote(req.params.noteId, updateData);
       if (!note) {
         return res.status(404).json({ message: "Note not found" });
       }
