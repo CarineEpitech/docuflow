@@ -18,16 +18,17 @@ function FileAttachmentComponent({ node }: NodeViewProps) {
 
   const getFileIcon = () => {
     const type = filetype.toLowerCase();
-    if (type.includes("pdf")) {
+    const ext = filename.split('.').pop()?.toLowerCase() || "";
+    if (type.includes("pdf") || ext === "pdf") {
       return <FileText className="w-8 h-8 text-red-500" />;
     }
-    if (type.includes("word") || type.includes("document")) {
+    if (type.includes("word") || type.includes("document") || ext === "doc" || ext === "docx") {
       return <FileText className="w-8 h-8 text-blue-500" />;
     }
-    if (type.includes("excel") || type.includes("spreadsheet") || type.includes("csv")) {
+    if (type.includes("excel") || type.includes("spreadsheet") || type.includes("csv") || ext === "xls" || ext === "xlsx" || ext === "csv") {
       return <FileSpreadsheet className="w-8 h-8 text-green-600" />;
     }
-    if (type.includes("powerpoint") || type.includes("presentation")) {
+    if (type.includes("powerpoint") || type.includes("presentation") || ext === "ppt" || ext === "pptx") {
       return <Presentation className="w-8 h-8 text-orange-500" />;
     }
     if (type.startsWith("image/")) {
@@ -39,10 +40,10 @@ function FileAttachmentComponent({ node }: NodeViewProps) {
     if (type.startsWith("audio/")) {
       return <Music className="w-8 h-8 text-yellow-600" />;
     }
-    if (type.includes("zip") || type.includes("rar") || type.includes("tar") || type.includes("7z") || type.includes("archive")) {
+    if (type.includes("zip") || type.includes("rar") || type.includes("tar") || type.includes("7z") || type.includes("archive") || ext === "zip" || ext === "rar") {
       return <FileArchive className="w-8 h-8 text-amber-600" />;
     }
-    if (type.includes("javascript") || type.includes("json") || type.includes("html") || type.includes("css") || type.includes("xml") || type.includes("text/plain")) {
+    if (type.includes("javascript") || type.includes("json") || type.includes("html") || type.includes("css") || type.includes("xml") || type.includes("text/plain") || ext === "js" || ext === "json" || ext === "txt") {
       return <Code className="w-8 h-8 text-cyan-600" />;
     }
     return <File className="w-8 h-8 text-muted-foreground" />;
@@ -50,20 +51,20 @@ function FileAttachmentComponent({ node }: NodeViewProps) {
 
   const getFileTypeLabel = () => {
     const type = filetype.toLowerCase();
-    if (type.includes("pdf")) return "PDF";
-    if (type.includes("word") || type.includes("document")) return "Word";
-    if (type.includes("excel") || type.includes("spreadsheet")) return "Excel";
-    if (type.includes("csv")) return "CSV";
-    if (type.includes("powerpoint") || type.includes("presentation")) return "PowerPoint";
+    const ext = filename.split('.').pop()?.toLowerCase() || "";
+    if (type.includes("pdf") || ext === "pdf") return "PDF";
+    if (type.includes("word") || type.includes("document") || ext === "doc" || ext === "docx") return "Word";
+    if (type.includes("excel") || type.includes("spreadsheet") || ext === "xls" || ext === "xlsx") return "Excel";
+    if (type.includes("csv") || ext === "csv") return "CSV";
+    if (type.includes("powerpoint") || type.includes("presentation") || ext === "ppt" || ext === "pptx") return "PowerPoint";
     if (type.startsWith("image/")) return "Image";
     if (type.startsWith("video/")) return "Video";
     if (type.startsWith("audio/")) return "Audio";
-    if (type.includes("zip") || type.includes("rar") || type.includes("7z")) return "Archive";
-    if (type.includes("json")) return "JSON";
-    if (type.includes("javascript")) return "JavaScript";
-    if (type.includes("text/plain")) return "Text";
-    const ext = filename.split('.').pop()?.toUpperCase();
-    return ext || "File";
+    if (type.includes("zip") || type.includes("rar") || type.includes("7z") || ext === "zip" || ext === "rar") return "Archive";
+    if (type.includes("json") || ext === "json") return "JSON";
+    if (type.includes("javascript") || ext === "js") return "JavaScript";
+    if (type.includes("text/plain") || ext === "txt") return "Text";
+    return ext.toUpperCase() || "File";
   };
 
   return (
