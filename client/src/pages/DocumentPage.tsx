@@ -183,11 +183,10 @@ export default function DocumentPage() {
     });
   }, [toast]);
 
-  const handleDocumentUpload = useCallback(async (): Promise<{ url: string; filename: string; filesize: number; filetype: string } | null> => {
+  const handleDocumentUpload = useCallback(async (onProgress?: (progress: number) => void): Promise<{ url: string; filename: string; filesize: number; filetype: string } | null> => {
     return new Promise((resolve) => {
       const input = document.createElement("input");
       input.type = "file";
-      // Accept all file types - no restrictions
       input.style.display = "none";
       document.body.appendChild(input);
       
@@ -212,12 +211,28 @@ export default function DocumentPage() {
           const response = await apiRequest("POST", "/api/objects/upload");
           const { uploadURL } = response as { uploadURL: string };
           
-          await fetch(uploadURL, {
-            method: "PUT",
-            body: file,
-            headers: {
-              "Content-Type": file.type,
-            },
+          await new Promise<void>((uploadResolve, uploadReject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", uploadURL, true);
+            xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+            
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable && onProgress) {
+                const percentComplete = Math.round((event.loaded / event.total) * 100);
+                onProgress(percentComplete);
+              }
+            };
+            
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                uploadResolve();
+              } else {
+                uploadReject(new Error(`Upload failed with status ${xhr.status}`));
+              }
+            };
+            
+            xhr.onerror = () => uploadReject(new Error("Upload failed"));
+            xhr.send(file);
           });
 
           const updateResponse = await apiRequest("PUT", "/api/document-attachments", {
