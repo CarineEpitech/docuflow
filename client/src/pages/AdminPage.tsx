@@ -1181,7 +1181,7 @@ function ModulesFieldsContent() {
 function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onBack: () => void }) {
   const { toast } = useToast();
   const [showCreateField, setShowCreateField] = useState(false);
-  const [editingField, setEditingField] = useState<CrmModuleField | null>(null);
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [fieldForm, setFieldForm] = useState({
     name: "",
     slug: "",
@@ -1207,21 +1207,6 @@ function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onB
     },
     onError: (error: any) => {
       toast({ title: "Failed to create field", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const updateFieldMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<typeof fieldForm> }) => {
-      return await apiRequest("PATCH", `/api/admin/fields/${id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
-      setEditingField(null);
-      resetFieldForm();
-      toast({ title: "Field updated successfully" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Failed to update field", description: error.message, variant: "destructive" });
     },
   });
 
@@ -1257,21 +1242,18 @@ function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onB
     setFieldForm(f => ({ ...f, options: opts }));
   };
 
-  const startEditField = (field: CrmModuleField) => {
-    setEditingField(field);
-    setFieldForm({
-      name: field.name,
-      slug: field.slug,
-      fieldType: field.fieldType,
-      description: field.description || "",
-      placeholder: field.placeholder || "",
-      defaultValue: field.defaultValue || "",
-      options: field.options || [],
-      isRequired: field.isRequired,
-      isEnabled: field.isEnabled,
-    });
-    setOptionsText((field.options || []).join("\n"));
-  };
+  const selectedField = module.fields?.find(f => f.id === selectedFieldId);
+
+  // If a field is selected, show the field detail view
+  if (selectedFieldId && selectedField) {
+    return (
+      <FieldDetailView
+        field={selectedField}
+        module={module}
+        onBack={() => setSelectedFieldId(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -1416,7 +1398,8 @@ function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onB
               {module.fields.map((field) => (
                 <div
                   key={field.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
+                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate cursor-pointer"
+                  onClick={() => setSelectedFieldId(field.id)}
                   data-testid={`field-${field.id}`}
                 >
                   <div className="flex items-center gap-3">
@@ -1442,124 +1425,7 @@ function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onB
                     <Badge variant={field.isEnabled ? "default" : "secondary"}>
                       {field.isEnabled ? "Active" : "Inactive"}
                     </Badge>
-                    
-                    <Dialog open={editingField?.id === field.id} onOpenChange={(open) => !open && setEditingField(null)}>
-                      <DialogTrigger asChild>
-                        <Button size="icon" variant="ghost" onClick={() => startEditField(field)} data-testid={`button-edit-field-${field.id}`}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-lg">
-                        <DialogHeader>
-                          <DialogTitle>Edit Field</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-                          <div className="space-y-2">
-                            <Label>Field Name</Label>
-                            <Input
-                              value={fieldForm.name}
-                              onChange={(e) => setFieldForm(f => ({ ...f, name: e.target.value }))}
-                              data-testid="input-edit-field-name"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Field Type</Label>
-                            <Select value={fieldForm.fieldType} onValueChange={(v) => setFieldForm(f => ({ ...f, fieldType: v }))}>
-                              <SelectTrigger data-testid="select-edit-field-type">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {FIELD_TYPES.map(ft => (
-                                  <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          {(fieldForm.fieldType === "select" || fieldForm.fieldType === "multiselect") && (
-                            <div className="space-y-2">
-                              <Label>Options (one per line)</Label>
-                              <Textarea
-                                value={optionsText}
-                                onChange={(e) => handleOptionsChange(e.target.value)}
-                                rows={4}
-                                data-testid="input-edit-field-options"
-                              />
-                            </div>
-                          )}
-                          <div className="space-y-2">
-                            <Label>Placeholder</Label>
-                            <Input
-                              value={fieldForm.placeholder}
-                              onChange={(e) => setFieldForm(f => ({ ...f, placeholder: e.target.value }))}
-                              data-testid="input-edit-field-placeholder"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Default Value</Label>
-                            <Input
-                              value={fieldForm.defaultValue}
-                              onChange={(e) => setFieldForm(f => ({ ...f, defaultValue: e.target.value }))}
-                              data-testid="input-edit-field-default"
-                            />
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={fieldForm.isRequired === 1}
-                                onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isRequired: checked ? 1 : 0 }))}
-                                data-testid="switch-edit-field-required"
-                              />
-                              <Label>Required</Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={fieldForm.isEnabled === 1}
-                                onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isEnabled: checked ? 1 : 0 }))}
-                                data-testid="switch-edit-field-enabled"
-                              />
-                              <Label>Enabled</Label>
-                            </div>
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => { setEditingField(null); resetFieldForm(); }}>Cancel</Button>
-                          <Button
-                            onClick={() => updateFieldMutation.mutate({ id: field.id, data: fieldForm })}
-                            disabled={updateFieldMutation.isPending}
-                            data-testid="button-update-field"
-                          >
-                            Save Changes
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-
-                    {field.isSystem !== 1 && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="icon" variant="ghost" data-testid={`button-delete-field-${field.id}`}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Field</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{field.name}"? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteFieldMutation.mutate(field.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </div>
                 </div>
               ))}
@@ -1567,6 +1433,230 @@ function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onB
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function FieldDetailView({ field, module, onBack }: { field: CrmModuleField; module: CrmModuleWithFields; onBack: () => void }) {
+  const { toast } = useToast();
+  const [fieldForm, setFieldForm] = useState({
+    name: field.name,
+    slug: field.slug,
+    fieldType: field.fieldType,
+    description: field.description || "",
+    placeholder: field.placeholder || "",
+    defaultValue: field.defaultValue || "",
+    options: field.options || [],
+    isRequired: field.isRequired,
+    isEnabled: field.isEnabled,
+  });
+  const [optionsText, setOptionsText] = useState((field.options || []).join("\n"));
+
+  const updateFieldMutation = useMutation({
+    mutationFn: async (data: Partial<typeof fieldForm>) => {
+      return await apiRequest("PATCH", `/api/admin/fields/${field.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
+      toast({ title: "Field updated successfully" });
+      onBack();
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update field", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteFieldMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", `/api/admin/fields/${field.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
+      toast({ title: "Field deleted successfully" });
+      onBack();
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to delete field", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleOptionsChange = (text: string) => {
+    setOptionsText(text);
+    const opts = text.split("\n").map(o => o.trim()).filter(o => o.length > 0);
+    setFieldForm(f => ({ ...f, options: opts }));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-field">
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold">{field.name}</h2>
+            {field.isSystem === 1 && (
+              <Badge variant="outline">System Field</Badge>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {module.name} / {FIELD_TYPES.find(ft => ft.value === field.fieldType)?.label || field.fieldType}
+          </p>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Field Settings</CardTitle>
+          <CardDescription>Configure the properties of this field</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Field Name</Label>
+              <Input
+                value={fieldForm.name}
+                onChange={(e) => setFieldForm(f => ({ ...f, name: e.target.value }))}
+                data-testid="input-field-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Slug</Label>
+              <Input
+                value={fieldForm.slug}
+                onChange={(e) => setFieldForm(f => ({ ...f, slug: e.target.value }))}
+                disabled={field.isSystem === 1}
+                data-testid="input-field-slug"
+              />
+              <p className="text-xs text-muted-foreground">Used as the internal identifier</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Field Type</Label>
+            <Select 
+              value={fieldForm.fieldType} 
+              onValueChange={(v) => setFieldForm(f => ({ ...f, fieldType: v }))}
+              disabled={field.isSystem === 1}
+            >
+              <SelectTrigger data-testid="select-field-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FIELD_TYPES.map(ft => (
+                  <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {(fieldForm.fieldType === "select" || fieldForm.fieldType === "multiselect") && (
+            <div className="space-y-2">
+              <Label>Options</Label>
+              <Textarea
+                value={optionsText}
+                onChange={(e) => handleOptionsChange(e.target.value)}
+                placeholder="Enter options, one per line"
+                rows={5}
+                data-testid="input-field-options"
+              />
+              <p className="text-xs text-muted-foreground">Enter each option on a new line</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Placeholder</Label>
+              <Input
+                value={fieldForm.placeholder}
+                onChange={(e) => setFieldForm(f => ({ ...f, placeholder: e.target.value }))}
+                placeholder="Enter placeholder text..."
+                data-testid="input-field-placeholder"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Default Value</Label>
+              <Input
+                value={fieldForm.defaultValue}
+                onChange={(e) => setFieldForm(f => ({ ...f, defaultValue: e.target.value }))}
+                data-testid="input-field-default"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Description</Label>
+            <Textarea
+              value={fieldForm.description}
+              onChange={(e) => setFieldForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Describe this field..."
+              rows={2}
+              data-testid="input-field-description"
+            />
+          </div>
+
+          <div className="flex items-center gap-6 pt-4 border-t">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={fieldForm.isRequired === 1}
+                onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isRequired: checked ? 1 : 0 }))}
+                data-testid="switch-field-required"
+              />
+              <Label>Required Field</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={fieldForm.isEnabled === 1}
+                onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isEnabled: checked ? 1 : 0 }))}
+                data-testid="switch-field-enabled"
+              />
+              <Label>Enabled</Label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center justify-between">
+        <div>
+          {field.isSystem !== 1 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" data-testid="button-delete-field">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Field
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Field</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{field.name}"? This will remove all data stored in this field. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteFieldMutation.mutate()}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={onBack}>Cancel</Button>
+          <Button
+            onClick={() => updateFieldMutation.mutate(fieldForm)}
+            disabled={!fieldForm.name || !fieldForm.slug || updateFieldMutation.isPending}
+            data-testid="button-save-field"
+          >
+            {updateFieldMutation.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
