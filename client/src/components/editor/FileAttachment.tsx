@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer, NodeViewProps } from "@tiptap/react";
-import { FileText, Download, File } from "lucide-react";
+import { FileText, Download, File, Image, Video, Music, FileSpreadsheet, FileArchive, Code, Presentation } from "lucide-react";
 
 function FileAttachmentComponent({ node }: NodeViewProps) {
   const { src, filename, filesize, filetype } = node.attrs as {
@@ -17,19 +17,53 @@ function FileAttachmentComponent({ node }: NodeViewProps) {
   };
 
   const getFileIcon = () => {
-    if (filetype.includes("pdf")) {
+    const type = filetype.toLowerCase();
+    if (type.includes("pdf")) {
       return <FileText className="w-8 h-8 text-red-500" />;
     }
-    if (filetype.includes("word") || filetype.includes("document")) {
+    if (type.includes("word") || type.includes("document")) {
       return <FileText className="w-8 h-8 text-blue-500" />;
+    }
+    if (type.includes("excel") || type.includes("spreadsheet") || type.includes("csv")) {
+      return <FileSpreadsheet className="w-8 h-8 text-green-600" />;
+    }
+    if (type.includes("powerpoint") || type.includes("presentation")) {
+      return <Presentation className="w-8 h-8 text-orange-500" />;
+    }
+    if (type.startsWith("image/")) {
+      return <Image className="w-8 h-8 text-purple-500" />;
+    }
+    if (type.startsWith("video/")) {
+      return <Video className="w-8 h-8 text-pink-500" />;
+    }
+    if (type.startsWith("audio/")) {
+      return <Music className="w-8 h-8 text-yellow-600" />;
+    }
+    if (type.includes("zip") || type.includes("rar") || type.includes("tar") || type.includes("7z") || type.includes("archive")) {
+      return <FileArchive className="w-8 h-8 text-amber-600" />;
+    }
+    if (type.includes("javascript") || type.includes("json") || type.includes("html") || type.includes("css") || type.includes("xml") || type.includes("text/plain")) {
+      return <Code className="w-8 h-8 text-cyan-600" />;
     }
     return <File className="w-8 h-8 text-muted-foreground" />;
   };
 
   const getFileTypeLabel = () => {
-    if (filetype.includes("pdf")) return "PDF";
-    if (filetype.includes("word") || filetype.includes("document")) return "Word";
-    return "Document";
+    const type = filetype.toLowerCase();
+    if (type.includes("pdf")) return "PDF";
+    if (type.includes("word") || type.includes("document")) return "Word";
+    if (type.includes("excel") || type.includes("spreadsheet")) return "Excel";
+    if (type.includes("csv")) return "CSV";
+    if (type.includes("powerpoint") || type.includes("presentation")) return "PowerPoint";
+    if (type.startsWith("image/")) return "Image";
+    if (type.startsWith("video/")) return "Video";
+    if (type.startsWith("audio/")) return "Audio";
+    if (type.includes("zip") || type.includes("rar") || type.includes("7z")) return "Archive";
+    if (type.includes("json")) return "JSON";
+    if (type.includes("javascript")) return "JavaScript";
+    if (type.includes("text/plain")) return "Text";
+    const ext = filename.split('.').pop()?.toUpperCase();
+    return ext || "File";
   };
 
   return (
