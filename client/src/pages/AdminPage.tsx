@@ -990,9 +990,6 @@ function ModulesFieldsContent() {
   const { toast } = useToast();
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [showCreateModule, setShowCreateModule] = useState(false);
-  const [showCreateField, setShowCreateField] = useState(false);
-  const [editingModule, setEditingModule] = useState<CrmModuleWithFields | null>(null);
-  const [editingField, setEditingField] = useState<CrmModuleField | null>(null);
   
   const [moduleForm, setModuleForm] = useState({
     name: "",
@@ -1001,23 +998,22 @@ function ModulesFieldsContent() {
     icon: "",
     isEnabled: 1,
   });
-  
-  const [fieldForm, setFieldForm] = useState({
-    name: "",
-    slug: "",
-    fieldType: "text",
-    description: "",
-    placeholder: "",
-    defaultValue: "",
-    options: [] as string[],
-    isRequired: 0,
-    isEnabled: 1,
-  });
-  const [optionsText, setOptionsText] = useState("");
 
   const { data: modules, isLoading } = useQuery<CrmModuleWithFields[]>({
     queryKey: ["/api/admin/modules"],
   });
+
+  const selectedModule = modules?.find(m => m.id === selectedModuleId);
+
+  // If a module is selected, show the detail view
+  if (selectedModuleId && selectedModule) {
+    return (
+      <ModuleDetailView
+        module={selectedModule}
+        onBack={() => setSelectedModuleId(null)}
+      />
+    );
+  }
 
   const createModuleMutation = useMutation({
     mutationFn: async (data: typeof moduleForm) => {
@@ -1034,38 +1030,174 @@ function ModulesFieldsContent() {
     },
   });
 
-  const updateModuleMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<typeof moduleForm> }) => {
-      return await apiRequest("PATCH", `/api/admin/modules/${id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
-      setEditingModule(null);
-      resetModuleForm();
-      toast({ title: "Module updated successfully" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Failed to update module", description: error.message, variant: "destructive" });
-    },
-  });
+  const resetModuleForm = () => {
+    setModuleForm({ name: "", slug: "", description: "", icon: "", isEnabled: 1 });
+  };
 
-  const deleteModuleMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/admin/modules/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
-      setSelectedModuleId(null);
-      toast({ title: "Module deleted successfully" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Failed to delete module", description: error.message, variant: "destructive" });
-    },
+  const generateSlug = (name: string) => {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  };
+
+  const handleModuleNameChange = (name: string) => {
+    setModuleForm(f => ({ ...f, name, slug: generateSlug(name) }));
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="w-5 h-5" />
+                Modules
+              </CardTitle>
+              <CardDescription>
+                Click on a module to view and configure its fields
+              </CardDescription>
+            </div>
+            <Dialog open={showCreateModule} onOpenChange={setShowCreateModule}>
+              <DialogTrigger asChild>
+                <Button size="sm" data-testid="button-create-module">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Module
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create Module</DialogTitle>
+                  <DialogDescription>Add a new customizable module</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Name</Label>
+                    <Input
+                      value={moduleForm.name}
+                      onChange={(e) => handleModuleNameChange(e.target.value)}
+                      placeholder="e.g., Products"
+                      data-testid="input-module-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Slug</Label>
+                    <Input
+                      value={moduleForm.slug}
+                      onChange={(e) => setModuleForm(f => ({ ...f, slug: e.target.value }))}
+                      placeholder="products"
+                      data-testid="input-module-slug"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={moduleForm.description}
+                      onChange={(e) => setModuleForm(f => ({ ...f, description: e.target.value }))}
+                      placeholder="Optional description..."
+                      data-testid="input-module-description"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={moduleForm.isEnabled === 1}
+                      onCheckedChange={(checked) => setModuleForm(f => ({ ...f, isEnabled: checked ? 1 : 0 }))}
+                      data-testid="switch-module-enabled"
+                    />
+                    <Label>Enabled</Label>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => { setShowCreateModule(false); resetModuleForm(); }}>Cancel</Button>
+                  <Button
+                    onClick={() => createModuleMutation.mutate(moduleForm)}
+                    disabled={!moduleForm.name || !moduleForm.slug || createModuleMutation.isPending}
+                    data-testid="button-save-module"
+                  >
+                    Create Module
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!modules || modules.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No modules configured. Create your first module to get started.</p>
+          ) : (
+            <div className="space-y-3">
+              {modules.map((mod) => (
+                <div
+                  key={mod.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate cursor-pointer"
+                  onClick={() => setSelectedModuleId(mod.id)}
+                  data-testid={`module-${mod.id}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      {mod.slug === "projects" ? (
+                        <Layers className="w-5 h-5 text-primary" />
+                      ) : mod.slug === "contacts" ? (
+                        <Users className="w-5 h-5 text-primary" />
+                      ) : (
+                        <Layers className="w-5 h-5 text-primary" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{mod.name}</span>
+                        {mod.isSystem === 1 && (
+                          <Badge variant="outline" className="text-xs">System</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {mod.fields?.length || 0} fields configured
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant={mod.isEnabled ? "default" : "secondary"}>
+                      {mod.isEnabled ? "Active" : "Inactive"}
+                    </Badge>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onBack: () => void }) {
+  const { toast } = useToast();
+  const [showCreateField, setShowCreateField] = useState(false);
+  const [editingField, setEditingField] = useState<CrmModuleField | null>(null);
+  const [fieldForm, setFieldForm] = useState({
+    name: "",
+    slug: "",
+    fieldType: "text",
+    description: "",
+    placeholder: "",
+    defaultValue: "",
+    options: [] as string[],
+    isRequired: 0,
+    isEnabled: 1,
   });
+  const [optionsText, setOptionsText] = useState("");
 
   const createFieldMutation = useMutation({
-    mutationFn: async ({ moduleId, data }: { moduleId: string; data: typeof fieldForm }) => {
-      return await apiRequest("POST", `/api/admin/modules/${moduleId}/fields`, data);
+    mutationFn: async (data: typeof fieldForm) => {
+      return await apiRequest("POST", `/api/admin/modules/${module.id}/fields`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
@@ -1106,10 +1238,6 @@ function ModulesFieldsContent() {
     },
   });
 
-  const resetModuleForm = () => {
-    setModuleForm({ name: "", slug: "", description: "", icon: "", isEnabled: 1 });
-  };
-
   const resetFieldForm = () => {
     setFieldForm({ name: "", slug: "", fieldType: "text", description: "", placeholder: "", defaultValue: "", options: [], isRequired: 0, isEnabled: 1 });
     setOptionsText("");
@@ -1119,23 +1247,14 @@ function ModulesFieldsContent() {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
   };
 
-  const handleModuleNameChange = (name: string) => {
-    setModuleForm(f => ({ ...f, name, slug: generateSlug(name) }));
-  };
-
   const handleFieldNameChange = (name: string) => {
     setFieldForm(f => ({ ...f, name, slug: generateSlug(name) }));
   };
 
-  const startEditModule = (mod: CrmModuleWithFields) => {
-    setEditingModule(mod);
-    setModuleForm({
-      name: mod.name,
-      slug: mod.slug,
-      description: mod.description || "",
-      icon: mod.icon || "",
-      isEnabled: mod.isEnabled,
-    });
+  const handleOptionsChange = (text: string) => {
+    setOptionsText(text);
+    const opts = text.split("\n").map(o => o.trim()).filter(o => o.length > 0);
+    setFieldForm(f => ({ ...f, options: opts }));
   };
 
   const startEditField = (field: CrmModuleField) => {
@@ -1154,94 +1273,135 @@ function ModulesFieldsContent() {
     setOptionsText((field.options || []).join("\n"));
   };
 
-  const handleOptionsChange = (text: string) => {
-    setOptionsText(text);
-    const opts = text.split("\n").map(o => o.trim()).filter(o => o.length > 0);
-    setFieldForm(f => ({ ...f, options: opts }));
-  };
-
-  const selectedModule = modules?.find(m => m.id === selectedModuleId);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-module">
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            {module.slug === "projects" ? (
+              <Layers className="w-5 h-5 text-primary" />
+            ) : module.slug === "contacts" ? (
+              <Users className="w-5 h-5 text-primary" />
+            ) : (
+              <Layers className="w-5 h-5 text-primary" />
+            )}
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">{module.name}</h2>
+            <p className="text-sm text-muted-foreground">{module.description || "Configure fields for this module"}</p>
+          </div>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Layers className="w-5 h-5" />
-                Modules
-              </CardTitle>
-              <CardDescription>
-                Configure project management modules and their custom fields
-              </CardDescription>
+              <CardTitle>Fields</CardTitle>
+              <CardDescription>Manage the fields for {module.name}</CardDescription>
             </div>
-            <Dialog open={showCreateModule} onOpenChange={setShowCreateModule}>
+            <Dialog open={showCreateField} onOpenChange={setShowCreateField}>
               <DialogTrigger asChild>
-                <Button size="sm" data-testid="button-create-module">
+                <Button size="sm" data-testid="button-add-field">
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Module
+                  Add Field
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Create Module</DialogTitle>
-                  <DialogDescription>Add a new customizable module to project management</DialogDescription>
+                  <DialogTitle>Add Field to {module.name}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                   <div className="space-y-2">
-                    <Label>Name</Label>
+                    <Label>Field Name</Label>
                     <Input
-                      value={moduleForm.name}
-                      onChange={(e) => handleModuleNameChange(e.target.value)}
-                      placeholder="e.g., Custom Properties"
-                      data-testid="input-module-name"
+                      value={fieldForm.name}
+                      onChange={(e) => handleFieldNameChange(e.target.value)}
+                      placeholder="e.g., Budget Amount"
+                      data-testid="input-field-name"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Slug</Label>
                     <Input
-                      value={moduleForm.slug}
-                      onChange={(e) => setModuleForm(f => ({ ...f, slug: e.target.value }))}
-                      placeholder="custom_properties"
-                      data-testid="input-module-slug"
+                      value={fieldForm.slug}
+                      onChange={(e) => setFieldForm(f => ({ ...f, slug: e.target.value }))}
+                      placeholder="budget_amount"
+                      data-testid="input-field-slug"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Textarea
-                      value={moduleForm.description}
-                      onChange={(e) => setModuleForm(f => ({ ...f, description: e.target.value }))}
-                      placeholder="Optional description..."
-                      data-testid="input-module-description"
+                    <Label>Field Type</Label>
+                    <Select value={fieldForm.fieldType} onValueChange={(v) => setFieldForm(f => ({ ...f, fieldType: v }))}>
+                      <SelectTrigger data-testid="select-field-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FIELD_TYPES.map(ft => (
+                          <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {(fieldForm.fieldType === "select" || fieldForm.fieldType === "multiselect") && (
+                    <div className="space-y-2">
+                      <Label>Options (one per line)</Label>
+                      <Textarea
+                        value={optionsText}
+                        onChange={(e) => handleOptionsChange(e.target.value)}
+                        placeholder="Option 1&#10;Option 2&#10;Option 3"
+                        rows={4}
+                        data-testid="input-field-options"
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Placeholder</Label>
+                    <Input
+                      value={fieldForm.placeholder}
+                      onChange={(e) => setFieldForm(f => ({ ...f, placeholder: e.target.value }))}
+                      placeholder="Enter value..."
+                      data-testid="input-field-placeholder"
                     />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={moduleForm.isEnabled === 1}
-                      onCheckedChange={(checked) => setModuleForm(f => ({ ...f, isEnabled: checked ? 1 : 0 }))}
-                      data-testid="switch-module-enabled"
+                  <div className="space-y-2">
+                    <Label>Default Value</Label>
+                    <Input
+                      value={fieldForm.defaultValue}
+                      onChange={(e) => setFieldForm(f => ({ ...f, defaultValue: e.target.value }))}
+                      data-testid="input-field-default"
                     />
-                    <Label>Enabled</Label>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={fieldForm.isRequired === 1}
+                        onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isRequired: checked ? 1 : 0 }))}
+                        data-testid="switch-field-required"
+                      />
+                      <Label>Required</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={fieldForm.isEnabled === 1}
+                        onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isEnabled: checked ? 1 : 0 }))}
+                        data-testid="switch-field-enabled"
+                      />
+                      <Label>Enabled</Label>
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => { setShowCreateModule(false); resetModuleForm(); }}>Cancel</Button>
+                  <Button variant="outline" onClick={() => { setShowCreateField(false); resetFieldForm(); }}>Cancel</Button>
                   <Button
-                    onClick={() => createModuleMutation.mutate(moduleForm)}
-                    disabled={!moduleForm.name || !moduleForm.slug || createModuleMutation.isPending}
-                    data-testid="button-save-module"
+                    onClick={() => createFieldMutation.mutate(fieldForm)}
+                    disabled={!fieldForm.name || !fieldForm.slug || createFieldMutation.isPending}
+                    data-testid="button-save-field"
                   >
-                    Create Module
+                    Create Field
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -1249,377 +1409,161 @@ function ModulesFieldsContent() {
           </div>
         </CardHeader>
         <CardContent>
-          {!modules || modules.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No modules configured. Create your first module to get started.</p>
+          {!module.fields || module.fields.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No fields configured. Add your first field to get started.</p>
           ) : (
-            <Accordion type="single" collapsible value={selectedModuleId || undefined} onValueChange={(v) => setSelectedModuleId(v || null)}>
-              {modules.map((mod) => (
-                <AccordionItem key={mod.id} value={mod.id} data-testid={`module-${mod.id}`}>
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center gap-3">
-                      <Layers className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">{mod.name}</span>
-                      <Badge variant={mod.isEnabled ? "default" : "secondary"} className="text-xs">
-                        {mod.isEnabled ? "Active" : "Inactive"}
-                      </Badge>
-                      {mod.isSystem === 1 && (
-                        <Badge variant="outline" className="text-xs">System</Badge>
-                      )}
-                      <span className="text-xs text-muted-foreground ml-2">
-                        {mod.fields?.length || 0} fields
-                      </span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 pt-4">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground">{mod.description || "No description"}</p>
-                        <div className="flex items-center gap-2">
-                          <Dialog open={editingModule?.id === mod.id} onOpenChange={(open) => !open && setEditingModule(null)}>
-                            <DialogTrigger asChild>
-                              <Button size="icon" variant="ghost" onClick={() => startEditModule(mod)} data-testid={`button-edit-module-${mod.id}`}>
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Edit Module</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                  <Label>Name</Label>
-                                  <Input
-                                    value={moduleForm.name}
-                                    onChange={(e) => setModuleForm(f => ({ ...f, name: e.target.value }))}
-                                    data-testid="input-edit-module-name"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Description</Label>
-                                  <Textarea
-                                    value={moduleForm.description}
-                                    onChange={(e) => setModuleForm(f => ({ ...f, description: e.target.value }))}
-                                    data-testid="input-edit-module-description"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    checked={moduleForm.isEnabled === 1}
-                                    onCheckedChange={(checked) => setModuleForm(f => ({ ...f, isEnabled: checked ? 1 : 0 }))}
-                                    data-testid="switch-edit-module-enabled"
-                                  />
-                                  <Label>Enabled</Label>
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button variant="outline" onClick={() => { setEditingModule(null); resetModuleForm(); }}>Cancel</Button>
-                                <Button
-                                  onClick={() => updateModuleMutation.mutate({ id: mod.id, data: moduleForm })}
-                                  disabled={updateModuleMutation.isPending}
-                                  data-testid="button-update-module"
-                                >
-                                  Save Changes
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                          
-                          {mod.isSystem !== 1 && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="icon" variant="ghost" data-testid={`button-delete-module-${mod.id}`}>
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Module</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete "{mod.name}"? This will also delete all its fields. This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deleteModuleMutation.mutate(mod.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="border-t pt-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm font-medium">Fields</h4>
-                          <Dialog open={showCreateField && selectedModuleId === mod.id} onOpenChange={(open) => { setShowCreateField(open); if (!open) resetFieldForm(); }}>
-                            <DialogTrigger asChild>
-                              <Button size="sm" variant="outline" onClick={() => { setSelectedModuleId(mod.id); setShowCreateField(true); }} data-testid={`button-add-field-${mod.id}`}>
-                                <Plus className="w-3 h-3 mr-1" />
-                                Add Field
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-lg">
-                              <DialogHeader>
-                                <DialogTitle>Add Field to {mod.name}</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-                                <div className="space-y-2">
-                                  <Label>Field Name</Label>
-                                  <Input
-                                    value={fieldForm.name}
-                                    onChange={(e) => handleFieldNameChange(e.target.value)}
-                                    placeholder="e.g., Budget Amount"
-                                    data-testid="input-field-name"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Slug</Label>
-                                  <Input
-                                    value={fieldForm.slug}
-                                    onChange={(e) => setFieldForm(f => ({ ...f, slug: e.target.value }))}
-                                    placeholder="budget_amount"
-                                    data-testid="input-field-slug"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Field Type</Label>
-                                  <Select value={fieldForm.fieldType} onValueChange={(v) => setFieldForm(f => ({ ...f, fieldType: v }))}>
-                                    <SelectTrigger data-testid="select-field-type">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {FIELD_TYPES.map(ft => (
-                                        <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                {(fieldForm.fieldType === "select" || fieldForm.fieldType === "multiselect") && (
-                                  <div className="space-y-2">
-                                    <Label>Options (one per line)</Label>
-                                    <Textarea
-                                      value={optionsText}
-                                      onChange={(e) => handleOptionsChange(e.target.value)}
-                                      placeholder="Option 1&#10;Option 2&#10;Option 3"
-                                      rows={4}
-                                      data-testid="input-field-options"
-                                    />
-                                  </div>
-                                )}
-                                <div className="space-y-2">
-                                  <Label>Placeholder</Label>
-                                  <Input
-                                    value={fieldForm.placeholder}
-                                    onChange={(e) => setFieldForm(f => ({ ...f, placeholder: e.target.value }))}
-                                    placeholder="Enter value..."
-                                    data-testid="input-field-placeholder"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Default Value</Label>
-                                  <Input
-                                    value={fieldForm.defaultValue}
-                                    onChange={(e) => setFieldForm(f => ({ ...f, defaultValue: e.target.value }))}
-                                    data-testid="input-field-default"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-4">
-                                  <div className="flex items-center gap-2">
-                                    <Switch
-                                      checked={fieldForm.isRequired === 1}
-                                      onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isRequired: checked ? 1 : 0 }))}
-                                      data-testid="switch-field-required"
-                                    />
-                                    <Label>Required</Label>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Switch
-                                      checked={fieldForm.isEnabled === 1}
-                                      onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isEnabled: checked ? 1 : 0 }))}
-                                      data-testid="switch-field-enabled"
-                                    />
-                                    <Label>Enabled</Label>
-                                  </div>
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button variant="outline" onClick={() => { setShowCreateField(false); resetFieldForm(); }}>Cancel</Button>
-                                <Button
-                                  onClick={() => createFieldMutation.mutate({ moduleId: mod.id, data: fieldForm })}
-                                  disabled={!fieldForm.name || !fieldForm.slug || createFieldMutation.isPending}
-                                  data-testid="button-save-field"
-                                >
-                                  Create Field
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-
-                        {!mod.fields || mod.fields.length === 0 ? (
-                          <p className="text-sm text-muted-foreground py-4 text-center">No fields configured for this module.</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {mod.fields.map((field) => (
-                              <div
-                                key={field.id}
-                                className="flex items-center justify-between p-3 border rounded-lg"
-                                data-testid={`field-${field.id}`}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <GripVertical className="w-4 h-4 text-muted-foreground/50" />
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium text-sm">{field.name}</span>
-                                      {field.isRequired === 1 && (
-                                        <span className="text-destructive text-xs">*</span>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                      <span>{FIELD_TYPES.find(ft => ft.value === field.fieldType)?.label || field.fieldType}</span>
-                                      <span className="text-muted-foreground/50">|</span>
-                                      <code className="bg-muted px-1 rounded">{field.slug}</code>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={field.isEnabled ? "default" : "secondary"} className="text-xs">
-                                    {field.isEnabled ? "Active" : "Inactive"}
-                                  </Badge>
-                                  
-                                  <Dialog open={editingField?.id === field.id} onOpenChange={(open) => !open && setEditingField(null)}>
-                                    <DialogTrigger asChild>
-                                      <Button size="icon" variant="ghost" onClick={() => startEditField(field)} data-testid={`button-edit-field-${field.id}`}>
-                                        <Pencil className="w-3 h-3" />
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="max-w-lg">
-                                      <DialogHeader>
-                                        <DialogTitle>Edit Field</DialogTitle>
-                                      </DialogHeader>
-                                      <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-                                        <div className="space-y-2">
-                                          <Label>Field Name</Label>
-                                          <Input
-                                            value={fieldForm.name}
-                                            onChange={(e) => setFieldForm(f => ({ ...f, name: e.target.value }))}
-                                            data-testid="input-edit-field-name"
-                                          />
-                                        </div>
-                                        <div className="space-y-2">
-                                          <Label>Field Type</Label>
-                                          <Select value={fieldForm.fieldType} onValueChange={(v) => setFieldForm(f => ({ ...f, fieldType: v }))}>
-                                            <SelectTrigger data-testid="select-edit-field-type">
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              {FIELD_TYPES.map(ft => (
-                                                <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
-                                        {(fieldForm.fieldType === "select" || fieldForm.fieldType === "multiselect") && (
-                                          <div className="space-y-2">
-                                            <Label>Options (one per line)</Label>
-                                            <Textarea
-                                              value={optionsText}
-                                              onChange={(e) => handleOptionsChange(e.target.value)}
-                                              rows={4}
-                                              data-testid="input-edit-field-options"
-                                            />
-                                          </div>
-                                        )}
-                                        <div className="space-y-2">
-                                          <Label>Placeholder</Label>
-                                          <Input
-                                            value={fieldForm.placeholder}
-                                            onChange={(e) => setFieldForm(f => ({ ...f, placeholder: e.target.value }))}
-                                            data-testid="input-edit-field-placeholder"
-                                          />
-                                        </div>
-                                        <div className="space-y-2">
-                                          <Label>Default Value</Label>
-                                          <Input
-                                            value={fieldForm.defaultValue}
-                                            onChange={(e) => setFieldForm(f => ({ ...f, defaultValue: e.target.value }))}
-                                            data-testid="input-edit-field-default"
-                                          />
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                          <div className="flex items-center gap-2">
-                                            <Switch
-                                              checked={fieldForm.isRequired === 1}
-                                              onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isRequired: checked ? 1 : 0 }))}
-                                              data-testid="switch-edit-field-required"
-                                            />
-                                            <Label>Required</Label>
-                                          </div>
-                                          <div className="flex items-center gap-2">
-                                            <Switch
-                                              checked={fieldForm.isEnabled === 1}
-                                              onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isEnabled: checked ? 1 : 0 }))}
-                                              data-testid="switch-edit-field-enabled"
-                                            />
-                                            <Label>Enabled</Label>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <DialogFooter>
-                                        <Button variant="outline" onClick={() => { setEditingField(null); resetFieldForm(); }}>Cancel</Button>
-                                        <Button
-                                          onClick={() => updateFieldMutation.mutate({ id: field.id, data: fieldForm })}
-                                          disabled={updateFieldMutation.isPending}
-                                          data-testid="button-update-field"
-                                        >
-                                          Save Changes
-                                        </Button>
-                                      </DialogFooter>
-                                    </DialogContent>
-                                  </Dialog>
-
-                                  {field.isSystem !== 1 && (
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <Button size="icon" variant="ghost" data-testid={`button-delete-field-${field.id}`}>
-                                          <Trash2 className="w-3 h-3 text-destructive" />
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>Delete Field</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            Are you sure you want to delete "{field.name}"? This action cannot be undone.
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                          <AlertDialogAction
-                                            onClick={() => deleteFieldMutation.mutate(field.id)}
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                          >
-                                            Delete
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+            <div className="space-y-2">
+              {module.fields.map((field) => (
+                <div
+                  key={field.id}
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                  data-testid={`field-${field.id}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{field.name}</span>
+                        {field.isRequired === 1 && (
+                          <span className="text-destructive text-xs">*</span>
+                        )}
+                        {field.isSystem === 1 && (
+                          <Badge variant="outline" className="text-xs">System</Badge>
                         )}
                       </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>{FIELD_TYPES.find(ft => ft.value === field.fieldType)?.label || field.fieldType}</span>
+                        <span className="text-muted-foreground/50">|</span>
+                        <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{field.slug}</code>
+                      </div>
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={field.isEnabled ? "default" : "secondary"}>
+                      {field.isEnabled ? "Active" : "Inactive"}
+                    </Badge>
+                    
+                    <Dialog open={editingField?.id === field.id} onOpenChange={(open) => !open && setEditingField(null)}>
+                      <DialogTrigger asChild>
+                        <Button size="icon" variant="ghost" onClick={() => startEditField(field)} data-testid={`button-edit-field-${field.id}`}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle>Edit Field</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+                          <div className="space-y-2">
+                            <Label>Field Name</Label>
+                            <Input
+                              value={fieldForm.name}
+                              onChange={(e) => setFieldForm(f => ({ ...f, name: e.target.value }))}
+                              data-testid="input-edit-field-name"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Field Type</Label>
+                            <Select value={fieldForm.fieldType} onValueChange={(v) => setFieldForm(f => ({ ...f, fieldType: v }))}>
+                              <SelectTrigger data-testid="select-edit-field-type">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {FIELD_TYPES.map(ft => (
+                                  <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {(fieldForm.fieldType === "select" || fieldForm.fieldType === "multiselect") && (
+                            <div className="space-y-2">
+                              <Label>Options (one per line)</Label>
+                              <Textarea
+                                value={optionsText}
+                                onChange={(e) => handleOptionsChange(e.target.value)}
+                                rows={4}
+                                data-testid="input-edit-field-options"
+                              />
+                            </div>
+                          )}
+                          <div className="space-y-2">
+                            <Label>Placeholder</Label>
+                            <Input
+                              value={fieldForm.placeholder}
+                              onChange={(e) => setFieldForm(f => ({ ...f, placeholder: e.target.value }))}
+                              data-testid="input-edit-field-placeholder"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Default Value</Label>
+                            <Input
+                              value={fieldForm.defaultValue}
+                              onChange={(e) => setFieldForm(f => ({ ...f, defaultValue: e.target.value }))}
+                              data-testid="input-edit-field-default"
+                            />
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={fieldForm.isRequired === 1}
+                                onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isRequired: checked ? 1 : 0 }))}
+                                data-testid="switch-edit-field-required"
+                              />
+                              <Label>Required</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={fieldForm.isEnabled === 1}
+                                onCheckedChange={(checked) => setFieldForm(f => ({ ...f, isEnabled: checked ? 1 : 0 }))}
+                                data-testid="switch-edit-field-enabled"
+                              />
+                              <Label>Enabled</Label>
+                            </div>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => { setEditingField(null); resetFieldForm(); }}>Cancel</Button>
+                          <Button
+                            onClick={() => updateFieldMutation.mutate({ id: field.id, data: fieldForm })}
+                            disabled={updateFieldMutation.isPending}
+                            data-testid="button-update-field"
+                          >
+                            Save Changes
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
+                    {field.isSystem !== 1 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="ghost" data-testid={`button-delete-field-${field.id}`}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Field</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{field.name}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteFieldMutation.mutate(field.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
+                </div>
               ))}
-            </Accordion>
+            </div>
           )}
         </CardContent>
       </Card>
