@@ -1791,6 +1791,89 @@ export class DatabaseStorage implements IStorage {
       return newVal;
     }
   }
+
+  async seedDefaultCrmModules(): Promise<void> {
+    const existingModules = await db.select().from(crmModules);
+    if (existingModules.length > 0) {
+      return;
+    }
+
+    const defaultModules = [
+      {
+        id: randomUUID(),
+        name: "Project Details",
+        slug: "project_details",
+        description: "Core project information and classification",
+        icon: "folder",
+        displayOrder: 1,
+        isEnabled: 1,
+        isSystem: 1,
+      },
+      {
+        id: randomUUID(),
+        name: "Timeline",
+        slug: "timeline",
+        description: "Project dates and scheduling",
+        icon: "calendar",
+        displayOrder: 2,
+        isEnabled: 1,
+        isSystem: 1,
+      },
+      {
+        id: randomUUID(),
+        name: "Hours & Budget",
+        slug: "hours_budget",
+        description: "Time tracking and budget management",
+        icon: "clock",
+        displayOrder: 3,
+        isEnabled: 1,
+        isSystem: 1,
+      },
+      {
+        id: randomUUID(),
+        name: "Settings",
+        slug: "settings",
+        description: "Project configuration options",
+        icon: "settings",
+        displayOrder: 4,
+        isEnabled: 1,
+        isSystem: 1,
+      },
+    ];
+
+    for (const mod of defaultModules) {
+      await db.insert(crmModules).values(mod);
+    }
+
+    const projectDetailsModule = defaultModules[0];
+    const timelineModule = defaultModules[1];
+    const hoursBudgetModule = defaultModules[2];
+    const settingsModule = defaultModules[3];
+
+    const defaultFields = [
+      { moduleId: projectDetailsModule.id, name: "Project Name", slug: "name", fieldType: "text" as const, displayOrder: 1, isRequired: 1, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectDetailsModule.id, name: "Status", slug: "status", fieldType: "select" as const, options: ["lead", "active", "on_hold", "completed", "cancelled"], displayOrder: 2, isRequired: 1, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectDetailsModule.id, name: "Project Type", slug: "project_type", fieldType: "select" as const, options: ["one_time", "recurring_monthly", "recurring_yearly"], displayOrder: 3, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectDetailsModule.id, name: "Client", slug: "client_id", fieldType: "select" as const, description: "Associated client", displayOrder: 4, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectDetailsModule.id, name: "Assignee", slug: "assignee_id", fieldType: "select" as const, description: "Team member responsible", displayOrder: 5, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectDetailsModule.id, name: "Description", slug: "description", fieldType: "textarea" as const, displayOrder: 6, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectDetailsModule.id, name: "Comments", slug: "comments", fieldType: "textarea" as const, displayOrder: 7, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: timelineModule.id, name: "Start Date", slug: "start_date", fieldType: "date" as const, displayOrder: 1, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: timelineModule.id, name: "Due Date", slug: "due_date", fieldType: "date" as const, displayOrder: 2, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: timelineModule.id, name: "Actual Finish Date", slug: "actual_finish_date", fieldType: "date" as const, displayOrder: 3, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: hoursBudgetModule.id, name: "Budgeted Hours", slug: "budgeted_hours", fieldType: "number" as const, displayOrder: 1, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: hoursBudgetModule.id, name: "Actual Hours", slug: "actual_hours", fieldType: "number" as const, displayOrder: 2, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: settingsModule.id, name: "Documentation Enabled", slug: "documentation_enabled", fieldType: "checkbox" as const, displayOrder: 1, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: settingsModule.id, name: "Documentation Only", slug: "is_documentation_only", fieldType: "checkbox" as const, displayOrder: 2, isRequired: 0, isEnabled: 1, isSystem: 1 },
+    ];
+
+    for (const field of defaultFields) {
+      await db.insert(crmModuleFields).values({
+        id: randomUUID(),
+        ...field,
+      });
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();
