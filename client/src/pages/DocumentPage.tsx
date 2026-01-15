@@ -187,7 +187,7 @@ export default function DocumentPage() {
     return new Promise((resolve) => {
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      // Accept all file types - no restrictions
       input.style.display = "none";
       document.body.appendChild(input);
       
