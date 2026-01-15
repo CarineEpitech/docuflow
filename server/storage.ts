@@ -1798,12 +1798,13 @@ export class DatabaseStorage implements IStorage {
       return;
     }
 
+    // Two top-level modules: Projects and Contacts
     const defaultModules = [
       {
         id: randomUUID(),
-        name: "Project Details",
-        slug: "project_details",
-        description: "Core project information and classification",
+        name: "Projects",
+        slug: "projects",
+        description: "Project management and tracking",
         icon: "folder",
         displayOrder: 1,
         isEnabled: 1,
@@ -1811,31 +1812,11 @@ export class DatabaseStorage implements IStorage {
       },
       {
         id: randomUUID(),
-        name: "Timeline",
-        slug: "timeline",
-        description: "Project dates and scheduling",
-        icon: "calendar",
+        name: "Contacts",
+        slug: "contacts",
+        description: "Client and contact management",
+        icon: "users",
         displayOrder: 2,
-        isEnabled: 1,
-        isSystem: 1,
-      },
-      {
-        id: randomUUID(),
-        name: "Hours & Budget",
-        slug: "hours_budget",
-        description: "Time tracking and budget management",
-        icon: "clock",
-        displayOrder: 3,
-        isEnabled: 1,
-        isSystem: 1,
-      },
-      {
-        id: randomUUID(),
-        name: "Settings",
-        slug: "settings",
-        description: "Project configuration options",
-        icon: "settings",
-        displayOrder: 4,
         isEnabled: 1,
         isSystem: 1,
       },
@@ -1845,26 +1826,37 @@ export class DatabaseStorage implements IStorage {
       await db.insert(crmModules).values(mod);
     }
 
-    const projectDetailsModule = defaultModules[0];
-    const timelineModule = defaultModules[1];
-    const hoursBudgetModule = defaultModules[2];
-    const settingsModule = defaultModules[3];
+    const projectsModule = defaultModules[0];
+    const contactsModule = defaultModules[1];
 
     const defaultFields = [
-      { moduleId: projectDetailsModule.id, name: "Project Name", slug: "name", fieldType: "text" as const, displayOrder: 1, isRequired: 1, isEnabled: 1, isSystem: 1 },
-      { moduleId: projectDetailsModule.id, name: "Status", slug: "status", fieldType: "select" as const, options: ["lead", "active", "on_hold", "completed", "cancelled"], displayOrder: 2, isRequired: 1, isEnabled: 1, isSystem: 1 },
-      { moduleId: projectDetailsModule.id, name: "Project Type", slug: "project_type", fieldType: "select" as const, options: ["one_time", "recurring_monthly", "recurring_yearly"], displayOrder: 3, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: projectDetailsModule.id, name: "Client", slug: "client_id", fieldType: "select" as const, description: "Associated client", displayOrder: 4, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: projectDetailsModule.id, name: "Assignee", slug: "assignee_id", fieldType: "select" as const, description: "Team member responsible", displayOrder: 5, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: projectDetailsModule.id, name: "Description", slug: "description", fieldType: "textarea" as const, displayOrder: 6, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: projectDetailsModule.id, name: "Comments", slug: "comments", fieldType: "textarea" as const, displayOrder: 7, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: timelineModule.id, name: "Start Date", slug: "start_date", fieldType: "date" as const, displayOrder: 1, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: timelineModule.id, name: "Due Date", slug: "due_date", fieldType: "date" as const, displayOrder: 2, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: timelineModule.id, name: "Actual Finish Date", slug: "actual_finish_date", fieldType: "date" as const, displayOrder: 3, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: hoursBudgetModule.id, name: "Budgeted Hours", slug: "budgeted_hours", fieldType: "number" as const, displayOrder: 1, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: hoursBudgetModule.id, name: "Actual Hours", slug: "actual_hours", fieldType: "number" as const, displayOrder: 2, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: settingsModule.id, name: "Documentation Enabled", slug: "documentation_enabled", fieldType: "checkbox" as const, displayOrder: 1, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: settingsModule.id, name: "Documentation Only", slug: "is_documentation_only", fieldType: "checkbox" as const, displayOrder: 2, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      // Projects fields
+      { moduleId: projectsModule.id, name: "Project Name", slug: "name", fieldType: "text" as const, displayOrder: 1, isRequired: 1, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Status", slug: "status", fieldType: "select" as const, options: ["lead", "active", "on_hold", "completed", "cancelled"], displayOrder: 2, isRequired: 1, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Project Type", slug: "project_type", fieldType: "select" as const, options: ["one_time", "recurring_monthly", "recurring_yearly"], displayOrder: 3, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Client", slug: "client_id", fieldType: "select" as const, description: "Associated client", displayOrder: 4, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Assignee", slug: "assignee_id", fieldType: "select" as const, description: "Team member responsible", displayOrder: 5, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Description", slug: "description", fieldType: "textarea" as const, displayOrder: 6, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Comments", slug: "comments", fieldType: "textarea" as const, displayOrder: 7, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Start Date", slug: "start_date", fieldType: "date" as const, displayOrder: 8, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Due Date", slug: "due_date", fieldType: "date" as const, displayOrder: 9, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Actual Finish Date", slug: "actual_finish_date", fieldType: "date" as const, displayOrder: 10, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Budgeted Hours", slug: "budgeted_hours", fieldType: "number" as const, displayOrder: 11, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Actual Hours", slug: "actual_hours", fieldType: "number" as const, displayOrder: 12, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Documentation Enabled", slug: "documentation_enabled", fieldType: "checkbox" as const, displayOrder: 13, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Documentation Only", slug: "is_documentation_only", fieldType: "checkbox" as const, displayOrder: 14, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      
+      // Contacts fields
+      { moduleId: contactsModule.id, name: "First Name", slug: "first_name", fieldType: "text" as const, displayOrder: 1, isRequired: 1, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Last Name", slug: "last_name", fieldType: "text" as const, displayOrder: 2, isRequired: 1, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Email", slug: "email", fieldType: "email" as const, displayOrder: 3, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Phone", slug: "phone", fieldType: "phone" as const, displayOrder: 4, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Company", slug: "company", fieldType: "text" as const, displayOrder: 5, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Job Title", slug: "job_title", fieldType: "text" as const, displayOrder: 6, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Address", slug: "address", fieldType: "textarea" as const, displayOrder: 7, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Website", slug: "website", fieldType: "url" as const, displayOrder: 8, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Notes", slug: "notes", fieldType: "textarea" as const, displayOrder: 9, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Contact Type", slug: "contact_type", fieldType: "select" as const, options: ["client", "vendor", "partner", "other"], displayOrder: 10, isRequired: 0, isEnabled: 1, isSystem: 1 },
     ];
 
     for (const field of defaultFields) {
