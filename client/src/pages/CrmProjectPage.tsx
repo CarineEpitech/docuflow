@@ -886,8 +886,15 @@ export default function CrmProjectPage() {
                 <div className="flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Project Type:</span>
-                  <Badge variant="outline" className="text-xs" data-testid="badge-project-type">
-                    {formData?.projectType ? projectTypeConfig[formData.projectType].label : "One-Time Project"}
+                  <Badge 
+                    className="text-xs" 
+                    style={{ 
+                      backgroundColor: formData?.projectType ? projectTypeConfig[formData.projectType]?.color || "#64748b" : "#64748b", 
+                      color: "white" 
+                    }}
+                    data-testid="badge-project-type"
+                  >
+                    {formData?.projectType ? projectTypeConfig[formData.projectType]?.label || formData.projectType : "One-Time Project"}
                   </Badge>
                 </div>
 
