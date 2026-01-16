@@ -1862,14 +1862,20 @@ export class DatabaseStorage implements IStorage {
       // Contacts fields
       { moduleId: contactsModule.id, name: "First Name", slug: "first_name", fieldType: "text" as const, displayOrder: 1, isRequired: 1, isEnabled: 1, isSystem: 1 },
       { moduleId: contactsModule.id, name: "Last Name", slug: "last_name", fieldType: "text" as const, displayOrder: 2, isRequired: 1, isEnabled: 1, isSystem: 1 },
-      { moduleId: contactsModule.id, name: "Email", slug: "email", fieldType: "email" as const, displayOrder: 3, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: contactsModule.id, name: "Phone", slug: "phone", fieldType: "phone" as const, displayOrder: 4, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: contactsModule.id, name: "Company", slug: "company", fieldType: "text" as const, displayOrder: 5, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: contactsModule.id, name: "Job Title", slug: "job_title", fieldType: "text" as const, displayOrder: 6, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: contactsModule.id, name: "Address", slug: "address", fieldType: "textarea" as const, displayOrder: 7, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: contactsModule.id, name: "Website", slug: "website", fieldType: "url" as const, displayOrder: 8, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: contactsModule.id, name: "Notes", slug: "notes", fieldType: "textarea" as const, displayOrder: 9, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: contactsModule.id, name: "Contact Type", slug: "contact_type", fieldType: "select" as const, options: ["client", "vendor", "partner", "other"], displayOrder: 10, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Status", slug: "status", fieldType: "select" as const, options: [
+        '{"label":"lead","color":"#64748b"}',
+        '{"label":"prospect","color":"#8b5cf6"}',
+        '{"label":"client","color":"#22c55e"}',
+        '{"label":"client_recurrent","color":"#14b8a6"}'
+      ], displayOrder: 3, isRequired: 1, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Email", slug: "email", fieldType: "email" as const, displayOrder: 4, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Phone", slug: "phone", fieldType: "phone" as const, displayOrder: 5, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Company", slug: "company", fieldType: "text" as const, displayOrder: 6, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Job Title", slug: "job_title", fieldType: "text" as const, displayOrder: 7, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Address", slug: "address", fieldType: "textarea" as const, displayOrder: 8, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Website", slug: "website", fieldType: "url" as const, displayOrder: 9, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Notes", slug: "notes", fieldType: "textarea" as const, displayOrder: 10, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: contactsModule.id, name: "Contact Type", slug: "contact_type", fieldType: "select" as const, options: ["client", "vendor", "partner", "other"], displayOrder: 11, isRequired: 0, isEnabled: 1, isSystem: 1 },
     ];
 
     for (const field of defaultFields) {
