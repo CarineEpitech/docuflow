@@ -1875,7 +1875,6 @@ export class DatabaseStorage implements IStorage {
       { moduleId: contactsModule.id, name: "Address", slug: "address", fieldType: "textarea" as const, displayOrder: 8, isRequired: 0, isEnabled: 1, isSystem: 1 },
       { moduleId: contactsModule.id, name: "Website", slug: "website", fieldType: "url" as const, displayOrder: 9, isRequired: 0, isEnabled: 1, isSystem: 1 },
       { moduleId: contactsModule.id, name: "Notes", slug: "notes", fieldType: "textarea" as const, displayOrder: 10, isRequired: 0, isEnabled: 1, isSystem: 1 },
-      { moduleId: contactsModule.id, name: "Contact Type", slug: "contact_type", fieldType: "select" as const, options: ["client", "vendor", "partner", "other"], displayOrder: 11, isRequired: 0, isEnabled: 1, isSystem: 1 },
     ];
 
     for (const field of defaultFields) {
