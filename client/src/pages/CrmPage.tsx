@@ -530,8 +530,8 @@ export default function CrmPage() {
                         className="w-72 flex-shrink-0"
                         data-testid={`kanban-column-${status}`}
                       >
-                        <div className="bg-muted rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-3">
+                        <div className="bg-muted rounded-lg p-3 flex flex-col max-h-[calc(100vh-220px)]">
+                          <div className="flex items-center justify-between mb-3 shrink-0">
                             <div className="flex items-center gap-2">
                               <Badge 
                                 style={{ backgroundColor: statusConfig[status]?.color || "#64748b", color: "white" }}
@@ -548,7 +548,20 @@ export default function CrmPage() {
                               <div
                                 ref={provided.innerRef}
                                 {...provided.droppableProps}
-                                className={`space-y-2 min-h-[100px] rounded-md transition-colors ${snapshot.isDraggingOver ? "bg-muted/80" : ""}`}
+                                className={`space-y-2 min-h-[100px] rounded-md transition-colors overflow-y-auto flex-1 ${snapshot.isDraggingOver ? "bg-muted/80" : ""}`}
+                                style={{ scrollBehavior: 'smooth' }}
+                                onDragOver={(e) => {
+                                  const container = e.currentTarget;
+                                  const rect = container.getBoundingClientRect();
+                                  const scrollSpeed = 10;
+                                  const threshold = 50;
+                                  
+                                  if (e.clientY - rect.top < threshold) {
+                                    container.scrollTop -= scrollSpeed;
+                                  } else if (rect.bottom - e.clientY < threshold) {
+                                    container.scrollTop += scrollSpeed;
+                                  }
+                                }}
                               >
                                 {projectsInColumn.map((project, index) => (
                                   <Draggable key={project.id} draggableId={project.id} index={index}>
