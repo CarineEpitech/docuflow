@@ -356,9 +356,18 @@ export default function CrmPage() {
 
   // Kanban auto-scroll refs and handlers
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
+  const columnRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
   const scrollAnimationRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const mousePositionRef = useRef({ x: 0, y: 0 });
+
+  const setColumnRef = useCallback((status: string, element: HTMLDivElement | null) => {
+    if (element) {
+      columnRefsMap.current.set(status, element);
+    } else {
+      columnRefsMap.current.delete(status);
+    }
+  }, []);
 
   // Track mouse position globally during drag
   useEffect(() => {
@@ -385,7 +394,7 @@ export default function CrmPage() {
       const scrollZone = 80; // pixels from edge to trigger scroll
       const maxScrollSpeed = 20; // max pixels per frame
       
-      // Horizontal scrolling
+      // Horizontal scrolling - exact same logic
       if (x < rect.left + scrollZone && x > rect.left) {
         const intensity = 1 - (x - rect.left) / scrollZone;
         container.scrollLeft -= maxScrollSpeed * intensity;
@@ -394,20 +403,21 @@ export default function CrmPage() {
         container.scrollLeft += maxScrollSpeed * intensity;
       }
       
-      // Vertical scrolling for columns - find the column being hovered
-      const columns = container.querySelectorAll('[data-testid^="kanban-column-"]');
-      columns.forEach((column) => {
-        const droppable = column.querySelector('.overflow-y-auto');
-        if (!droppable) return;
+      // Vertical scrolling - same logic applied to each column ref
+      columnRefsMap.current.forEach((columnElement) => {
+        const colRect = columnElement.getBoundingClientRect();
         
-        const colRect = droppable.getBoundingClientRect();
+        // Only scroll if mouse is within this column's horizontal bounds
         if (x >= colRect.left && x <= colRect.right) {
+          // Scroll up - exact same logic as horizontal left
           if (y < colRect.top + scrollZone && y > colRect.top) {
             const intensity = 1 - (y - colRect.top) / scrollZone;
-            (droppable as HTMLElement).scrollTop -= maxScrollSpeed * intensity;
-          } else if (y > colRect.bottom - scrollZone && y < colRect.bottom) {
+            columnElement.scrollTop -= maxScrollSpeed * intensity;
+          } 
+          // Scroll down - exact same logic as horizontal right
+          else if (y > colRect.bottom - scrollZone && y < colRect.bottom) {
             const intensity = 1 - (colRect.bottom - y) / scrollZone;
-            (droppable as HTMLElement).scrollTop += maxScrollSpeed * intensity;
+            columnElement.scrollTop += maxScrollSpeed * intensity;
           }
         }
       });
@@ -625,7 +635,10 @@ export default function CrmPage() {
                           <Droppable droppableId={status}>
                             {(provided, snapshot) => (
                               <div
-                                ref={provided.innerRef}
+                                ref={(el) => {
+                                  provided.innerRef(el);
+                                  setColumnRef(status, el);
+                                }}
                                 {...provided.droppableProps}
                                 className={`space-y-2 min-h-[100px] flex-1 overflow-y-auto rounded-md transition-colors ${snapshot.isDraggingOver ? "bg-muted/80" : ""}`}
                                 style={{ scrollBehavior: 'smooth' }}
