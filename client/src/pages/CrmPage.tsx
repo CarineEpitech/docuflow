@@ -607,7 +607,7 @@ export default function CrmPage() {
         <TabsContent value="projects" className="space-y-4 mt-0">
           {projectViewMode === "kanban" ? (
             <DragDropContext onDragEnd={(result) => { cleanupScroll(); handleDragEnd(result); }} onDragStart={handleDragStart}>
-              <div ref={kanbanScrollRef} className="overflow-x-auto pb-4" style={{ scrollbarWidth: 'thin' }}>
+              <div ref={kanbanScrollRef} className="overflow-x-auto pb-4 scrollbar-hidden">
                 <div className="flex gap-4 min-w-max items-stretch">
                   {statusOptions.map((status) => {
                     const filteredProjects = filterProjects(allProjectsData?.data || []);
@@ -624,7 +624,7 @@ export default function CrmPage() {
                               ref={provided.innerRef}
                               {...provided.droppableProps}
                               data-scroll-column={status}
-                              className={`bg-muted rounded-lg p-3 min-h-[400px] h-[calc(100vh-280px)] overflow-y-auto transition-colors ${snapshot.isDraggingOver ? "bg-muted/60" : ""}`}
+                              className={`bg-muted rounded-lg p-3 min-h-[400px] h-[calc(100vh-280px)] overflow-y-auto scrollbar-hidden transition-colors ${snapshot.isDraggingOver ? "bg-muted/60" : ""}`}
                             >
                               <div className="flex items-center justify-between mb-3 sticky top-0 bg-muted z-10 pb-1">
                                 <div className="flex items-center gap-2">
