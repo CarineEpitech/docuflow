@@ -4,6 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useSearch } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,11 +112,13 @@ interface CrmProjectsResponse {
 
 export default function CrmPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const [activeTab, setActiveTab] = useState<string>("projects");
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [projectViewFilter, setProjectViewFilter] = useState<string>("all");
   const [contactStatusFilter, setContactStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
@@ -204,6 +207,26 @@ export default function CrmPage() {
     };
   }, [contactFields]);
 
+  // Parse project type options from database (for filtering)
+  const projectTypeConfig = useMemo(() => {
+    const typeField = projectFields.find(f => f.slug === "project_type");
+    if (typeField && typeField.options && typeField.options.length > 0) {
+      const parsed = parseFieldOptions(typeField.options);
+      const config: Record<string, { label: string; color: string }> = {};
+      parsed.forEach(opt => {
+        config[opt.value] = { label: opt.label, color: opt.color };
+      });
+      return config;
+    }
+    // Fallback
+    return {
+      one_time: { label: "One-Time Project", color: "#3b82f6" },
+      monthly: { label: "Monthly Retainer", color: "#8b5cf6" },
+      hourly_budget: { label: "Hourly Budget", color: "#f59e0b" },
+      internal: { label: "Internal", color: "#64748b" },
+    };
+  }, [projectFields]);
+
   // Fetch all projects for Kanban view
   const { data: allProjectsData } = useQuery<CrmProjectsResponse>({
     queryKey: ["/api/crm/projects/all-kanban"],
@@ -259,7 +282,37 @@ export default function CrmPage() {
     return matchesSearch && matchesStatus;
   });
 
-  
+  // Filter projects based on view filter (for Kanban and table view)
+  const filterProjects = (projects: CrmProjectWithDetails[]) => {
+    return projects.filter(project => {
+      // Apply status filter
+      if (statusFilter !== "all" && project.status !== statusFilter) return false;
+      
+      // Apply search filter
+      if (search) {
+        const searchLower = search.toLowerCase();
+        const matchesSearch = 
+          project.project?.name?.toLowerCase().includes(searchLower) ||
+          project.client?.name?.toLowerCase().includes(searchLower) ||
+          project.client?.company?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+      
+      // Apply project view filter
+      switch (projectViewFilter) {
+        case "my_projects":
+          return project.assigneeId === user?.id;
+        case "internal":
+          return project.projectType === "internal";
+        case "client":
+          return project.projectType !== "internal";
+        case "all":
+        default:
+          return true;
+      }
+    });
+  };
+
   const deleteContactMutation = useMutation({
     mutationFn: async (contactId: string) => {
       await apiRequest("DELETE", `/api/crm/clients/${contactId}`);
@@ -387,6 +440,17 @@ export default function CrmPage() {
                   data-testid="input-search"
                 />
               </div>
+              <Select value={projectViewFilter} onValueChange={(v) => { setProjectViewFilter(v); setPage(1); }}>
+                <SelectTrigger className="w-full sm:w-[160px]" data-testid="select-project-view-filter">
+                  <SelectValue placeholder="Project view" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  <SelectItem value="my_projects">My Projects</SelectItem>
+                  <SelectItem value="internal">Internal Projects</SelectItem>
+                  <SelectItem value="client">Client Projects</SelectItem>
+                </SelectContent>
+              </Select>
               {projectViewMode === "table" && (
                 <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
                   <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-status-filter">
@@ -458,10 +522,8 @@ export default function CrmPage() {
               <div className="overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <div className="flex gap-4 min-w-max">
                   {statusOptions.map((status) => {
-                    const projectsInColumn = (allProjectsData?.data || []).filter(
-                      p => p.status === status && 
-                      (search === "" || p.project?.name.toLowerCase().includes(search.toLowerCase()))
-                    );
+                    const filteredProjects = filterProjects(allProjectsData?.data || []);
+                    const projectsInColumn = filteredProjects.filter(p => p.status === status);
                     return (
                       <div
                         key={status}
@@ -621,14 +683,16 @@ export default function CrmPage() {
                             Loading projects...
                           </td>
                         </tr>
-                      ) : !crmProjectsData?.data.length ? (
+                      ) : (() => {
+                          const tableProjects = filterProjects(crmProjectsData?.data || []);
+                          return tableProjects.length === 0 ? (
                         <tr>
                           <td colSpan={11} className="p-8 text-center text-muted-foreground">
                             No projects found. Add your first project to get started.
                           </td>
                         </tr>
                       ) : (
-                        crmProjectsData?.data.map((crmProject) => (
+                        tableProjects.map((crmProject) => (
                           <tr 
                             key={crmProject.id} 
                             className="hover:bg-muted/50 cursor-pointer whitespace-nowrap transition-colors"
@@ -809,7 +873,8 @@ export default function CrmPage() {
                             </td>
                           </tr>
                         ))
-                      )}
+                      )
+                        })()}
                     </tbody>
                   </table>
                 </div>
