@@ -356,18 +356,9 @@ export default function CrmPage() {
 
   // Kanban auto-scroll refs and handlers
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
-  const columnRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
   const scrollAnimationRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const mousePositionRef = useRef({ x: 0, y: 0 });
-
-  const setColumnRef = useCallback((status: string, element: HTMLDivElement | null) => {
-    if (element) {
-      columnRefsMap.current.set(status, element);
-    } else {
-      columnRefsMap.current.delete(status);
-    }
-  }, []);
 
   // Track mouse position globally during drag
   useEffect(() => {
@@ -391,10 +382,10 @@ export default function CrmPage() {
       const rect = container.getBoundingClientRect();
       const { x, y } = mousePositionRef.current;
       
-      const scrollZone = 80; // pixels from edge to trigger scroll
-      const maxScrollSpeed = 20; // max pixels per frame
+      const scrollZone = 100; // pixels from edge to trigger scroll
+      const maxScrollSpeed = 15; // max pixels per frame
       
-      // Horizontal scrolling - exact same logic
+      // Horizontal scrolling
       if (x < rect.left + scrollZone && x > rect.left) {
         const intensity = 1 - (x - rect.left) / scrollZone;
         container.scrollLeft -= maxScrollSpeed * intensity;
@@ -403,21 +394,30 @@ export default function CrmPage() {
         container.scrollLeft += maxScrollSpeed * intensity;
       }
       
-      // Vertical scrolling - same logic applied to each column ref
-      columnRefsMap.current.forEach((columnElement) => {
+      // Vertical scrolling - query all columns and check which one the mouse is in
+      const columnElements = container.querySelectorAll('[data-scroll-column]');
+      columnElements.forEach((el) => {
+        const columnElement = el as HTMLElement;
         const colRect = columnElement.getBoundingClientRect();
         
-        // Only scroll if mouse is within this column's horizontal bounds
-        if (x >= colRect.left && x <= colRect.right) {
-          // Scroll up - exact same logic as horizontal left
-          if (y < colRect.top + scrollZone && y > colRect.top) {
-            const intensity = 1 - (y - colRect.top) / scrollZone;
-            columnElement.scrollTop -= maxScrollSpeed * intensity;
-          } 
-          // Scroll down - exact same logic as horizontal right
-          else if (y > colRect.bottom - scrollZone && y < colRect.bottom) {
-            const intensity = 1 - (colRect.bottom - y) / scrollZone;
-            columnElement.scrollTop += maxScrollSpeed * intensity;
+        // Check if mouse X is within this column's bounds (with some tolerance)
+        if (x >= colRect.left - 20 && x <= colRect.right + 20) {
+          // Check if column has scrollable content
+          const hasScrollableContent = columnElement.scrollHeight > columnElement.clientHeight;
+          
+          if (hasScrollableContent) {
+            // Scroll up when near top (include when mouse is above the column)
+            if (y >= colRect.top - scrollZone && y <= colRect.top + scrollZone) {
+              const distanceFromTop = Math.max(0, y - colRect.top);
+              const intensity = distanceFromTop < 0 ? 1 : 1 - distanceFromTop / scrollZone;
+              columnElement.scrollTop -= maxScrollSpeed * Math.max(0.3, intensity);
+            } 
+            // Scroll down when near bottom (include when mouse is below the column)
+            else if (y >= colRect.bottom - scrollZone && y <= colRect.bottom + scrollZone) {
+              const distanceFromBottom = Math.max(0, colRect.bottom - y);
+              const intensity = distanceFromBottom < 0 ? 1 : 1 - distanceFromBottom / scrollZone;
+              columnElement.scrollTop += maxScrollSpeed * Math.max(0.3, intensity);
+            }
           }
         }
       });
@@ -635,13 +635,10 @@ export default function CrmPage() {
                           <Droppable droppableId={status}>
                             {(provided, snapshot) => (
                               <div
-                                ref={(el) => {
-                                  provided.innerRef(el);
-                                  setColumnRef(status, el);
-                                }}
+                                ref={provided.innerRef}
                                 {...provided.droppableProps}
+                                data-scroll-column={status}
                                 className={`space-y-2 min-h-[100px] flex-1 overflow-y-auto rounded-md transition-colors ${snapshot.isDraggingOver ? "bg-muted/80" : ""}`}
-                                style={{ scrollBehavior: 'smooth' }}
                               >
                                 {projectsInColumn.map((project, index) => (
                                   <Draggable key={project.id} draggableId={project.id} index={index}>
