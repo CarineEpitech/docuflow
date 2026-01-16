@@ -520,18 +520,19 @@ export default function CrmPage() {
           {projectViewMode === "kanban" ? (
             <DragDropContext onDragEnd={handleDragEnd}>
               <div className="overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                <div className="flex gap-4 min-w-max">
+                <div className="flex gap-4 min-w-max items-start">
                   {statusOptions.map((status) => {
                     const filteredProjects = filterProjects(allProjectsData?.data || []);
                     const projectsInColumn = filteredProjects.filter(p => p.status === status);
                     return (
                       <div
                         key={status}
-                        className="w-72 flex-shrink-0"
+                        className="w-72 flex-shrink-0 flex flex-col"
+                        style={{ maxHeight: 'calc(100vh - 280px)' }}
                         data-testid={`kanban-column-${status}`}
                       >
-                        <div className="bg-muted rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-3">
+                        <div className="bg-muted rounded-lg p-3 flex flex-col h-full">
+                          <div className="flex items-center justify-between mb-3 shrink-0">
                             <div className="flex items-center gap-2">
                               <Badge 
                                 style={{ backgroundColor: statusConfig[status]?.color || "#64748b", color: "white" }}
@@ -548,7 +549,8 @@ export default function CrmPage() {
                               <div
                                 ref={provided.innerRef}
                                 {...provided.droppableProps}
-                                className={`space-y-2 min-h-[100px] rounded-md transition-colors ${snapshot.isDraggingOver ? "bg-muted/80" : ""}`}
+                                className={`space-y-2 min-h-[100px] flex-1 overflow-y-auto rounded-md transition-colors ${snapshot.isDraggingOver ? "bg-muted/80" : ""}`}
+                                style={{ scrollBehavior: 'smooth' }}
                               >
                                 {projectsInColumn.map((project, index) => (
                                   <Draggable key={project.id} draggableId={project.id} index={index}>
