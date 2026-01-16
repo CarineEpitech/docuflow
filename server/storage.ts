@@ -1846,7 +1846,7 @@ export class DatabaseStorage implements IStorage {
         '{"label":"lost","color":"#ef4444"}',
         '{"label":"won_cancelled","color":"#f43f5e"}'
       ], displayOrder: 2, isRequired: 1, isEnabled: 1, isSystem: 1 },
-      { moduleId: projectsModule.id, name: "Project Type", slug: "project_type", fieldType: "select" as const, options: ["one_time", "monthly", "hourly_budget"], displayOrder: 3, isRequired: 0, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Project Type", slug: "project_type", fieldType: "select" as const, options: ["one_time", "monthly", "hourly_budget", "internal"], displayOrder: 3, isRequired: 0, isEnabled: 1, isSystem: 1 },
       { moduleId: projectsModule.id, name: "Client", slug: "client_id", fieldType: "select" as const, description: "Associated client", displayOrder: 4, isRequired: 0, isEnabled: 1, isSystem: 1 },
       { moduleId: projectsModule.id, name: "Assignee", slug: "assignee_id", fieldType: "select" as const, description: "Team member responsible", displayOrder: 5, isRequired: 0, isEnabled: 1, isSystem: 1 },
       { moduleId: projectsModule.id, name: "Description", slug: "description", fieldType: "textarea" as const, displayOrder: 6, isRequired: 0, isEnabled: 1, isSystem: 1 },
