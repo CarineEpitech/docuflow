@@ -1224,6 +1224,33 @@ function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onB
     },
   });
 
+  const toggleModuleMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      return await apiRequest("PATCH", `/api/admin/modules/${module.id}`, { isEnabled: enabled ? 1 : 0 });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
+      toast({ title: module.isEnabled ? "Module disabled" : "Module enabled" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update module", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteModuleMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", `/api/admin/modules/${module.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
+      toast({ title: "Module deleted successfully" });
+      onBack();
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to delete module", description: error.message, variant: "destructive" });
+    },
+  });
+
   const resetFieldForm = () => {
     setFieldForm({ name: "", slug: "", fieldType: "text", description: "", placeholder: "", defaultValue: "", options: [], isRequired: 0, isEnabled: 1 });
     setOptionsText("");
@@ -1258,24 +1285,67 @@ function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onB
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-module">
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            {module.slug === "projects" ? (
-              <Layers className="w-5 h-5 text-primary" />
-            ) : module.slug === "contacts" ? (
-              <Users className="w-5 h-5 text-primary" />
-            ) : (
-              <Layers className="w-5 h-5 text-primary" />
-            )}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-module">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              {module.slug === "projects" ? (
+                <Layers className="w-5 h-5 text-primary" />
+              ) : module.slug === "contacts" ? (
+                <Users className="w-5 h-5 text-primary" />
+              ) : (
+                <Layers className="w-5 h-5 text-primary" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold">{module.name}</h2>
+                {module.isSystem === 1 && (
+                  <Badge variant="outline" className="text-xs">System</Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">{module.description || "Configure fields for this module"}</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold">{module.name}</h2>
-            <p className="text-sm text-muted-foreground">{module.description || "Configure fields for this module"}</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="module-enabled" className="text-sm">Enabled</Label>
+            <Switch
+              id="module-enabled"
+              checked={module.isEnabled === 1}
+              onCheckedChange={(checked) => toggleModuleMutation.mutate(checked)}
+              disabled={toggleModuleMutation.isPending}
+              data-testid="switch-module-enabled"
+            />
           </div>
+          {module.isSystem !== 1 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" data-testid="button-delete-module">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Module
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Module</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete the "{module.name}" module? This will also delete all its fields and cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteModuleMutation.mutate()}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
