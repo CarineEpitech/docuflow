@@ -1202,6 +1202,8 @@ function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onB
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/modules/projects/fields"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/modules/contacts/fields"] });
       setShowCreateField(false);
       resetFieldForm();
       toast({ title: "Field created successfully" });
@@ -1217,6 +1219,8 @@ function ModuleDetailView({ module, onBack }: { module: CrmModuleWithFields; onB
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/modules/projects/fields"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/modules/contacts/fields"] });
       toast({ title: "Field deleted successfully" });
     },
     onError: (error: any) => {
@@ -1579,6 +1583,8 @@ function FieldDetailView({ field, module, onBack }: { field: CrmModuleField; mod
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/modules/projects/fields"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/modules/contacts/fields"] });
       toast({ title: "Field updated successfully" });
       onBack();
     },
@@ -1593,6 +1599,8 @@ function FieldDetailView({ field, module, onBack }: { field: CrmModuleField; mod
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/modules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/modules/projects/fields"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/modules/contacts/fields"] });
       toast({ title: "Field deleted successfully" });
       onBack();
     },

@@ -410,7 +410,14 @@ export default function ProjectCreatePage() {
                 <SelectContent>
                   {projectTypeOptions.map(type => (
                     <SelectItem key={type} value={type}>
-                      {projectTypeConfig[type].label}
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          className="text-xs"
+                          style={{ backgroundColor: projectTypeConfig[type]?.color || "#64748b", color: "white" }}
+                        >
+                          {projectTypeConfig[type]?.label || type}
+                        </Badge>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
