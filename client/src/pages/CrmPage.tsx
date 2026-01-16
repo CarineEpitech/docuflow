@@ -607,39 +607,38 @@ export default function CrmPage() {
         <TabsContent value="projects" className="space-y-4 mt-0">
           {projectViewMode === "kanban" ? (
             <DragDropContext onDragEnd={(result) => { cleanupScroll(); handleDragEnd(result); }} onDragStart={handleDragStart}>
-              <div ref={kanbanScrollRef} className="overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                <div className="flex gap-4 min-w-max items-start">
+              <div ref={kanbanScrollRef} className="overflow-x-auto pb-4" style={{ scrollbarWidth: 'thin' }}>
+                <div className="flex gap-4 min-w-max items-stretch">
                   {statusOptions.map((status) => {
                     const filteredProjects = filterProjects(allProjectsData?.data || []);
                     const projectsInColumn = filteredProjects.filter(p => p.status === status);
                     return (
                       <div
                         key={status}
-                        className="w-72 flex-shrink-0 flex flex-col"
-                        style={{ maxHeight: 'calc(100vh - 280px)' }}
+                        className="w-72 flex-shrink-0"
                         data-testid={`kanban-column-${status}`}
                       >
-                        <div className="bg-muted rounded-lg p-3 flex flex-col h-full">
-                          <div className="flex items-center justify-between mb-3 shrink-0">
-                            <div className="flex items-center gap-2">
-                              <Badge 
-                                style={{ backgroundColor: statusConfig[status]?.color || "#64748b", color: "white" }}
-                              >
-                                {statusConfig[status]?.label || status}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {projectsInColumn.length}
-                              </span>
-                            </div>
-                          </div>
-                          <Droppable droppableId={status}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.droppableProps}
-                                data-scroll-column={status}
-                                className={`space-y-2 min-h-[100px] flex-1 overflow-y-auto rounded-md transition-colors ${snapshot.isDraggingOver ? "bg-muted/80" : ""}`}
-                              >
+                        <Droppable droppableId={status}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              data-scroll-column={status}
+                              className={`bg-muted rounded-lg p-3 min-h-[400px] h-[calc(100vh-280px)] overflow-y-auto transition-colors ${snapshot.isDraggingOver ? "bg-muted/60" : ""}`}
+                            >
+                              <div className="flex items-center justify-between mb-3 sticky top-0 bg-muted z-10 pb-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge 
+                                    style={{ backgroundColor: statusConfig[status]?.color || "#64748b", color: "white" }}
+                                  >
+                                    {statusConfig[status]?.label || status}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {projectsInColumn.length}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
                                 {projectsInColumn.map((project, index) => (
                                   <Draggable key={project.id} draggableId={project.id} index={index}>
                                     {(provided, snapshot) => (
@@ -737,9 +736,9 @@ export default function CrmPage() {
                                   </div>
                                 )}
                               </div>
-                            )}
-                          </Droppable>
-                        </div>
+                            </div>
+                          )}
+                        </Droppable>
                       </div>
                     );
                   })}
