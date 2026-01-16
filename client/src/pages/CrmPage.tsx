@@ -356,54 +356,80 @@ export default function CrmPage() {
 
   // Kanban auto-scroll refs and handlers
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
-  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollAnimationRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const mousePositionRef = useRef({ x: 0, y: 0 });
 
-  const handleDragUpdate = useCallback((update: any) => {
-    if (!kanbanScrollRef.current) return;
+  // Track mouse position globally during drag
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      mousePositionRef.current = { x: e.clientX, y: e.clientY };
+    };
     
-    const container = kanbanScrollRef.current;
-    const containerRect = container.getBoundingClientRect();
-    
-    // Get current mouse/touch position from the drag
-    const clientX = (update as any)?.client?.x;
-    if (clientX === undefined) return;
-    
-    const scrollZone = 100; // pixels from edge to trigger scroll
-    const scrollSpeed = 15; // pixels per frame
-    
-    // Clear any existing scroll interval
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = null;
-    }
-    
-    // Check if near left edge
-    if (clientX < containerRect.left + scrollZone) {
-      scrollIntervalRef.current = setInterval(() => {
-        if (kanbanScrollRef.current) {
-          kanbanScrollRef.current.scrollLeft -= scrollSpeed;
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  // Auto-scroll animation loop
+  useEffect(() => {
+    const performScroll = () => {
+      if (!isDraggingRef.current || !kanbanScrollRef.current) {
+        scrollAnimationRef.current = requestAnimationFrame(performScroll);
+        return;
+      }
+
+      const container = kanbanScrollRef.current;
+      const rect = container.getBoundingClientRect();
+      const { x, y } = mousePositionRef.current;
+      
+      const scrollZone = 80; // pixels from edge to trigger scroll
+      const maxScrollSpeed = 20; // max pixels per frame
+      
+      // Horizontal scrolling
+      if (x < rect.left + scrollZone && x > rect.left) {
+        const intensity = 1 - (x - rect.left) / scrollZone;
+        container.scrollLeft -= maxScrollSpeed * intensity;
+      } else if (x > rect.right - scrollZone && x < rect.right) {
+        const intensity = 1 - (rect.right - x) / scrollZone;
+        container.scrollLeft += maxScrollSpeed * intensity;
+      }
+      
+      // Vertical scrolling for columns - find the column being hovered
+      const columns = container.querySelectorAll('[data-testid^="kanban-column-"]');
+      columns.forEach((column) => {
+        const droppable = column.querySelector('.overflow-y-auto');
+        if (!droppable) return;
+        
+        const colRect = droppable.getBoundingClientRect();
+        if (x >= colRect.left && x <= colRect.right) {
+          if (y < colRect.top + scrollZone && y > colRect.top) {
+            const intensity = 1 - (y - colRect.top) / scrollZone;
+            (droppable as HTMLElement).scrollTop -= maxScrollSpeed * intensity;
+          } else if (y > colRect.bottom - scrollZone && y < colRect.bottom) {
+            const intensity = 1 - (colRect.bottom - y) / scrollZone;
+            (droppable as HTMLElement).scrollTop += maxScrollSpeed * intensity;
+          }
         }
-      }, 16);
-    }
-    // Check if near right edge
-    else if (clientX > containerRect.right - scrollZone) {
-      scrollIntervalRef.current = setInterval(() => {
-        if (kanbanScrollRef.current) {
-          kanbanScrollRef.current.scrollLeft += scrollSpeed;
-        }
-      }, 16);
-    }
+      });
+      
+      scrollAnimationRef.current = requestAnimationFrame(performScroll);
+    };
+    
+    scrollAnimationRef.current = requestAnimationFrame(performScroll);
+    
+    return () => {
+      if (scrollAnimationRef.current) {
+        cancelAnimationFrame(scrollAnimationRef.current);
+      }
+    };
   }, []);
 
   const handleDragStart = useCallback(() => {
-    // Optional: can add visual feedback here
+    isDraggingRef.current = true;
   }, []);
 
   const cleanupScroll = useCallback(() => {
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = null;
-    }
+    isDraggingRef.current = false;
   }, []);
 
   const totalPages = crmProjectsData ? Math.ceil(crmProjectsData.total / pageSize) : 0;
@@ -570,7 +596,7 @@ export default function CrmPage() {
 
         <TabsContent value="projects" className="space-y-4 mt-0">
           {projectViewMode === "kanban" ? (
-            <DragDropContext onDragEnd={(result) => { cleanupScroll(); handleDragEnd(result); }} onDragUpdate={handleDragUpdate} onDragStart={handleDragStart}>
+            <DragDropContext onDragEnd={(result) => { cleanupScroll(); handleDragEnd(result); }} onDragStart={handleDragStart}>
               <div ref={kanbanScrollRef} className="overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <div className="flex gap-4 min-w-max items-start">
                   {statusOptions.map((status) => {
