@@ -1832,7 +1832,20 @@ export class DatabaseStorage implements IStorage {
     const defaultFields = [
       // Projects fields
       { moduleId: projectsModule.id, name: "Project Name", slug: "name", fieldType: "text" as const, displayOrder: 1, isRequired: 1, isEnabled: 1, isSystem: 1 },
-      { moduleId: projectsModule.id, name: "Status", slug: "status", fieldType: "select" as const, options: ["lead", "active", "on_hold", "completed", "cancelled"], displayOrder: 2, isRequired: 1, isEnabled: 1, isSystem: 1 },
+      { moduleId: projectsModule.id, name: "Status", slug: "status", fieldType: "select" as const, options: [
+        '{"label":"Lead","color":"#64748b"}',
+        '{"label":"Discovering Call Completed","color":"#8b5cf6"}',
+        '{"label":"Proposal Sent","color":"#f59e0b"}',
+        '{"label":"Follow Up","color":"#06b6d4"}',
+        '{"label":"In Negotiation","color":"#3b82f6"}',
+        '{"label":"Won","color":"#22c55e"}',
+        '{"label":"Won - Not Started","color":"#10b981"}',
+        '{"label":"Won - In Progress","color":"#14b8a6"}',
+        '{"label":"Won - In Review","color":"#0ea5e9"}',
+        '{"label":"Won - Completed","color":"#84cc16"}',
+        '{"label":"Lost","color":"#ef4444"}',
+        '{"label":"Won-Cancelled","color":"#f43f5e"}'
+      ], displayOrder: 2, isRequired: 1, isEnabled: 1, isSystem: 1 },
       { moduleId: projectsModule.id, name: "Project Type", slug: "project_type", fieldType: "select" as const, options: ["one_time", "recurring_monthly", "recurring_yearly"], displayOrder: 3, isRequired: 0, isEnabled: 1, isSystem: 1 },
       { moduleId: projectsModule.id, name: "Client", slug: "client_id", fieldType: "select" as const, description: "Associated client", displayOrder: 4, isRequired: 0, isEnabled: 1, isSystem: 1 },
       { moduleId: projectsModule.id, name: "Assignee", slug: "assignee_id", fieldType: "select" as const, description: "Team member responsible", displayOrder: 5, isRequired: 0, isEnabled: 1, isSystem: 1 },
