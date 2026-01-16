@@ -80,7 +80,6 @@ const fallbackProjectTypeConfig: Record<string, { label: string; color: string; 
   one_time: { label: "One-Time Project", color: "#3b82f6", description: "1 week duration" },
   monthly: { label: "Monthly Project", color: "#8b5cf6", description: "1 month duration" },
   hourly_budget: { label: "Hourly Budget", color: "#f59e0b", description: "Based on budgeted hours" },
-  internal: { label: "Internal", color: "#64748b", description: "Internal project" },
 };
 
 export default function ProjectCreatePage() {
