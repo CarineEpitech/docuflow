@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -354,6 +354,58 @@ export default function CrmPage() {
     updateProjectStatusMutation.mutate({ projectId: draggableId, status: newStatus });
   };
 
+  // Kanban auto-scroll refs and handlers
+  const kanbanScrollRef = useRef<HTMLDivElement>(null);
+  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleDragUpdate = useCallback((update: any) => {
+    if (!kanbanScrollRef.current) return;
+    
+    const container = kanbanScrollRef.current;
+    const containerRect = container.getBoundingClientRect();
+    
+    // Get current mouse/touch position from the drag
+    const clientX = (update as any)?.client?.x;
+    if (clientX === undefined) return;
+    
+    const scrollZone = 100; // pixels from edge to trigger scroll
+    const scrollSpeed = 15; // pixels per frame
+    
+    // Clear any existing scroll interval
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+    
+    // Check if near left edge
+    if (clientX < containerRect.left + scrollZone) {
+      scrollIntervalRef.current = setInterval(() => {
+        if (kanbanScrollRef.current) {
+          kanbanScrollRef.current.scrollLeft -= scrollSpeed;
+        }
+      }, 16);
+    }
+    // Check if near right edge
+    else if (clientX > containerRect.right - scrollZone) {
+      scrollIntervalRef.current = setInterval(() => {
+        if (kanbanScrollRef.current) {
+          kanbanScrollRef.current.scrollLeft += scrollSpeed;
+        }
+      }, 16);
+    }
+  }, []);
+
+  const handleDragStart = useCallback(() => {
+    // Optional: can add visual feedback here
+  }, []);
+
+  const cleanupScroll = useCallback(() => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+  }, []);
+
   const totalPages = crmProjectsData ? Math.ceil(crmProjectsData.total / pageSize) : 0;
 
   return (
@@ -518,8 +570,8 @@ export default function CrmPage() {
 
         <TabsContent value="projects" className="space-y-4 mt-0">
           {projectViewMode === "kanban" ? (
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <DragDropContext onDragEnd={(result) => { cleanupScroll(); handleDragEnd(result); }} onDragUpdate={handleDragUpdate} onDragStart={handleDragStart}>
+              <div ref={kanbanScrollRef} className="overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <div className="flex gap-4 min-w-max items-start">
                   {statusOptions.map((status) => {
                     const filteredProjects = filterProjects(allProjectsData?.data || []);
