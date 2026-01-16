@@ -1418,6 +1418,20 @@ Instructions:
     }
   });
 
+  // Get all CRM projects for Kanban view (no pagination)
+  app.get("/api/crm/projects/all-kanban", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      
+      // Fetch all projects without pagination for kanban view
+      const result = await storage.getCrmProjects(userId, { page: 1, pageSize: 10000 });
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching CRM projects for kanban:", error);
+      res.status(500).json({ message: "Failed to fetch CRM projects" });
+    }
+  });
+
   // Get paginated CRM projects
   app.get("/api/crm/projects", isAuthenticated, async (req: any, res) => {
     try {
