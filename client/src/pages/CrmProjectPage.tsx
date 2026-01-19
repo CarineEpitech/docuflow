@@ -470,8 +470,8 @@ export default function CrmProjectPage() {
 
   const cloneProjectMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/crm/projects/${projectId}/clone`);
-      return res.json();
+      const data = await apiRequest("POST", `/api/crm/projects/${projectId}/clone`);
+      return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
