@@ -247,17 +247,18 @@ export default function CrmProjectPage() {
   }, [projectFields]);
 
   // Calculate prev/next project IDs for navigation
+  // Note: projectId from URL is actually the CRM project's `id` field, not the `projectId` field
   const { prevProjectId, nextProjectId } = useMemo(() => {
     if (!projectId || allProjects.length === 0) {
       return { prevProjectId: null, nextProjectId: null };
     }
-    const currentIndex = allProjects.findIndex(p => String(p.projectId) === String(projectId));
+    const currentIndex = allProjects.findIndex(p => String(p.id) === String(projectId));
     if (currentIndex === -1) {
       return { prevProjectId: null, nextProjectId: null };
     }
     return {
-      prevProjectId: currentIndex > 0 ? allProjects[currentIndex - 1].projectId : null,
-      nextProjectId: currentIndex < allProjects.length - 1 ? allProjects[currentIndex + 1].projectId : null,
+      prevProjectId: currentIndex > 0 ? allProjects[currentIndex - 1].id : null,
+      nextProjectId: currentIndex < allProjects.length - 1 ? allProjects[currentIndex + 1].id : null,
     };
   }, [projectId, allProjects]);
 
