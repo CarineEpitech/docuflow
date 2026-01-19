@@ -250,6 +250,21 @@ export default function ClientDetailPage() {
     };
   }, [contactFields]);
 
+  // Calculate prev/next client IDs for navigation
+  const { prevClientId, nextClientId } = useMemo(() => {
+    if (!id || allClients.length === 0) {
+      return { prevClientId: null, nextClientId: null };
+    }
+    const currentIndex = allClients.findIndex(c => String(c.id) === String(id));
+    if (currentIndex === -1) {
+      return { prevClientId: null, nextClientId: null };
+    }
+    return {
+      prevClientId: currentIndex > 0 ? allClients[currentIndex - 1].id : null,
+      nextClientId: currentIndex < allClients.length - 1 ? allClients[currentIndex + 1].id : null,
+    };
+  }, [id, allClients]);
+
   const relatedContacts = allClients.filter(c => 
     c.id !== id && 
     client?.company && 
@@ -533,6 +548,28 @@ export default function ClientDetailPage() {
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
+              <div className="flex items-center border-l pl-2 ml-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!prevClientId}
+                  onClick={() => prevClientId && navigate(`/crm/client/${prevClientId}`)}
+                  data-testid="button-prev-client"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!nextClientId}
+                  onClick={() => nextClientId && navigate(`/crm/client/${nextClientId}`)}
+                  data-testid="button-next-client"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </>
           )}
         </div>
