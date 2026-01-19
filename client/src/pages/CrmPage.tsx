@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Search, 
@@ -125,6 +127,7 @@ export default function CrmPage() {
   const [, navigate] = useLocation();
   const [projectViewMode, setProjectViewMode] = useState<"table" | "kanban">("kanban");
   const [contactViewMode, setContactViewMode] = useState<"cards" | "table">("cards");
+  const [hideInternalProjects, setHideInternalProjects] = useState(false);
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const pageSize = 10;
@@ -285,6 +288,9 @@ export default function CrmPage() {
   // Filter projects based on view filter (for Kanban and table view)
   const filterProjects = (projects: CrmProjectWithDetails[]) => {
     return projects.filter(project => {
+      // Apply hide internal projects toggle
+      if (hideInternalProjects && project.projectType === "internal") return false;
+      
       // Apply status filter
       if (statusFilter !== "all" && project.status !== statusFilter) return false;
       
@@ -554,6 +560,17 @@ export default function CrmPage() {
                   </SelectContent>
                 </Select>
               )}
+              <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30">
+                <Switch
+                  id="hide-internal"
+                  checked={hideInternalProjects}
+                  onCheckedChange={setHideInternalProjects}
+                  data-testid="switch-hide-internal"
+                />
+                <Label htmlFor="hide-internal" className="text-sm text-muted-foreground cursor-pointer whitespace-nowrap">
+                  Hide internal
+                </Label>
+              </div>
               <div className="flex items-center gap-2">
                 <div className="flex border rounded-md">
                   <Button
