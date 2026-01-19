@@ -176,8 +176,8 @@ export default function CompanyDocumentEditorPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="sticky top-0 z-20 bg-background border-b">
+    <div className="h-full flex flex-col" data-testid="company-document-page">
+      <div className="sticky top-0 z-20 bg-background border-b no-print" data-testid="company-document-header">
         <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-2">
           <div className="flex items-center gap-2 min-w-0">
             <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-to-docs">
@@ -230,7 +230,7 @@ export default function CompanyDocumentEditorPage() {
           </div>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto scrollbar-hidden">
+      <div className="flex-1 overflow-y-auto scrollbar-hidden print-content">
         <div className="px-4 md:px-6 max-w-3xl">
           <div className="py-6">
             <Input

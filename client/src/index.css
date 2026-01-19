@@ -432,7 +432,7 @@
 
 /* Print styles */
 @media print {
-  /* Hide non-essential elements */
+  /* Hide all non-content elements for documentation printing */
   [data-sidebar],
   [data-testid="button-sidebar-toggle"],
   [data-testid="button-print"],
@@ -441,19 +441,33 @@
   [data-testid="button-collapse-sidebar"],
   [data-testid="button-expand-sidebar"],
   [data-testid="button-mobile-menu"],
+  [data-testid="button-prev-folder"],
+  [data-testid="button-next-folder"],
+  [data-testid="button-prev-company-doc"],
+  [data-testid="button-next-company-doc"],
   [data-testid="input-search-docs"],
   [data-testid="button-view-grid"],
   [data-testid="button-view-table"],
   [data-testid^="button-delete"],
+  [data-testid="document-header"],
+  [data-testid="company-document-header"],
+  [data-testid="page-tree-sidebar"],
   .no-print,
   button,
+  input,
   nav:not([data-testid="nav-breadcrumbs"]),
-  aside {
+  aside,
+  header {
     display: none !important;
   }
 
-  /* Hide the page tree sidebar */
+  /* Hide the page tree sidebar and header area */
   [data-testid="document-page"] > div:first-child:not(.flex-1) {
+    display: none !important;
+  }
+  
+  /* Hide the header bar with title input and buttons */
+  [data-testid="document-page"] .sticky {
     display: none !important;
   }
 
@@ -470,12 +484,26 @@
   }
 
   /* Ensure content fills the page */
+  body,
   main,
   [data-testid="document-page"] {
     width: 100% !important;
     max-width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+
+  /* Make the print content area full width and visible */
+  .print-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 20px !important;
+    overflow: visible !important;
+  }
+  
+  .print-content > div {
+    max-width: 100% !important;
+    width: 100% !important;
   }
 
   /* Make the editor content full width */

@@ -360,13 +360,13 @@ export default function DocumentPage() {
       )}
 
       {!isMobile && !isSidebarCollapsed && (
-        <div className="w-[280px] border-r border-sidebar-border flex-shrink-0">
+        <div className="w-[280px] border-r border-sidebar-border flex-shrink-0 no-print" data-testid="page-tree-sidebar">
           {sidebarContent}
         </div>
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden h-full">
-        <div className="border-b border-border px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2">
+        <div className="border-b border-border px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2 no-print" data-testid="document-header">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {isMobile ? (
               <Button
@@ -445,7 +445,7 @@ export default function DocumentPage() {
             </div>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto scrollbar-hidden isolate">
+        <div className="flex-1 overflow-y-auto scrollbar-hidden isolate print-content">
           <div className={`mx-auto ${isMobile ? "px-4 w-full" : isSidebarCollapsed ? "px-8 w-full max-w-none" : "px-4 md:px-6 max-w-3xl"}`}>
             <BlockEditor
               isFullWidth={isSidebarCollapsed}
