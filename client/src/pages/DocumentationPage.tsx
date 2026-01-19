@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+import { ColumnVisibilityDropdown } from "@/components/ColumnVisibilityDropdown";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +56,16 @@ export default function DocumentationPage() {
 
   const { data: allProjects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects/documentable"],
+  });
+
+  const docColumnVisibility = useColumnVisibility({
+    storageKey: "documentation-table",
+    columns: [
+      { id: "project", label: "Project", defaultVisible: true },
+      { id: "description", label: "Description", defaultVisible: true },
+      { id: "created", label: "Created", defaultVisible: true },
+      { id: "updated", label: "Updated", defaultVisible: true },
+    ],
   });
 
   const createFolderMutation = useMutation({
@@ -157,6 +169,14 @@ export default function DocumentationPage() {
               <List className="h-4 w-4" />
             </Button>
           </div>
+          {viewMode === "table" && (
+            <ColumnVisibilityDropdown
+              columns={docColumnVisibility.columns}
+              visibleColumns={docColumnVisibility.visibleColumns}
+              toggleColumn={docColumnVisibility.toggleColumn}
+              resetToDefaults={docColumnVisibility.resetToDefaults}
+            />
+          )}
           <Button 
             onClick={() => { setFolderName(""); setFolderDescription(""); setShowCreateFolderDialog(true); }} 
             data-testid="button-create-folder"
@@ -231,10 +251,10 @@ export default function DocumentationPage() {
                     <thead>
                       <tr className="bg-muted whitespace-nowrap">
                         <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-12"></th>
-                        <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Project</th>
-                        <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Description</th>
-                        <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Created</th>
-                        <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Updated</th>
+                        {docColumnVisibility.isColumnVisible("project") && <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Project</th>}
+                        {docColumnVisibility.isColumnVisible("description") && <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Description</th>}
+                        {docColumnVisibility.isColumnVisible("created") && <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Created</th>}
+                        {docColumnVisibility.isColumnVisible("updated") && <th className="text-left px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Updated</th>}
                         <th className="text-right px-4 py-2 w-10"></th>
                       </tr>
                     </thead>
@@ -255,24 +275,32 @@ export default function DocumentationPage() {
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-2">
-                            <span className="font-medium text-sm break-words">{project.name}</span>
-                          </td>
-                          <td className="px-4 py-2 max-w-[300px]">
-                            <span className="text-muted-foreground text-sm line-clamp-1">
-                              {project.description || "—"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2">
-                            <span className="text-sm text-muted-foreground">
-                              {project.createdAt ? format(new Date(project.createdAt), "MMM d, yyyy") : "—"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2">
-                            <span className="text-sm text-muted-foreground">
-                              {project.updatedAt ? format(new Date(project.updatedAt), "MMM d, yyyy") : "—"}
-                            </span>
-                          </td>
+                          {docColumnVisibility.isColumnVisible("project") && (
+                            <td className="px-4 py-2">
+                              <span className="font-medium text-sm break-words">{project.name}</span>
+                            </td>
+                          )}
+                          {docColumnVisibility.isColumnVisible("description") && (
+                            <td className="px-4 py-2 max-w-[300px]">
+                              <span className="text-muted-foreground text-sm line-clamp-1">
+                                {project.description || "—"}
+                              </span>
+                            </td>
+                          )}
+                          {docColumnVisibility.isColumnVisible("created") && (
+                            <td className="px-4 py-2">
+                              <span className="text-sm text-muted-foreground">
+                                {project.createdAt ? format(new Date(project.createdAt), "MMM d, yyyy") : "—"}
+                              </span>
+                            </td>
+                          )}
+                          {docColumnVisibility.isColumnVisible("updated") && (
+                            <td className="px-4 py-2">
+                              <span className="text-sm text-muted-foreground">
+                                {project.updatedAt ? format(new Date(project.updatedAt), "MMM d, yyyy") : "—"}
+                              </span>
+                            </td>
+                          )}
                           <td className="px-4 py-2 text-right">
                             <Button
                               variant="ghost"
