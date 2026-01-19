@@ -355,7 +355,6 @@ export default function ClientDetailPage() {
     onSuccess: () => {
       toast({ title: "Contact created successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/clients"] });
-      queryClient.refetchQueries({ queryKey: ["/api/crm/clients"] });
       setShowAddContactDialog(false);
       setNewContactForm({
         name: "",
