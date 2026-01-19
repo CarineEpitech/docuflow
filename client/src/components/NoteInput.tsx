@@ -218,7 +218,13 @@ export function NoteInput({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !showMentionDropdown) {
       e.preventDefault();
-      if (onSubmit && (value.trim() || attachments.length > 0 || stagedFiles.length > 0)) {
+      // Check both prop value and current editor content (in case prop hasn't synced yet)
+      const currentContent = getPlainText().trim();
+      if (onSubmit && (value.trim() || currentContent || attachments.length > 0 || stagedFiles.length > 0)) {
+        // Sync the content before submitting
+        if (currentContent && !value.trim()) {
+          onChange(currentContent);
+        }
         onSubmit();
       }
       return;
