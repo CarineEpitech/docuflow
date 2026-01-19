@@ -417,7 +417,6 @@ export default function CrmProjectPage() {
       setNewNoteContent("");
       setNewNoteMentions([]);
       setNewNoteAttachments([]);
-      toast({ title: "Note added" });
     },
     onError: () => {
       toast({ title: "Failed to add note", variant: "destructive" });
@@ -434,7 +433,6 @@ export default function CrmProjectPage() {
       setEditingNoteId(null);
       setEditNoteContent("");
       setEditNoteMentions([]);
-      toast({ title: "Note updated" });
     },
     onError: () => {
       toast({ title: "Failed to update note", variant: "destructive" });
