@@ -145,20 +145,32 @@ export default function DocumentPage() {
     // Set document title for PDF filename: "Project name - Page name"
     const projectName = project?.name || "Document";
     const pageName = title || "Untitled";
+    const newTitle = `${projectName} - ${pageName}`;
     const originalTitle = document.title;
-    document.title = `${projectName} - ${pageName}`;
+    
+    // Force the title change
+    document.title = newTitle;
+    
+    // Also update the title element directly
+    const titleElement = document.querySelector('title');
+    if (titleElement) {
+      titleElement.textContent = newTitle;
+    }
     
     // Restore original title after print dialog closes
     const restoreTitle = () => {
       document.title = originalTitle;
+      if (titleElement) {
+        titleElement.textContent = originalTitle;
+      }
       window.removeEventListener("afterprint", restoreTitle);
     };
     window.addEventListener("afterprint", restoreTitle);
     
-    // Small delay to ensure title change takes effect before print dialog
+    // Delay to ensure title change is registered by the browser
     setTimeout(() => {
       window.print();
-    }, 100);
+    }, 200);
   };
 
   const handleImageUpload = useCallback(async (): Promise<string | null> => {
