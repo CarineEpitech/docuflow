@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { BlockEditor } from "@/components/editor/BlockEditor";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
-import type { CompanyDocumentWithUploader } from "@shared/schema";
+import { ArrowLeft, Save, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import type { CompanyDocumentWithUploader, CompanyDocument } from "@shared/schema";
 
 export default function CompanyDocumentEditorPage() {
   const [, params] = useRoute("/company-documents/:id/edit");
@@ -25,6 +25,28 @@ export default function CompanyDocumentEditorPage() {
     queryKey: ["/api/company-documents", documentId],
     enabled: !!documentId,
   });
+
+  // Fetch all company documents for navigation
+  const { data: allCompanyDocs = [] } = useQuery<CompanyDocument[]>({
+    queryKey: ["/api/company-documents"],
+  });
+
+  // Calculate prev/next document IDs for navigation
+  const { prevDocId, nextDocId } = useMemo(() => {
+    if (!documentId || allCompanyDocs.length === 0) {
+      return { prevDocId: null, nextDocId: null };
+    }
+    // Filter to only docs in the same folder for consistent navigation
+    const sameFolderDocs = allCompanyDocs.filter(d => d.folderId === companyDoc?.folderId);
+    const currentIndex = sameFolderDocs.findIndex(d => String(d.id) === String(documentId));
+    if (currentIndex === -1) {
+      return { prevDocId: null, nextDocId: null };
+    }
+    return {
+      prevDocId: currentIndex > 0 ? sameFolderDocs[currentIndex - 1].id : null,
+      nextDocId: currentIndex < sameFolderDocs.length - 1 ? sameFolderDocs[currentIndex + 1].id : null,
+    };
+  }, [documentId, allCompanyDocs, companyDoc?.folderId]);
 
   useEffect(() => {
     if (companyDoc) {
@@ -178,6 +200,28 @@ export default function CompanyDocumentEditorPage() {
               )}
               <span className="hidden md:inline">Save</span>
             </Button>
+            <div className="flex items-center border-l pl-2 ml-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={!prevDocId}
+                onClick={() => prevDocId && navigate(`/company-documents/${prevDocId}/edit`)}
+                data-testid="button-prev-company-doc"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={!nextDocId}
+                onClick={() => nextDocId && navigate(`/company-documents/${nextDocId}/edit`)}
+                data-testid="button-next-company-doc"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
