@@ -147,9 +147,15 @@ export default function DocumentPage() {
     const pageName = title || "Untitled";
     const originalTitle = document.title;
     document.title = `${projectName} - ${pageName}`;
+    
+    // Restore original title after print dialog closes
+    const restoreTitle = () => {
+      document.title = originalTitle;
+      window.removeEventListener("afterprint", restoreTitle);
+    };
+    window.addEventListener("afterprint", restoreTitle);
+    
     window.print();
-    // Restore original title after print dialog
-    document.title = originalTitle;
   };
 
   const handleImageUpload = useCallback(async (): Promise<string | null> => {
