@@ -65,7 +65,9 @@ import {
   Music,
   File,
   Download,
-  Copy
+  Copy,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { AudioRecorder } from "@/components/editor/AudioRecorder";
 import { NoteAudioPlayer } from "@/components/NoteAudioPlayer";
@@ -188,6 +190,17 @@ export default function CrmProjectPage() {
     enabled: !!projectId,
   });
 
+  // Fetch all projects for navigation
+  const { data: allProjects = [] } = useQuery<CrmProjectWithDetails[]>({
+    queryKey: ["/api/crm/projects/all"],
+    queryFn: async () => {
+      const res = await fetch("/api/crm/projects?pageSize=1000", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch projects");
+      const data = await res.json();
+      return data.data || [];
+    },
+  });
+
   // Fetch project module fields for dynamic status options
   const { data: projectFields = [] } = useQuery<CrmModuleField[]>({
     queryKey: ["/api/modules/projects/fields"],
@@ -232,6 +245,21 @@ export default function CrmProjectPage() {
       projectTypeConfig: fallbackProjectTypeConfig 
     };
   }, [projectFields]);
+
+  // Calculate prev/next project IDs for navigation
+  const { prevProjectId, nextProjectId } = useMemo(() => {
+    if (!projectId || allProjects.length === 0) {
+      return { prevProjectId: null, nextProjectId: null };
+    }
+    const currentIndex = allProjects.findIndex(p => String(p.projectId) === String(projectId));
+    if (currentIndex === -1) {
+      return { prevProjectId: null, nextProjectId: null };
+    }
+    return {
+      prevProjectId: currentIndex > 0 ? allProjects[currentIndex - 1].projectId : null,
+      nextProjectId: currentIndex < allProjects.length - 1 ? allProjects[currentIndex + 1].projectId : null,
+    };
+  }, [projectId, allProjects]);
 
   useEffect(() => {
     if (project) {
@@ -695,6 +723,28 @@ export default function CrmProjectPage() {
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
+              <div className="flex items-center border-l pl-2 ml-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!prevProjectId}
+                  onClick={() => prevProjectId && setLocation(`/crm/project/${prevProjectId}`)}
+                  data-testid="button-prev-project"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!nextProjectId}
+                  onClick={() => nextProjectId && setLocation(`/crm/project/${nextProjectId}`)}
+                  data-testid="button-next-project"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </>
           )}
         </div>
