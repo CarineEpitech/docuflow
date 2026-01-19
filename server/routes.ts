@@ -1527,6 +1527,61 @@ Instructions:
     }
   });
 
+  // Clone a CRM project
+  app.post("/api/crm/projects/:id/clone", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const sourceProject = await storage.getCrmProject(req.params.id);
+      
+      if (!sourceProject) {
+        return res.status(404).json({ message: "Source project not found" });
+      }
+      
+      // Create a new project with same settings but new name
+      const newName = `${sourceProject.project?.name || "Project"} (Copy)`;
+      
+      const { project, crmProject } = await storage.createCrmProjectWithBase(
+        {
+          name: newName,
+          description: sourceProject.project?.description || null,
+          icon: sourceProject.project?.icon || "folder",
+          ownerId: userId,
+        },
+        {
+          clientId: sourceProject.clientId || null,
+          status: "lead", // Reset to initial status
+          projectType: sourceProject.projectType || "one_time",
+          assigneeId: sourceProject.assigneeId || null,
+          startDate: null, // Reset dates
+          dueDate: null,
+          actualFinishDate: null,
+          comments: sourceProject.comments || null,
+          budgetedHours: sourceProject.budgetedHours ?? null,
+          actualHours: null, // Reset actual hours
+          documentationEnabled: sourceProject.documentationEnabled || 0,
+          isDocumentationOnly: sourceProject.isDocumentationOnly || 0,
+        }
+      );
+      
+      // Copy custom field values if they exist
+      const customFieldValues = await storage.getCrmProjectCustomFields(req.params.id);
+      if (customFieldValues && customFieldValues.length > 0) {
+        for (const fieldValue of customFieldValues) {
+          await storage.setCrmProjectCustomField(
+            crmProject.id,
+            fieldValue.fieldId,
+            fieldValue.value
+          );
+        }
+      }
+      
+      res.status(201).json({ project, crmProject });
+    } catch (error) {
+      console.error("Error cloning CRM project:", error);
+      res.status(500).json({ message: "Failed to clone CRM project" });
+    }
+  });
+
   // Toggle documentation enabled for a CRM project
   app.patch("/api/crm/projects/:id/documentation", isAuthenticated, async (req: any, res) => {
     try {

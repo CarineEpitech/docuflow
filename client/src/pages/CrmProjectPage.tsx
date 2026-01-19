@@ -64,7 +64,8 @@ import {
   Video,
   Music,
   File,
-  Download
+  Download,
+  Copy
 } from "lucide-react";
 import { AudioRecorder } from "@/components/editor/AudioRecorder";
 import { NoteAudioPlayer } from "@/components/NoteAudioPlayer";
@@ -467,6 +468,22 @@ export default function CrmProjectPage() {
     },
   });
 
+  const cloneProjectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/crm/projects/${projectId}/clone`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects/all-kanban"] });
+      toast({ title: "Project cloned successfully" });
+      setLocation(`/crm/project/${data.crmProject.id}`);
+    },
+    onError: () => {
+      toast({ title: "Failed to clone project", variant: "destructive" });
+    },
+  });
+
   const startEditing = () => {
     setIsEditing(true);
   };
@@ -646,6 +663,20 @@ export default function CrmProjectPage() {
             </>
           ) : (
             <>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => cloneProjectMutation.mutate()}
+                disabled={cloneProjectMutation.isPending}
+                data-testid="button-clone-project"
+                title="Clone project"
+              >
+                {cloneProjectMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
               <Button
                 variant="outline"
                 size="icon"
