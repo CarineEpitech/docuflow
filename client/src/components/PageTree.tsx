@@ -381,24 +381,6 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
               >
                 <GripVertical className="w-3 h-3 text-muted-foreground" />
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 flex-shrink-0"
-                onClick={() => hasChildren && toggleExpand(node.id)}
-                data-testid={`button-expand-${node.id}`}
-              >
-                {hasChildren ? (
-                  isExpanded ? (
-                    <ChevronDown className="w-3 h-3" />
-                  ) : (
-                    <ChevronRight className="w-3 h-3" />
-                  )
-                ) : (
-                  <span className="w-3" />
-                )}
-              </Button>
-
               <Link
                 href={`/document/${node.id}`}
                 className="flex items-center gap-2 flex-1 min-w-0 py-1"
@@ -511,24 +493,6 @@ export function PageTree({ projectId, currentDocumentId }: PageTreeProps) {
           )}
           style={{ paddingLeft: `${depth * 20 + 8}px` }}
         >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 flex-shrink-0"
-            onClick={() => hasChildren && toggleExpand(node.id)}
-            data-testid={`button-expand-${node.id}`}
-          >
-            {hasChildren ? (
-              isExpanded ? (
-                <ChevronDown className="w-3 h-3" />
-              ) : (
-                <ChevronRight className="w-3 h-3" />
-              )
-            ) : (
-              <span className="w-3" />
-            )}
-          </Button>
-
           <Link
             href={`/document/${node.id}`}
             className="flex items-center gap-2 flex-1 min-w-0 py-1"
