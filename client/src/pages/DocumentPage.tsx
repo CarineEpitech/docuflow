@@ -141,6 +141,17 @@ export default function DocumentPage() {
     saveDocumentMutation.mutate({ title, content });
   };
 
+  const handlePrint = () => {
+    // Set document title for PDF filename: "Project name - Page name"
+    const projectName = project?.name || "Document";
+    const pageName = title || "Untitled";
+    const originalTitle = document.title;
+    document.title = `${projectName} - ${pageName}`;
+    window.print();
+    // Restore original title after print dialog
+    document.title = originalTitle;
+  };
+
   const handleImageUpload = useCallback(async (): Promise<string | null> => {
     return new Promise((resolve) => {
       const input = document.createElement("input");
@@ -405,7 +416,7 @@ export default function DocumentPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.print()}
+              onClick={handlePrint}
               data-testid="button-print"
             >
               <Printer className="w-4 h-4 md:mr-1" />
