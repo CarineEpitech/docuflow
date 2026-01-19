@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Save, PanelLeftClose, PanelLeft, Menu, Printer } from "lucide-react";
+import { Save, PanelLeftClose, PanelLeft, Menu, Printer, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Document, Project, DocumentWithCreator, SafeUser } from "@shared/schema";
 import { useDebouncedCallback } from "@/hooks/useDebounce";
 
@@ -69,6 +69,28 @@ export default function DocumentPage() {
     queryKey: ["/api/documents", documentId, "ancestors"],
     enabled: !!documentId,
   });
+
+  // Fetch all documents for this project for navigation
+  const { data: allProjectDocuments = [] } = useQuery<Document[]>({
+    queryKey: ["/api/projects", pageDoc?.projectId, "documents"],
+    enabled: !!pageDoc?.projectId,
+  });
+
+  // Calculate prev/next document IDs for navigation
+  const { prevDocId, nextDocId } = useMemo(() => {
+    if (!documentId || allProjectDocuments.length === 0) {
+      return { prevDocId: null, nextDocId: null };
+    }
+    const flatDocs = allProjectDocuments;
+    const currentIndex = flatDocs.findIndex(d => d.id === documentId);
+    if (currentIndex === -1) {
+      return { prevDocId: null, nextDocId: null };
+    }
+    return {
+      prevDocId: currentIndex > 0 ? flatDocs[currentIndex - 1].id : null,
+      nextDocId: currentIndex < flatDocs.length - 1 ? flatDocs[currentIndex + 1].id : null,
+    };
+  }, [documentId, allProjectDocuments]);
 
   useEffect(() => {
     if (pageDoc) {
@@ -400,6 +422,28 @@ export default function DocumentPage() {
               <Save className="w-4 h-4 md:mr-1" />
               <span className="hidden md:inline">Save</span>
             </Button>
+            <div className="flex items-center border-l pl-2 ml-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={!prevDocId}
+                onClick={() => prevDocId && setLocation(`/document/${prevDocId}`)}
+                data-testid="button-prev-doc"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={!nextDocId}
+                onClick={() => nextDocId && setLocation(`/document/${nextDocId}`)}
+                data-testid="button-next-doc"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-hidden isolate">
