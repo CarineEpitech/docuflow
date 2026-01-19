@@ -162,7 +162,6 @@ export default function CrmProjectPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddContactDialog, setShowAddContactDialog] = useState(false);
   const [editingClient, setEditingClient] = useState<CrmClient | null>(null);
-  const [isEditingDueDate, setIsEditingDueDate] = useState(false);
   
   const isAdmin = currentUser?.role === "admin";
 
@@ -484,24 +483,6 @@ export default function CrmProjectPage() {
     },
     onError: () => {
       toast({ title: "Failed to clone project", variant: "destructive" });
-    },
-  });
-
-  const updateDueDateMutation = useMutation({
-    mutationFn: async (newDueDate: Date | null) => {
-      const data = await apiRequest("PATCH", `/api/crm/projects/${projectId}`, {
-        dueDate: newDueDate?.toISOString() || null,
-      });
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/projects"] });
-      toast({ title: "Due date updated successfully" });
-      setIsEditingDueDate(false);
-    },
-    onError: () => {
-      toast({ title: "Failed to update due date", variant: "destructive" });
     },
   });
 
@@ -1032,21 +1013,30 @@ export default function CrmProjectPage() {
                   }}
                   testId="datepicker-start"
                 />
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Due Date</label>
-                  <div 
-                    className="w-full flex items-center justify-start px-3 py-2 text-left font-normal border rounded-md bg-muted"
-                    data-testid="display-due-date"
-                  >
-                    <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                    {formData?.dueDate ? (
-                      <span>{format(formData.dueDate, "PPP")}</span>
-                    ) : (
-                      <span className="text-muted-foreground italic">Set a start date first</span>
-                    )}
+                {isAdmin ? (
+                  <DatePickerField
+                    label="Due Date"
+                    value={formData?.dueDate || undefined}
+                    onChange={(date) => updateFormField("dueDate", date || null)}
+                    testId="datepicker-due-date"
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Due Date</label>
+                    <div 
+                      className="w-full flex items-center justify-start px-3 py-2 text-left font-normal border rounded-md bg-muted"
+                      data-testid="display-due-date"
+                    >
+                      <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                      {formData?.dueDate ? (
+                        <span>{format(formData.dueDate, "PPP")}</span>
+                      ) : (
+                        <span className="text-muted-foreground italic">Set a start date first</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Automatically set to 7 days after start date</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">Automatically set to 7 days after start date</p>
-                </div>
+                )}
                 
                 {formData?.startDate && formData?.budgetedHours && formData.budgetedHours > 0 && (
                   <div className="space-y-2">
@@ -1082,50 +1072,9 @@ export default function CrmProjectPage() {
                 <div className="flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Due Date:</span>
-                  {isAdmin && isEditingDueDate ? (
-                    <Popover open={isEditingDueDate} onOpenChange={setIsEditingDueDate}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8"
-                          data-testid="button-due-date-picker"
-                        >
-                          {formData?.dueDate ? format(formData.dueDate, "PPP") : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={formData?.dueDate || undefined}
-                          onSelect={(date) => {
-                            if (formData) {
-                              setFormData({ ...formData, dueDate: date || null });
-                            }
-                            updateDueDateMutation.mutate(date || null);
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  ) : (
-                    <>
-                      <span className="text-sm">
-                        {formData?.dueDate ? format(formData.dueDate, "PPP") : <span className="text-muted-foreground">Not set</span>}
-                      </span>
-                      {isAdmin && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => setIsEditingDueDate(true)}
-                          data-testid="button-edit-due-date"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </>
-                  )}
+                  <span className="text-sm">
+                    {formData?.dueDate ? format(formData.dueDate, "PPP") : <span className="text-muted-foreground">Not set</span>}
+                  </span>
                 </div>
                 
                 {formData?.startDate && formData?.budgetedHours && formData.budgetedHours > 0 && (
