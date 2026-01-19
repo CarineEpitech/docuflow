@@ -26,27 +26,32 @@ export default function CompanyDocumentEditorPage() {
     enabled: !!documentId,
   });
 
-  // Fetch all company documents for navigation
-  const { data: allCompanyDocs = [] } = useQuery<CompanyDocument[]>({
-    queryKey: ["/api/company-documents"],
+  // Fetch documents in the same folder for navigation
+  const { data: folderDocs = [] } = useQuery<CompanyDocument[]>({
+    queryKey: ["/api/company-documents", { folderId: companyDoc?.folderId }],
+    queryFn: async () => {
+      if (!companyDoc?.folderId) return [];
+      const res = await fetch(`/api/company-documents?folderId=${companyDoc.folderId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!companyDoc?.folderId,
   });
 
-  // Calculate prev/next document IDs for navigation
+  // Calculate prev/next document IDs for navigation within the same folder
   const { prevDocId, nextDocId } = useMemo(() => {
-    if (!documentId || allCompanyDocs.length === 0) {
+    if (!documentId || folderDocs.length === 0) {
       return { prevDocId: null, nextDocId: null };
     }
-    // Filter to only docs in the same folder for consistent navigation
-    const sameFolderDocs = allCompanyDocs.filter(d => d.folderId === companyDoc?.folderId);
-    const currentIndex = sameFolderDocs.findIndex(d => String(d.id) === String(documentId));
+    const currentIndex = folderDocs.findIndex(d => String(d.id) === String(documentId));
     if (currentIndex === -1) {
       return { prevDocId: null, nextDocId: null };
     }
     return {
-      prevDocId: currentIndex > 0 ? sameFolderDocs[currentIndex - 1].id : null,
-      nextDocId: currentIndex < sameFolderDocs.length - 1 ? sameFolderDocs[currentIndex + 1].id : null,
+      prevDocId: currentIndex > 0 ? folderDocs[currentIndex - 1].id : null,
+      nextDocId: currentIndex < folderDocs.length - 1 ? folderDocs[currentIndex + 1].id : null,
     };
-  }, [documentId, allCompanyDocs, companyDoc?.folderId]);
+  }, [documentId, folderDocs]);
 
   useEffect(() => {
     if (companyDoc) {
