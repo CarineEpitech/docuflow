@@ -70,27 +70,26 @@ export default function DocumentPage() {
     enabled: !!documentId,
   });
 
-  // Fetch all documents for this project for navigation
-  const { data: allProjectDocuments = [] } = useQuery<Document[]>({
-    queryKey: ["/api/projects", pageDoc?.projectId, "documents"],
+  // Fetch all projects for navigation between folders
+  const { data: allProjects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
     enabled: !!pageDoc?.projectId,
   });
 
-  // Calculate prev/next document IDs for navigation
-  const { prevDocId, nextDocId } = useMemo(() => {
-    if (!documentId || allProjectDocuments.length === 0) {
-      return { prevDocId: null, nextDocId: null };
+  // Calculate prev/next project IDs for navigation between folders
+  const { prevProjectId, nextProjectId } = useMemo(() => {
+    if (!pageDoc?.projectId || allProjects.length === 0) {
+      return { prevProjectId: null, nextProjectId: null };
     }
-    const flatDocs = allProjectDocuments;
-    const currentIndex = flatDocs.findIndex(d => d.id === documentId);
+    const currentIndex = allProjects.findIndex(p => p.id === pageDoc.projectId);
     if (currentIndex === -1) {
-      return { prevDocId: null, nextDocId: null };
+      return { prevProjectId: null, nextProjectId: null };
     }
     return {
-      prevDocId: currentIndex > 0 ? flatDocs[currentIndex - 1].id : null,
-      nextDocId: currentIndex < flatDocs.length - 1 ? flatDocs[currentIndex + 1].id : null,
+      prevProjectId: currentIndex > 0 ? allProjects[currentIndex - 1].id : null,
+      nextProjectId: currentIndex < allProjects.length - 1 ? allProjects[currentIndex + 1].id : null,
     };
-  }, [documentId, allProjectDocuments]);
+  }, [pageDoc?.projectId, allProjects]);
 
   useEffect(() => {
     if (pageDoc) {
@@ -427,9 +426,9 @@ export default function DocumentPage() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                disabled={!prevDocId}
-                onClick={() => prevDocId && setLocation(`/document/${prevDocId}`)}
-                data-testid="button-prev-doc"
+                disabled={!prevProjectId}
+                onClick={() => prevProjectId && setLocation(`/project/${prevProjectId}`)}
+                data-testid="button-prev-folder"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -437,9 +436,9 @@ export default function DocumentPage() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                disabled={!nextDocId}
-                onClick={() => nextDocId && setLocation(`/document/${nextDocId}`)}
-                data-testid="button-next-doc"
+                disabled={!nextProjectId}
+                onClick={() => nextProjectId && setLocation(`/project/${nextProjectId}`)}
+                data-testid="button-next-folder"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
