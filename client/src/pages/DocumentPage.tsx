@@ -155,7 +155,10 @@ export default function DocumentPage() {
     };
     window.addEventListener("afterprint", restoreTitle);
     
-    window.print();
+    // Small delay to ensure title change takes effect before print dialog
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   const handleImageUpload = useCallback(async (): Promise<string | null> => {
