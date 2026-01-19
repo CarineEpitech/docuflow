@@ -5,6 +5,8 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+import { ColumnVisibilityDropdown } from "@/components/ColumnVisibilityDropdown";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,6 +133,35 @@ export default function CrmPage() {
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const pageSize = 10;
+
+  // Column visibility for projects table
+  const projectColumnVisibility = useColumnVisibility({
+    storageKey: "crm-projects-table",
+    columns: [
+      { id: "project", label: "Project", defaultVisible: true },
+      { id: "client", label: "Client", defaultVisible: true },
+      { id: "status", label: "Status", defaultVisible: true },
+      { id: "tags", label: "Tags", defaultVisible: true },
+      { id: "assigned", label: "Assigned", defaultVisible: true },
+      { id: "start", label: "Start Date", defaultVisible: true },
+      { id: "due", label: "Due Date", defaultVisible: true },
+      { id: "finished", label: "Finished", defaultVisible: true },
+      { id: "days", label: "Days", defaultVisible: true },
+      { id: "lastNote", label: "Last Note", defaultVisible: true },
+    ],
+  });
+
+  // Column visibility for contacts table
+  const contactColumnVisibility = useColumnVisibility({
+    storageKey: "crm-contacts-table",
+    columns: [
+      { id: "name", label: "Name", defaultVisible: true },
+      { id: "company", label: "Company", defaultVisible: true },
+      { id: "email", label: "Email", defaultVisible: true },
+      { id: "status", label: "Status", defaultVisible: true },
+      { id: "created", label: "Created", defaultVisible: true },
+    ],
+  });
 
   // Handle URL tab parameter
   useEffect(() => {
@@ -513,6 +544,14 @@ export default function CrmPage() {
                     <List className="w-4 h-4" />
                   </Button>
                 </div>
+                {contactViewMode === "table" && (
+                  <ColumnVisibilityDropdown
+                    columns={contactColumnVisibility.columns}
+                    visibleColumns={contactColumnVisibility.visibleColumns}
+                    toggleColumn={contactColumnVisibility.toggleColumn}
+                    resetToDefaults={contactColumnVisibility.resetToDefaults}
+                  />
+                )}
                 <Button onClick={() => navigate("/crm/client/new")} size="icon" data-testid="button-add-contact">
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -592,6 +631,14 @@ export default function CrmPage() {
                     <List className="w-4 h-4" />
                   </Button>
                 </div>
+                {projectViewMode === "table" && (
+                  <ColumnVisibilityDropdown
+                    columns={projectColumnVisibility.columns}
+                    visibleColumns={projectColumnVisibility.visibleColumns}
+                    toggleColumn={projectColumnVisibility.toggleColumn}
+                    resetToDefaults={projectColumnVisibility.resetToDefaults}
+                  />
+                )}
                 <Link href="/crm/project/new">
                   <Button size="icon" data-testid="button-new-project">
                     <Plus className="w-4 h-4" />
@@ -769,16 +816,16 @@ export default function CrmPage() {
                   <table className="w-full min-w-[900px]">
                     <thead>
                       <tr className="bg-muted whitespace-nowrap">
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Project</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Client</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Tags</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Assigned</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Start</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Due</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Finished</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Days</th>
-                        <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Last Note</th>
+                        {projectColumnVisibility.isColumnVisible("project") && <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Project</th>}
+                        {projectColumnVisibility.isColumnVisible("client") && <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Client</th>}
+                        {projectColumnVisibility.isColumnVisible("status") && <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</th>}
+                        {projectColumnVisibility.isColumnVisible("tags") && <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Tags</th>}
+                        {projectColumnVisibility.isColumnVisible("assigned") && <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Assigned</th>}
+                        {projectColumnVisibility.isColumnVisible("start") && <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Start</th>}
+                        {projectColumnVisibility.isColumnVisible("due") && <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Due</th>}
+                        {projectColumnVisibility.isColumnVisible("finished") && <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Finished</th>}
+                        {projectColumnVisibility.isColumnVisible("days") && <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Days</th>}
+                        {projectColumnVisibility.isColumnVisible("lastNote") && <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Last Note</th>}
                         <th className="text-right px-4 py-3 w-10"></th>
                       </tr>
                     </thead>
@@ -805,164 +852,184 @@ export default function CrmPage() {
                             onClick={() => setLocation(`/crm/project/${crmProject.id}`)}
                             data-testid={`row-crm-project-${crmProject.id}`}
                           >
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                  <FolderKanban className="w-4 h-4 text-primary" />
-                                </div>
-                                <div>
-                                  <span className="font-medium text-sm">{crmProject.project?.name || "Unknown"}</span>
-                                  {crmProject.documentationEnabled === 1 && (
-                                    <Link 
-                                      href={`/project/${crmProject.projectId}`} 
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="ml-1.5"
-                                    >
-                                      <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground inline" />
-                                    </Link>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              {crmProject.client ? (
+                            {projectColumnVisibility.isColumnVisible("project") && (
+                              <td className="px-4 py-3">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
-                                    <User className="w-3 h-3 text-muted-foreground" />
+                                  <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                    <FolderKanban className="w-4 h-4 text-primary" />
                                   </div>
-                                  <span className="text-sm">{crmProject.client.name}</span>
+                                  <div>
+                                    <span className="font-medium text-sm">{crmProject.project?.name || "Unknown"}</span>
+                                    {crmProject.documentationEnabled === 1 && (
+                                      <Link 
+                                        href={`/project/${crmProject.projectId}`} 
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="ml-1.5"
+                                      >
+                                        <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground inline" />
+                                      </Link>
+                                    )}
+                                  </div>
                                 </div>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge 
-                                className="text-xs"
-                                style={{ backgroundColor: statusConfig[crmProject.status]?.color || "#64748b", color: "white" }}
-                              >
-                                {statusConfig[crmProject.status]?.label || crmProject.status}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3">
-                              {crmProject.tags && crmProject.tags.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {crmProject.tags.slice(0, 2).map((tag) => (
-                                    <Badge 
-                                      key={tag.id}
-                                      className="text-[10px] px-1.5 py-0"
-                                      style={{ backgroundColor: tag.color, color: "white" }}
-                                      data-testid={`table-tag-${tag.id}`}
-                                    >
-                                      {tag.name}
-                                    </Badge>
-                                  ))}
-                                  {crmProject.tags.length > 2 && (
-                                    <span className="text-[10px] text-muted-foreground">
-                                      +{crmProject.tags.length - 2}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              {crmProject.assignee ? (
-                                <div className="flex items-center gap-2">
-                                  <Avatar className="w-6 h-6">
-                                    <AvatarImage src={crmProject.assignee.profileImageUrl || undefined} />
-                                    <AvatarFallback className="text-[10px]">
-                                      {crmProject.assignee.firstName?.[0]}{crmProject.assignee.lastName?.[0]}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm">{crmProject.assignee.firstName}</span>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              {crmProject.startDate ? (
-                                <span className="text-sm text-muted-foreground">
-                                  {format(new Date(crmProject.startDate), "MMM d, yyyy")}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              {crmProject.dueDate ? (
-                                <span className={new Date(crmProject.dueDate) < new Date() && crmProject.status !== "finished" ? "text-destructive text-sm font-medium" : "text-sm"}>
-                                  {format(new Date(crmProject.dueDate), "MMM d, yyyy")}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              {crmProject.actualFinishDate ? (
-                                <div className="flex items-center gap-1.5">
-                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                  <span className="text-sm text-green-600 dark:text-green-400">
-                                    {format(new Date(crmProject.actualFinishDate), "MMM d, yyyy")}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              {crmProject.dueDate && crmProject.actualFinishDate ? (() => {
-                                const dueDate = new Date(crmProject.dueDate);
-                                const actualDate = new Date(crmProject.actualFinishDate);
-                                const diffTime = dueDate.getTime() - actualDate.getTime();
-                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                                if (diffDays > 0) {
-                                  return (
-                                    <Badge variant="default" className="text-xs">
-                                      {diffDays}d early
-                                    </Badge>
-                                  );
-                                } else if (diffDays < 0) {
-                                  return (
-                                    <Badge variant="destructive" className="text-xs">
-                                      {Math.abs(diffDays)}d late
-                                    </Badge>
-                                  );
-                                } else {
-                                  return (
-                                    <Badge variant="secondary" className="text-xs">
-                                      On time
-                                    </Badge>
-                                  );
-                                }
-                              })() : (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 max-w-[200px]">
-                              {crmProject.latestNote ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-1.5 cursor-default">
-                                      <StickyNote className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                      <span className="text-sm text-muted-foreground truncate">
-                                        {crmProject.latestNote.content.substring(0, 40)}{crmProject.latestNote.content.length > 40 ? "..." : ""}
-                                      </span>
+                              </td>
+                            )}
+                            {projectColumnVisibility.isColumnVisible("client") && (
+                              <td className="px-4 py-3">
+                                {crmProject.client ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                                      <User className="w-3 h-3 text-muted-foreground" />
                                     </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="left" className="max-w-[300px]">
-                                    <p className="text-sm whitespace-pre-wrap">{crmProject.latestNote.content}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      — {crmProject.latestNote.createdBy?.firstName} {crmProject.latestNote.createdBy?.lastName}{crmProject.latestNote.createdAt ? `, ${format(new Date(crmProject.latestNote.createdAt), "MMM d, yyyy")}` : ""}
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              )}
-                            </td>
+                                    <span className="text-sm">{crmProject.client.name}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
+                              </td>
+                            )}
+                            {projectColumnVisibility.isColumnVisible("status") && (
+                              <td className="px-4 py-3">
+                                <Badge 
+                                  className="text-xs"
+                                  style={{ backgroundColor: statusConfig[crmProject.status]?.color || "#64748b", color: "white" }}
+                                >
+                                  {statusConfig[crmProject.status]?.label || crmProject.status}
+                                </Badge>
+                              </td>
+                            )}
+                            {projectColumnVisibility.isColumnVisible("tags") && (
+                              <td className="px-4 py-3">
+                                {crmProject.tags && crmProject.tags.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {crmProject.tags.slice(0, 2).map((tag) => (
+                                      <Badge 
+                                        key={tag.id}
+                                        className="text-[10px] px-1.5 py-0"
+                                        style={{ backgroundColor: tag.color, color: "white" }}
+                                        data-testid={`table-tag-${tag.id}`}
+                                      >
+                                        {tag.name}
+                                      </Badge>
+                                    ))}
+                                    {crmProject.tags.length > 2 && (
+                                      <span className="text-[10px] text-muted-foreground">
+                                        +{crmProject.tags.length - 2}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
+                              </td>
+                            )}
+                            {projectColumnVisibility.isColumnVisible("assigned") && (
+                              <td className="px-4 py-3">
+                                {crmProject.assignee ? (
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="w-6 h-6">
+                                      <AvatarImage src={crmProject.assignee.profileImageUrl || undefined} />
+                                      <AvatarFallback className="text-[10px]">
+                                        {crmProject.assignee.firstName?.[0]}{crmProject.assignee.lastName?.[0]}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-sm">{crmProject.assignee.firstName}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
+                              </td>
+                            )}
+                            {projectColumnVisibility.isColumnVisible("start") && (
+                              <td className="px-4 py-3">
+                                {crmProject.startDate ? (
+                                  <span className="text-sm text-muted-foreground">
+                                    {format(new Date(crmProject.startDate), "MMM d, yyyy")}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
+                              </td>
+                            )}
+                            {projectColumnVisibility.isColumnVisible("due") && (
+                              <td className="px-4 py-3">
+                                {crmProject.dueDate ? (
+                                  <span className={new Date(crmProject.dueDate) < new Date() && crmProject.status !== "finished" ? "text-destructive text-sm font-medium" : "text-sm"}>
+                                    {format(new Date(crmProject.dueDate), "MMM d, yyyy")}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
+                              </td>
+                            )}
+                            {projectColumnVisibility.isColumnVisible("finished") && (
+                              <td className="px-4 py-3">
+                                {crmProject.actualFinishDate ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                    <span className="text-sm text-green-600 dark:text-green-400">
+                                      {format(new Date(crmProject.actualFinishDate), "MMM d, yyyy")}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
+                              </td>
+                            )}
+                            {projectColumnVisibility.isColumnVisible("days") && (
+                              <td className="px-4 py-3">
+                                {crmProject.dueDate && crmProject.actualFinishDate ? (() => {
+                                  const dueDate = new Date(crmProject.dueDate);
+                                  const actualDate = new Date(crmProject.actualFinishDate);
+                                  const diffTime = dueDate.getTime() - actualDate.getTime();
+                                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                  if (diffDays > 0) {
+                                    return (
+                                      <Badge variant="default" className="text-xs">
+                                        {diffDays}d early
+                                      </Badge>
+                                    );
+                                  } else if (diffDays < 0) {
+                                    return (
+                                      <Badge variant="destructive" className="text-xs">
+                                        {Math.abs(diffDays)}d late
+                                      </Badge>
+                                    );
+                                  } else {
+                                    return (
+                                      <Badge variant="secondary" className="text-xs">
+                                        On time
+                                      </Badge>
+                                    );
+                                  }
+                                })() : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
+                              </td>
+                            )}
+                            {projectColumnVisibility.isColumnVisible("lastNote") && (
+                              <td className="px-4 py-3 max-w-[200px]">
+                                {crmProject.latestNote ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="flex items-center gap-1.5 cursor-default">
+                                        <StickyNote className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                        <span className="text-sm text-muted-foreground truncate">
+                                          {crmProject.latestNote.content.substring(0, 40)}{crmProject.latestNote.content.length > 40 ? "..." : ""}
+                                        </span>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" className="max-w-[300px]">
+                                      <p className="text-sm whitespace-pre-wrap">{crmProject.latestNote.content}</p>
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        — {crmProject.latestNote.createdBy?.firstName} {crmProject.latestNote.createdBy?.lastName}{crmProject.latestNote.createdAt ? `, ${format(new Date(crmProject.latestNote.createdAt), "MMM d, yyyy")}` : ""}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
+                              </td>
+                            )}
                             <td className="px-4 py-3 text-right">
                               <Button
                                 size="icon"
@@ -1121,11 +1188,11 @@ export default function CrmPage() {
                   <table className="w-full min-w-[700px]">
                     <thead>
                       <tr className="border-b bg-muted/50 whitespace-nowrap">
-                        <th className="text-left px-3 py-2 font-medium text-sm">Name</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Company</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Email</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Status</th>
-                        <th className="text-left px-3 py-2 font-medium text-sm">Created</th>
+                        {contactColumnVisibility.isColumnVisible("name") && <th className="text-left px-3 py-2 font-medium text-sm">Name</th>}
+                        {contactColumnVisibility.isColumnVisible("company") && <th className="text-left px-3 py-2 font-medium text-sm">Company</th>}
+                        {contactColumnVisibility.isColumnVisible("email") && <th className="text-left px-3 py-2 font-medium text-sm">Email</th>}
+                        {contactColumnVisibility.isColumnVisible("status") && <th className="text-left px-3 py-2 font-medium text-sm">Status</th>}
+                        {contactColumnVisibility.isColumnVisible("created") && <th className="text-left px-3 py-2 font-medium text-sm">Created</th>}
                         <th className="text-right px-3 py-2 font-medium w-10"></th>
                       </tr>
                     </thead>
@@ -1152,32 +1219,42 @@ export default function CrmPage() {
                             onClick={() => setLocation(`/crm/client/${client.id}`)}
                             data-testid={`row-client-table-${client.id}`}
                           >
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                                  <User className="w-2.5 h-2.5 text-primary" />
+                            {contactColumnVisibility.isColumnVisible("name") && (
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <User className="w-2.5 h-2.5 text-primary" />
+                                  </div>
+                                  <span className="font-medium text-sm">{client.name}</span>
                                 </div>
-                                <span className="font-medium text-sm">{client.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2 text-muted-foreground text-sm">{client.company || "-"}</td>
-                            <td className="px-3 py-2 text-muted-foreground text-sm">{client.email || "-"}</td>
-                            <td className="px-3 py-2">
-                              {client.status ? (
-                                <Badge 
-                                  className="text-xs"
-                                  style={{ backgroundColor: contactStatusConfig[client.status]?.color || "#64748b", color: "white" }}
-                                  data-testid={`badge-client-table-status-${client.id}`}
-                                >
-                                  {contactStatusConfig[client.status]?.label || client.status}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">-</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-muted-foreground text-sm">
-                              {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : "-"}
-                            </td>
+                              </td>
+                            )}
+                            {contactColumnVisibility.isColumnVisible("company") && (
+                              <td className="px-3 py-2 text-muted-foreground text-sm">{client.company || "-"}</td>
+                            )}
+                            {contactColumnVisibility.isColumnVisible("email") && (
+                              <td className="px-3 py-2 text-muted-foreground text-sm">{client.email || "-"}</td>
+                            )}
+                            {contactColumnVisibility.isColumnVisible("status") && (
+                              <td className="px-3 py-2">
+                                {client.status ? (
+                                  <Badge 
+                                    className="text-xs"
+                                    style={{ backgroundColor: contactStatusConfig[client.status]?.color || "#64748b", color: "white" }}
+                                    data-testid={`badge-client-table-status-${client.id}`}
+                                  >
+                                    {contactStatusConfig[client.status]?.label || client.status}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">-</span>
+                                )}
+                              </td>
+                            )}
+                            {contactColumnVisibility.isColumnVisible("created") && (
+                              <td className="px-3 py-2 text-muted-foreground text-sm">
+                                {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : "-"}
+                              </td>
+                            )}
                             <td className="px-3 py-2 text-right">
                               <div className="flex items-center justify-end gap-0.5">
                                 <Button
