@@ -181,7 +181,7 @@ export default function CompanyDocumentEditorPage() {
           </div>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 overflow-y-auto scrollbar-hidden">
         <div className="px-4 md:px-6 max-w-3xl">
           <div className="py-6">
             <Input

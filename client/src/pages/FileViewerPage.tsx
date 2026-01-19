@@ -518,7 +518,7 @@ function WordDocEditor({ documentId, document }: {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar">
+    <div className="flex-1 overflow-y-auto scrollbar-hidden">
       <div className="max-w-3xl mx-auto px-6 py-8">
         <BlockEditor
           content={content}

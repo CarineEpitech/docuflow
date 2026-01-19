@@ -402,7 +402,7 @@ export default function DocumentPage() {
             </Button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar isolate">
+        <div className="flex-1 overflow-y-auto scrollbar-hidden isolate">
           <div className={`mx-auto ${isMobile ? "px-4 w-full" : isSidebarCollapsed ? "px-8 w-full max-w-none" : "px-4 md:px-6 max-w-3xl"}`}>
             <BlockEditor
               isFullWidth={isSidebarCollapsed}

@@ -153,7 +153,7 @@ export default function ProjectPage() {
             <span className="hidden sm:inline">Back</span>
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar flex items-center justify-center p-4">
+        <div className="flex-1 overflow-y-auto scrollbar-hidden flex items-center justify-center p-4">
           <div className="text-center py-8 md:py-16">
             <FileText className="w-12 h-12 md:w-16 md:h-16 mx-auto text-muted-foreground/20 mb-4 md:mb-6" />
             <h3 className="text-lg md:text-xl font-medium text-muted-foreground mb-2" data-testid="text-select-page-prompt">
