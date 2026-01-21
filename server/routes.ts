@@ -3311,6 +3311,9 @@ Instructions:
       const oldOptions = field.options || [];
       const newOptions = req.body.options || [];
       
+      console.log("[Field Update] Field slug:", field.slug, "isSystem:", field.isSystem, "module:", module?.slug);
+      console.log("[Field Update] Old options count:", oldOptions.length, "New options count:", newOptions.length);
+      
       if (newOptions.length > 0 && oldOptions.length > 0 && 
           (field.fieldType === "select" || field.fieldType === "multiselect")) {
         // Create a mapping of old slugs to new slugs by position
@@ -3323,18 +3326,27 @@ Instructions:
           const oldSlug = labelToSlug(oldLabel);
           const newSlug = labelToSlug(newLabel);
           
+          console.log(`[Field Update] Position ${i}: oldLabel="${oldLabel}" -> newLabel="${newLabel}", oldSlug="${oldSlug}" -> newSlug="${newSlug}"`);
+          
           if (oldSlug !== newSlug) {
             optionRenames.push({ oldSlug, newSlug });
+            console.log(`[Field Update] Detected rename: "${oldSlug}" -> "${newSlug}"`);
           }
         }
         
+        console.log("[Field Update] Total renames to process:", optionRenames.length);
+        
         // Update field values based on where they're stored
         for (const rename of optionRenames) {
+          console.log(`[Field Update] Processing rename: "${rename.oldSlug}" -> "${rename.newSlug}"`);
+          
           // For system fields in the projects module, update the crmProjects table directly
           if (module?.slug === "projects" && field.isSystem === 1) {
             if (field.slug === "status") {
+              console.log(`[Field Update] Updating crmProjects.status: "${rename.oldSlug}" -> "${rename.newSlug}"`);
               await storage.updateCrmProjectsColumnOnOptionRename("status", rename.oldSlug, rename.newSlug);
             } else if (field.slug === "project_type") {
+              console.log(`[Field Update] Updating crmProjects.projectType: "${rename.oldSlug}" -> "${rename.newSlug}"`);
               await storage.updateCrmProjectsColumnOnOptionRename("projectType", rename.oldSlug, rename.newSlug);
             }
           }
@@ -3342,6 +3354,7 @@ Instructions:
           // For system fields in the contacts module, update the crmClients table directly
           if (module?.slug === "contacts" && field.isSystem === 1) {
             if (field.slug === "status") {
+              console.log(`[Field Update] Updating crmClients.status: "${rename.oldSlug}" -> "${rename.newSlug}"`);
               await storage.updateCrmClientsColumnOnOptionRename("status", rename.oldSlug, rename.newSlug);
             }
           }
