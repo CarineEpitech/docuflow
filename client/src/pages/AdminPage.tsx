@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useRoute, Link } from "wouter";
 import { format, formatDistanceToNow } from "date-fns";
@@ -1636,6 +1637,18 @@ function FieldDetailView({ field, module, onBack }: { field: CrmModuleField; mod
     setFieldForm(f => ({ ...f, options: serializeOptions(newOptions) }));
   };
 
+  const handleOptionsDragEnd = useCallback((result: DropResult) => {
+    if (!result.destination) return;
+    if (result.destination.index === result.source.index) return;
+    
+    const reordered = Array.from(optionItems);
+    const [removed] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, removed);
+    
+    setOptionItems(reordered);
+    setFieldForm(f => ({ ...f, options: serializeOptions(reordered) }));
+  }, [optionItems]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -1702,55 +1715,81 @@ function FieldDetailView({ field, module, onBack }: { field: CrmModuleField; mod
 
           {(fieldForm.fieldType === "select" || fieldForm.fieldType === "multiselect") && (
             <div className="space-y-4">
-              <Label>Options</Label>
+              <Label>Options (drag to reorder)</Label>
               
               {optionItems.length > 0 && (
-                <div className="space-y-2">
-                  {optionItems.map((opt, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 border rounded-lg" data-testid={`option-${index}`}>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="w-8 h-8 rounded-md border shrink-0"
-                            style={{ backgroundColor: opt.color }}
-                            data-testid={`option-color-trigger-${index}`}
-                          />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-3" align="start">
-                          <div className="grid grid-cols-5 gap-2">
-                            {OPTION_COLORS.map((c) => (
-                              <button
-                                key={c.value}
-                                type="button"
-                                className={`w-8 h-8 rounded-md border-2 ${opt.color === c.value ? 'border-foreground' : 'border-transparent'}`}
-                                style={{ backgroundColor: c.value }}
-                                onClick={() => updateOptionColor(index, c.value)}
-                                title={c.label}
-                                data-testid={`color-${c.value}`}
-                              />
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                      <Input
-                        value={opt.label}
-                        onChange={(e) => updateOptionLabel(index, e.target.value)}
-                        className="flex-1"
-                        data-testid={`option-label-${index}`}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeOption(index)}
-                        data-testid={`option-remove-${index}`}
+                <DragDropContext onDragEnd={handleOptionsDragEnd}>
+                  <Droppable droppableId="options">
+                    {(provided) => (
+                      <div 
+                        {...provided.droppableProps} 
+                        ref={provided.innerRef}
+                        className="space-y-2"
                       >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                        {optionItems.map((opt, index) => (
+                          <Draggable key={`option-${index}`} draggableId={`option-${index}`} index={index}>
+                            {(provided, snapshot) => (
+                              <div 
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className={`flex items-center gap-2 p-2 border rounded-lg ${snapshot.isDragging ? 'shadow-lg bg-background' : ''}`} 
+                                data-testid={`option-${index}`}
+                              >
+                                <div
+                                  {...provided.dragHandleProps}
+                                  className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
+                                >
+                                  <GripVertical className="w-4 h-4 text-muted-foreground" />
+                                </div>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="w-8 h-8 rounded-md border shrink-0"
+                                      style={{ backgroundColor: opt.color }}
+                                      data-testid={`option-color-trigger-${index}`}
+                                    />
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-3" align="start">
+                                    <div className="grid grid-cols-5 gap-2">
+                                      {OPTION_COLORS.map((c) => (
+                                        <button
+                                          key={c.value}
+                                          type="button"
+                                          className={`w-8 h-8 rounded-md border-2 ${opt.color === c.value ? 'border-foreground' : 'border-transparent'}`}
+                                          style={{ backgroundColor: c.value }}
+                                          onClick={() => updateOptionColor(index, c.value)}
+                                          title={c.label}
+                                          data-testid={`color-${c.value}`}
+                                        />
+                                      ))}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                                <Input
+                                  value={opt.label}
+                                  onChange={(e) => updateOptionLabel(index, e.target.value)}
+                                  className="flex-1"
+                                  data-testid={`option-label-${index}`}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeOption(index)}
+                                  data-testid={`option-remove-${index}`}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
               )}
 
               <div className="flex items-center gap-2 p-2 border rounded-lg border-dashed">
