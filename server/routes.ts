@@ -1679,6 +1679,34 @@ Instructions:
       const newStatus = parsed.data.status;
       const isStatusChange = newStatus !== undefined && newStatus !== oldStatus;
       
+      // Handle review time tracking - pause/resume timeline when entering/exiting review status
+      const isReviewStatus = (status: string) => status.toLowerCase().includes('review');
+      const wasInReview = isReviewStatus(oldStatus);
+      const isNowInReview = newStatus ? isReviewStatus(newStatus) : wasInReview;
+      
+      if (isStatusChange) {
+        if (!wasInReview && isNowInReview) {
+          // Entering review status - start tracking review time
+          updateData.reviewStartedAt = new Date();
+        } else if (wasInReview && !isNowInReview && crmProject.reviewStartedAt) {
+          // Exiting review status - calculate time spent in review and extend due date
+          const reviewStartTime = new Date(crmProject.reviewStartedAt).getTime();
+          const reviewEndTime = Date.now();
+          const reviewDurationMs = reviewEndTime - reviewStartTime;
+          const currentTotalReviewMs = crmProject.totalReviewMs || 0;
+          
+          updateData.totalReviewMs = currentTotalReviewMs + reviewDurationMs;
+          updateData.reviewStartedAt = null;
+          
+          // Extend due date by the review duration if there's a due date
+          if (crmProject.dueDate) {
+            const currentDueDate = new Date(crmProject.dueDate);
+            const newDueDate = new Date(currentDueDate.getTime() + reviewDurationMs);
+            updateData.dueDate = newDueDate;
+          }
+        }
+      }
+      
       const updated = await storage.updateCrmProject(req.params.id, updateData);
       
       // Record stage history if status changed
