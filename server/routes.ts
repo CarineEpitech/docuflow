@@ -3302,22 +3302,29 @@ Instructions:
         }
       };
       
+      // Helper to convert label to slug (same logic as frontend)
+      const labelToSlug = (label: string): string => {
+        return label.toLowerCase().replace(/[\s-]+/g, '_').replace(/[^a-z0-9_]/g, '');
+      };
+      
       // Check if options are being updated for select/multiselect fields
       const oldOptions = field.options || [];
       const newOptions = req.body.options || [];
       
       if (newOptions.length > 0 && oldOptions.length > 0 && 
           (field.fieldType === "select" || field.fieldType === "multiselect")) {
-        // Create a mapping of old labels to new labels by position
+        // Create a mapping of old slugs to new slugs by position
         // This handles the case where a user renames an option in place
-        const optionRenames: { oldLabel: string; newLabel: string }[] = [];
+        const optionRenames: { oldSlug: string; newSlug: string }[] = [];
         
         for (let i = 0; i < Math.min(oldOptions.length, newOptions.length); i++) {
           const oldLabel = getOptionLabel(oldOptions[i]);
           const newLabel = getOptionLabel(newOptions[i]);
+          const oldSlug = labelToSlug(oldLabel);
+          const newSlug = labelToSlug(newLabel);
           
-          if (oldLabel !== newLabel) {
-            optionRenames.push({ oldLabel, newLabel });
+          if (oldSlug !== newSlug) {
+            optionRenames.push({ oldSlug, newSlug });
           }
         }
         
@@ -3326,24 +3333,24 @@ Instructions:
           // For system fields in the projects module, update the crmProjects table directly
           if (module?.slug === "projects" && field.isSystem === 1) {
             if (field.slug === "status") {
-              await storage.updateCrmProjectsColumnOnOptionRename("status", rename.oldLabel, rename.newLabel);
+              await storage.updateCrmProjectsColumnOnOptionRename("status", rename.oldSlug, rename.newSlug);
             } else if (field.slug === "project_type") {
-              await storage.updateCrmProjectsColumnOnOptionRename("projectType", rename.oldLabel, rename.newLabel);
+              await storage.updateCrmProjectsColumnOnOptionRename("projectType", rename.oldSlug, rename.newSlug);
             }
           }
           
           // For system fields in the contacts module, update the crmClients table directly
           if (module?.slug === "contacts" && field.isSystem === 1) {
             if (field.slug === "status") {
-              await storage.updateCrmClientsColumnOnOptionRename("status", rename.oldLabel, rename.newLabel);
+              await storage.updateCrmClientsColumnOnOptionRename("status", rename.oldSlug, rename.newSlug);
             }
           }
           
           // Also update crmCustomFieldValues for custom fields
           await storage.updateCrmFieldValuesOnOptionRename(
             req.params.id,
-            rename.oldLabel,
-            rename.newLabel
+            rename.oldSlug,
+            rename.newSlug
           );
         }
       }
