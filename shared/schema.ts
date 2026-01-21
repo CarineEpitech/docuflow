@@ -409,6 +409,8 @@ export const crmProjects = pgTable("crm_projects", {
   actualHours: integer("actual_hours"),
   documentationEnabled: integer("documentation_enabled").default(0),
   isDocumentationOnly: integer("is_documentation_only").default(0),
+  reviewStartedAt: timestamp("review_started_at"),
+  totalReviewMs: integer("total_review_ms").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
