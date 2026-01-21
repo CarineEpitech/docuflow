@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
@@ -192,14 +193,17 @@ export default function CrmPage() {
   });
 
   // Fetch project module fields for dynamic status options
-  const { data: projectFields = [] } = useQuery<CrmModuleField[]>({
+  const { data: projectFields = [], isLoading: projectFieldsLoading } = useQuery<CrmModuleField[]>({
     queryKey: ["/api/modules/projects/fields"],
   });
 
   // Fetch contacts module fields for dynamic status options
-  const { data: contactFields = [] } = useQuery<CrmModuleField[]>({
+  const { data: contactFields = [], isLoading: contactFieldsLoading } = useQuery<CrmModuleField[]>({
     queryKey: ["/api/modules/contacts/fields"],
   });
+
+  // Track if field configs are ready (prevents flash of old values)
+  const fieldsReady = !projectFieldsLoading && !contactFieldsLoading;
 
   // Parse project status options from database
   const { statusOptions, statusConfig } = useMemo(() => {
@@ -670,6 +674,24 @@ export default function CrmPage() {
 
         <TabsContent value="projects" className="space-y-4 mt-0">
           {projectViewMode === "kanban" ? (
+            !fieldsReady ? (
+              <div className="flex gap-4 min-w-max items-stretch">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="w-72 flex-shrink-0">
+                    <div className="bg-muted rounded-lg p-3 min-h-[400px] h-[calc(100vh-280px)]">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Skeleton className="h-5 w-24" />
+                        <Skeleton className="h-4 w-6" />
+                      </div>
+                      <div className="space-y-2">
+                        <Skeleton className="h-32 w-full" />
+                        <Skeleton className="h-32 w-full" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
             <DragDropContext onDragEnd={(result) => { cleanupScroll(); handleDragEnd(result); }} onDragStart={handleDragStart}>
               <div ref={kanbanScrollRef} className="overflow-x-auto pb-4 scrollbar-hidden">
                 <div className="flex gap-4 min-w-max items-stretch">
@@ -809,6 +831,7 @@ export default function CrmPage() {
                 </div>
               </div>
             </DragDropContext>
+            )
           ) : (
             <Card className="overflow-hidden">
               <CardContent className="p-0">
