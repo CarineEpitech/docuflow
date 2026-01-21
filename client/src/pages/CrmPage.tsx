@@ -84,6 +84,35 @@ function parseFieldOptions(options: string[] | null): ParsedOption[] {
   });
 }
 
+// Helper to check if a status represents "in review" state
+function isReviewStatus(status: string): boolean {
+  return status.toLowerCase().includes('review');
+}
+
+// Helper to calculate effective due date considering active review time
+function getEffectiveDueDate(project: { 
+  dueDate?: Date | string | null; 
+  reviewStartedAt?: Date | string | null;
+  status?: string;
+}): { effectiveDueDate: Date | null; pausedMs: number; isPaused: boolean } {
+  if (!project.dueDate) {
+    return { effectiveDueDate: null, pausedMs: 0, isPaused: false };
+  }
+  
+  const dueDate = new Date(project.dueDate);
+  const isPaused = project.status ? isReviewStatus(project.status) : false;
+  
+  if (isPaused && project.reviewStartedAt) {
+    // Project is currently in review - calculate how much time has been paused
+    const reviewStartTime = new Date(project.reviewStartedAt).getTime();
+    const pausedMs = Date.now() - reviewStartTime;
+    const effectiveDueDate = new Date(dueDate.getTime() + pausedMs);
+    return { effectiveDueDate, pausedMs, isPaused };
+  }
+  
+  return { effectiveDueDate: dueDate, pausedMs: 0, isPaused };
+}
+
 // Fallback static config (used if API hasn't loaded yet)
 const fallbackStatusConfig: Record<string, { label: string; color: string }> = {
   lead: { label: "Lead", color: "#64748b" },
@@ -758,11 +787,23 @@ export default function CrmPage() {
                                                     <span>{project.budgetedHours}h budgeted</span>
                                                   ) : null}
                                                 </div>
-                                                {project.dueDate && (
-                                                  <p className={`text-xs mt-1 ${new Date(project.dueDate) < new Date() && project.status !== "finished" ? "text-destructive" : "text-muted-foreground"}`}>
-                                                    Due: {format(new Date(project.dueDate), "MMM d, yyyy")}
-                                                  </p>
-                                                )}
+                                                {project.dueDate && (() => {
+                                                  const { effectiveDueDate, isPaused } = getEffectiveDueDate(project);
+                                                  if (!effectiveDueDate) return null;
+                                                  const isOverdue = effectiveDueDate < new Date() && project.status !== "finished";
+                                                  return (
+                                                    <div className="flex items-center gap-1.5 mt-1">
+                                                      <p className={`text-xs ${isOverdue ? "text-destructive" : "text-muted-foreground"}`}>
+                                                        Due: {format(effectiveDueDate, "MMM d, yyyy")}
+                                                      </p>
+                                                      {isPaused && (
+                                                        <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500 text-amber-600 dark:text-amber-400">
+                                                          Paused
+                                                        </Badge>
+                                                      )}
+                                                    </div>
+                                                  );
+                                                })()}
                                                 {project.assignee && (
                                                   <div className="flex items-center gap-1.5 mt-2">
                                                     <Avatar className="w-5 h-5">
@@ -975,11 +1016,23 @@ export default function CrmPage() {
                             )}
                             {projectColumnVisibility.isColumnVisible("due") && (
                               <td className="px-4 py-3">
-                                {crmProject.dueDate ? (
-                                  <span className={new Date(crmProject.dueDate) < new Date() && crmProject.status !== "finished" ? "text-destructive text-sm font-medium" : "text-sm"}>
-                                    {format(new Date(crmProject.dueDate), "MMM d, yyyy")}
-                                  </span>
-                                ) : (
+                                {crmProject.dueDate ? (() => {
+                                  const { effectiveDueDate, isPaused } = getEffectiveDueDate(crmProject);
+                                  if (!effectiveDueDate) return <span className="text-muted-foreground text-sm">—</span>;
+                                  const isOverdue = effectiveDueDate < new Date() && crmProject.status !== "finished";
+                                  return (
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={isOverdue ? "text-destructive text-sm font-medium" : "text-sm"}>
+                                        {format(effectiveDueDate, "MMM d, yyyy")}
+                                      </span>
+                                      {isPaused && (
+                                        <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500 text-amber-600 dark:text-amber-400">
+                                          Paused
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  );
+                                })() : (
                                   <span className="text-muted-foreground text-sm">—</span>
                                 )}
                               </td>
@@ -1001,9 +1054,10 @@ export default function CrmPage() {
                             {projectColumnVisibility.isColumnVisible("days") && (
                               <td className="px-4 py-3">
                                 {crmProject.dueDate && crmProject.actualFinishDate ? (() => {
-                                  const dueDate = new Date(crmProject.dueDate);
+                                  const { effectiveDueDate } = getEffectiveDueDate(crmProject);
+                                  if (!effectiveDueDate) return <span className="text-muted-foreground text-sm">—</span>;
                                   const actualDate = new Date(crmProject.actualFinishDate);
-                                  const diffTime = dueDate.getTime() - actualDate.getTime();
+                                  const diffTime = effectiveDueDate.getTime() - actualDate.getTime();
                                   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                                   if (diffDays > 0) {
                                     return (
