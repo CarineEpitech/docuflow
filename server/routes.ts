@@ -3289,6 +3289,45 @@ Instructions:
         return res.status(404).json({ message: "Field not found" });
       }
       
+      // Helper to extract label from option (handles both JSON format and plain strings)
+      const getOptionLabel = (opt: string): string => {
+        try {
+          const parsed = JSON.parse(opt);
+          return parsed.label || opt;
+        } catch {
+          return opt;
+        }
+      };
+      
+      // Check if options are being updated for select/multiselect fields
+      const oldOptions = field.options || [];
+      const newOptions = req.body.options || [];
+      
+      if (newOptions.length > 0 && oldOptions.length > 0 && 
+          (field.fieldType === "select" || field.fieldType === "multiselect")) {
+        // Create a mapping of old labels to new labels by position
+        // This handles the case where a user renames an option in place
+        const optionRenames: { oldLabel: string; newLabel: string }[] = [];
+        
+        for (let i = 0; i < Math.min(oldOptions.length, newOptions.length); i++) {
+          const oldLabel = getOptionLabel(oldOptions[i]);
+          const newLabel = getOptionLabel(newOptions[i]);
+          
+          if (oldLabel !== newLabel) {
+            optionRenames.push({ oldLabel, newLabel });
+          }
+        }
+        
+        // Update all field values that have the old option label
+        for (const rename of optionRenames) {
+          await storage.updateCrmFieldValuesOnOptionRename(
+            req.params.id,
+            rename.oldLabel,
+            rename.newLabel
+          );
+        }
+      }
+      
       const updated = await storage.updateCrmModuleField(req.params.id, req.body);
       res.json(updated);
     } catch (error) {

@@ -237,6 +237,7 @@ export interface IStorage {
   // CRM Custom Field Values
   getCrmProjectCustomFields(crmProjectId: string): Promise<CrmCustomFieldValue[]>;
   setCrmProjectCustomField(crmProjectId: string, fieldId: string, value: string | null): Promise<CrmCustomFieldValue>;
+  updateCrmFieldValuesOnOptionRename(fieldId: string, oldLabel: string, newLabel: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1790,6 +1791,17 @@ export class DatabaseStorage implements IStorage {
       }).returning();
       return newVal;
     }
+  }
+
+  async updateCrmFieldValuesOnOptionRename(fieldId: string, oldLabel: string, newLabel: string): Promise<void> {
+    // Update all field values that have the old option label to use the new label
+    await db
+      .update(crmCustomFieldValues)
+      .set({ value: newLabel, updatedAt: new Date() })
+      .where(and(
+        eq(crmCustomFieldValues.fieldId, fieldId),
+        eq(crmCustomFieldValues.value, oldLabel)
+      ));
   }
 
   async seedDefaultCrmModules(): Promise<void> {
