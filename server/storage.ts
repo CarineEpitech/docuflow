@@ -238,6 +238,8 @@ export interface IStorage {
   getCrmProjectCustomFields(crmProjectId: string): Promise<CrmCustomFieldValue[]>;
   setCrmProjectCustomField(crmProjectId: string, fieldId: string, value: string | null): Promise<CrmCustomFieldValue>;
   updateCrmFieldValuesOnOptionRename(fieldId: string, oldLabel: string, newLabel: string): Promise<void>;
+  updateCrmProjectsColumnOnOptionRename(column: "status" | "projectType", oldLabel: string, newLabel: string): Promise<void>;
+  updateCrmClientsColumnOnOptionRename(column: "status", oldLabel: string, newLabel: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1802,6 +1804,31 @@ export class DatabaseStorage implements IStorage {
         eq(crmCustomFieldValues.fieldId, fieldId),
         eq(crmCustomFieldValues.value, oldLabel)
       ));
+  }
+
+  async updateCrmProjectsColumnOnOptionRename(column: "status" | "projectType", oldLabel: string, newLabel: string): Promise<void> {
+    // Update crmProjects table directly for system fields
+    if (column === "status") {
+      await db
+        .update(crmProjects)
+        .set({ status: newLabel, updatedAt: new Date() })
+        .where(eq(crmProjects.status, oldLabel));
+    } else if (column === "projectType") {
+      await db
+        .update(crmProjects)
+        .set({ projectType: newLabel, updatedAt: new Date() })
+        .where(eq(crmProjects.projectType, oldLabel));
+    }
+  }
+
+  async updateCrmClientsColumnOnOptionRename(column: "status", oldLabel: string, newLabel: string): Promise<void> {
+    // Update crmClients table directly for system fields
+    if (column === "status") {
+      await db
+        .update(crmClients)
+        .set({ status: newLabel, updatedAt: new Date() })
+        .where(eq(crmClients.status, oldLabel));
+    }
   }
 
   async seedDefaultCrmModules(): Promise<void> {

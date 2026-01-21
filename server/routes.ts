@@ -3289,6 +3289,9 @@ Instructions:
         return res.status(404).json({ message: "Field not found" });
       }
       
+      // Get the module to check if it's projects or contacts
+      const module = await storage.getCrmModule(field.moduleId);
+      
       // Helper to extract label from option (handles both JSON format and plain strings)
       const getOptionLabel = (opt: string): string => {
         try {
@@ -3318,8 +3321,25 @@ Instructions:
           }
         }
         
-        // Update all field values that have the old option label
+        // Update field values based on where they're stored
         for (const rename of optionRenames) {
+          // For system fields in the projects module, update the crmProjects table directly
+          if (module?.slug === "projects" && field.isSystem === 1) {
+            if (field.slug === "status") {
+              await storage.updateCrmProjectsColumnOnOptionRename("status", rename.oldLabel, rename.newLabel);
+            } else if (field.slug === "project_type") {
+              await storage.updateCrmProjectsColumnOnOptionRename("projectType", rename.oldLabel, rename.newLabel);
+            }
+          }
+          
+          // For system fields in the contacts module, update the crmClients table directly
+          if (module?.slug === "contacts" && field.isSystem === 1) {
+            if (field.slug === "status") {
+              await storage.updateCrmClientsColumnOnOptionRename("status", rename.oldLabel, rename.newLabel);
+            }
+          }
+          
+          // Also update crmCustomFieldValues for custom fields
           await storage.updateCrmFieldValuesOnOptionRename(
             req.params.id,
             rename.oldLabel,
