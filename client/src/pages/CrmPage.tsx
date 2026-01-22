@@ -730,7 +730,7 @@ export default function CrmPage() {
                     return (
                       <div
                         key={status}
-                        className="w-72 flex-shrink-0"
+                        className="w-72 flex-shrink-0 overflow-hidden"
                         data-testid={`kanban-column-${status}`}
                       >
                         <Droppable droppableId={status}>
@@ -739,9 +739,9 @@ export default function CrmPage() {
                               ref={provided.innerRef}
                               {...provided.droppableProps}
                               data-scroll-column={status}
-                              className={`bg-muted rounded-lg p-3 min-h-[400px] h-[calc(100vh-280px)] overflow-y-auto scrollbar-hidden transition-colors ${snapshot.isDraggingOver ? "bg-muted/60" : ""}`}
+                              className={`bg-muted rounded-lg p-3 min-h-[400px] h-[calc(100vh-280px)] overflow-y-auto overflow-x-hidden scrollbar-hidden transition-colors ${snapshot.isDraggingOver ? "bg-muted/60" : ""}`}
                             >
-                              <div className="flex items-center justify-between mb-3 sticky top-0 bg-muted z-10 pb-1">
+                              <div className="flex items-center justify-between mb-3 sticky top-0 bg-muted z-10 pb-1 -mt-3 pt-3 -mx-3 px-3">
                                 <div className="flex items-center gap-2">
                                   <Badge 
                                     style={{ backgroundColor: statusConfig[status]?.color || "#64748b", color: "white" }}
