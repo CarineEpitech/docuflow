@@ -1685,7 +1685,7 @@ export default function CrmProjectPage() {
           ) : stageHistory.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">No stage changes recorded yet.</p>
           ) : (
-            <div className="space-y-3 max-h-60 overflow-y-auto">
+            <div className="space-y-3 max-h-60 overflow-y-auto scrollbar-hidden">
               {stageHistory.map((record) => (
                 <div 
                   key={record.id} 
