@@ -632,17 +632,6 @@ export default function CrmPage() {
                   </SelectContent>
                 </Select>
               )}
-              <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30">
-                <Switch
-                  id="hide-internal"
-                  checked={hideInternalProjects}
-                  onCheckedChange={setHideInternalProjects}
-                  data-testid="switch-hide-internal"
-                />
-                <Label htmlFor="hide-internal" className="text-sm text-muted-foreground cursor-pointer whitespace-nowrap">
-                  Hide internal
-                </Label>
-              </div>
               <div className="flex items-center gap-2">
                 <div className="flex border rounded-md">
                   <Button
@@ -664,14 +653,6 @@ export default function CrmPage() {
                     <List className="w-4 h-4" />
                   </Button>
                 </div>
-                {projectViewMode === "table" && (
-                  <ColumnVisibilityDropdown
-                    columns={projectColumnVisibility.columns}
-                    visibleColumns={projectColumnVisibility.visibleColumns}
-                    toggleColumn={projectColumnVisibility.toggleColumn}
-                    resetToDefaults={projectColumnVisibility.resetToDefaults}
-                  />
-                )}
                 <Link href="/crm/project/new">
                   <Button size="icon" data-testid="button-new-project">
                     <Plus className="w-4 h-4" />
@@ -700,6 +681,30 @@ export default function CrmPage() {
             )}
           </TabsTrigger>
         </TabsList>
+
+        {activeTab === "projects" && (
+          <div className="flex items-center justify-end gap-3">
+            <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30">
+              <Switch
+                id="hide-internal"
+                checked={hideInternalProjects}
+                onCheckedChange={setHideInternalProjects}
+                data-testid="switch-hide-internal"
+              />
+              <Label htmlFor="hide-internal" className="text-sm text-muted-foreground cursor-pointer whitespace-nowrap">
+                Hide internal
+              </Label>
+            </div>
+            {projectViewMode === "table" && (
+              <ColumnVisibilityDropdown
+                columns={projectColumnVisibility.columns}
+                visibleColumns={projectColumnVisibility.visibleColumns}
+                toggleColumn={projectColumnVisibility.toggleColumn}
+                resetToDefaults={projectColumnVisibility.resetToDefaults}
+              />
+            )}
+          </div>
+        )}
 
         <TabsContent value="projects" className="space-y-4 mt-0">
           {projectViewMode === "kanban" ? (
