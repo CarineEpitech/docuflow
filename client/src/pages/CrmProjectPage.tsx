@@ -1290,9 +1290,8 @@ export default function CrmProjectPage() {
                                         {attachments.map((att, idx) => (
                                           <a
                                             key={idx}
-                                            href={att.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
+                                            href={`${att.url}?download=true`}
+                                            download={att.filename}
                                             className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-colors ${
                                               isCurrentUser 
                                                 ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' 

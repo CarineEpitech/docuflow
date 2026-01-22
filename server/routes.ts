@@ -611,12 +611,20 @@ export async function registerRoutes(
 
   app.get("/public-objects/:filePath(*)", async (req, res) => {
     const filePath = req.params.filePath;
+    const forceDownload = req.query.download === 'true';
     const objectStorageService = new ObjectStorageService();
     try {
       const file = await objectStorageService.searchPublicObject(filePath);
       if (!file) {
         return res.status(404).json({ error: "File not found" });
       }
+      
+      // Set Content-Disposition header for forced downloads
+      if (forceDownload) {
+        const filename = filePath.split('/').pop() || 'download';
+        res.set('Content-Disposition', `attachment; filename="${filename}"`);
+      }
+      
       objectStorageService.downloadObject(file, res);
     } catch (error) {
       console.error("Error searching for public object:", error);
