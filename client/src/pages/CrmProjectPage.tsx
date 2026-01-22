@@ -1249,14 +1249,25 @@ export default function CrmProjectPage() {
                     <div className={`flex-1 max-w-[80%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                       {editingNoteId === note.id ? (
                         <div className="space-y-2">
-                          <NoteInput
+                          <Textarea
                             value={editNoteContent}
-                            onChange={setEditNoteContent}
-                            users={users}
-                            mentionedUserIds={editNoteMentions}
-                            onMentionAdd={(userId) => setEditNoteMentions(prev => [...prev, userId])}
-                            testId="textarea-edit-note"
+                            onChange={(e) => setEditNoteContent(e.target.value)}
+                            className="min-h-[60px] text-sm"
                             autoFocus
+                            data-testid="textarea-edit-note"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                if (editNoteContent.trim()) {
+                                  handleUpdateNote(note.id);
+                                }
+                              }
+                              if (e.key === "Escape") {
+                                setEditingNoteId(null);
+                                setEditNoteContent("");
+                                setEditNoteMentions([]);
+                              }
+                            }}
                           />
                           <div className="flex justify-end gap-2">
                             <Button
