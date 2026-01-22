@@ -155,6 +155,7 @@ export default function CrmProjectPage() {
     comments: string;
     documentationEnabled: boolean;
     budgetedHours: number | null;
+    budgetedMinutes: number | null;
     actualHours: number | null;
     description: string;
   } | null>(null);
@@ -281,6 +282,7 @@ export default function CrmProjectPage() {
         comments: project.comments || "",
         documentationEnabled: project.documentationEnabled === 1,
         budgetedHours: project.budgetedHours ?? null,
+        budgetedMinutes: project.budgetedMinutes ?? null,
         actualHours: project.actualHours ?? null,
         description: project.project?.description || "",
       });
@@ -538,6 +540,7 @@ export default function CrmProjectPage() {
         comments: project.comments || "",
         documentationEnabled: project.documentationEnabled === 1,
         budgetedHours: project.budgetedHours ?? null,
+        budgetedMinutes: project.budgetedMinutes ?? null,
         actualHours: project.actualHours ?? null,
         description: project.project?.description || "",
       });
@@ -580,6 +583,7 @@ export default function CrmProjectPage() {
       actualFinishDate: formData.actualFinishDate?.toISOString() || null,
       comments: formData.comments || null,
       budgetedHours: formData.budgetedHours,
+      budgetedMinutes: formData.budgetedMinutes,
       actualHours: formData.actualHours,
       projectDescription: formData.description || null,
     };
@@ -870,15 +874,35 @@ export default function CrmProjectPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Budgeted Hours</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={formData?.budgetedHours ?? ""}
-                      onChange={(e) => handleBudgetedHoursChange(e.target.value ? parseInt(e.target.value) : null)}
-                      placeholder="0"
-                      data-testid="input-budgeted-hours"
-                    />
+                    <label className="text-sm font-medium">Budgeted Time</label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={formData?.budgetedHours ?? ""}
+                          onChange={(e) => handleBudgetedHoursChange(e.target.value ? parseInt(e.target.value) : null)}
+                          placeholder="0"
+                          data-testid="input-budgeted-hours"
+                        />
+                        <span className="text-xs text-muted-foreground">Hours</span>
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="59"
+                          value={formData?.budgetedMinutes ?? ""}
+                          onChange={(e) => {
+                            const mins = e.target.value ? Math.min(59, Math.max(0, parseInt(e.target.value))) : null;
+                            updateFormField("budgetedMinutes", mins);
+                          }}
+                          placeholder="0"
+                          data-testid="input-budgeted-minutes"
+                        />
+                        <span className="text-xs text-muted-foreground">Minutes</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Actual Hours</label>
