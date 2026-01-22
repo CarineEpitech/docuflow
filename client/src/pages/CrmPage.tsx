@@ -686,28 +686,30 @@ export default function CrmPage() {
 
         {activeTab === "projects" && (
           <div className="flex items-center justify-end gap-3">
-            <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="w-[180px]" data-testid="select-user-filter">
-                <User className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Filter by user" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
-                {users.map(u => (
-                  <SelectItem key={u.id} value={u.id}>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="w-5 h-5">
-                        <AvatarImage src={u.profileImageUrl || undefined} />
-                        <AvatarFallback className="text-xs">
-                          {(u.firstName?.[0] || "") + (u.lastName?.[0] || "")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{u.firstName} {u.lastName}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {user?.role === "admin" && (
+              <Select value={userFilter} onValueChange={setUserFilter}>
+                <SelectTrigger className="w-[180px]" data-testid="select-user-filter">
+                  <User className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Filter by user" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {users.map(u => (
+                    <SelectItem key={u.id} value={u.id}>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="w-5 h-5">
+                          <AvatarImage src={u.profileImageUrl || undefined} />
+                          <AvatarFallback className="text-xs">
+                            {(u.firstName?.[0] || "") + (u.lastName?.[0] || "")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{u.firstName} {u.lastName}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30">
               <Switch
                 id="hide-internal"
