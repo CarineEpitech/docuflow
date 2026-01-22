@@ -56,7 +56,8 @@ import type {
   CrmClient, 
   CrmProjectStatus,
   CrmTag,
-  CrmModuleField
+  CrmModuleField,
+  SafeUser
 } from "@shared/schema";
 
 // Helper to parse field options from database format
@@ -160,6 +161,7 @@ export default function CrmPage() {
   const [projectViewMode, setProjectViewMode] = useState<"table" | "kanban">("kanban");
   const [contactViewMode, setContactViewMode] = useState<"cards" | "table">("cards");
   const [hideInternalProjects, setHideInternalProjects] = useState(false);
+  const [userFilter, setUserFilter] = useState<string>("all");
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const pageSize = 10;
@@ -219,6 +221,11 @@ export default function CrmPage() {
 
   const { data: clients = [], isLoading: clientsLoading } = useQuery<CrmClient[]>({
     queryKey: ["/api/crm/clients"],
+  });
+
+  // Fetch users for the user filter
+  const { data: users = [] } = useQuery<SafeUser[]>({
+    queryKey: ["/api/users"],
   });
 
   // Fetch project module fields for dynamic status options
@@ -357,6 +364,9 @@ export default function CrmPage() {
       
       // Apply status filter
       if (statusFilter !== "all" && project.status !== statusFilter) return false;
+      
+      // Apply user filter
+      if (userFilter !== "all" && project.assigneeId !== userFilter) return false;
       
       // Apply search filter
       if (search) {
@@ -676,6 +686,28 @@ export default function CrmPage() {
 
         {activeTab === "projects" && (
           <div className="flex items-center justify-end gap-3">
+            <Select value={userFilter} onValueChange={setUserFilter}>
+              <SelectTrigger className="w-[180px]" data-testid="select-user-filter">
+                <User className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filter by user" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                {users.map(u => (
+                  <SelectItem key={u.id} value={u.id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="w-5 h-5">
+                        <AvatarImage src={u.profileImageUrl || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {(u.firstName?.[0] || "") + (u.lastName?.[0] || "")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{u.firstName} {u.lastName}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30">
               <Switch
                 id="hide-internal"
