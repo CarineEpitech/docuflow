@@ -1549,7 +1549,16 @@ export default function CrmProjectPage() {
                             xhr.send(file);
                           });
                           
-                          const fileUrl = uploadURL.split("?")[0];
+                          // Extract the object path from GCS URL and convert to relative API URL
+                          const gcsUrl = uploadURL.split("?")[0];
+                          // GCS URL format: https://storage.googleapis.com/bucket-name/public/uploads/uuid
+                          // Extract the path after 'public/' for the proxy endpoint
+                          const urlParts = new URL(gcsUrl);
+                          const pathParts = urlParts.pathname.split('/').filter(Boolean);
+                          // pathParts[0] is bucket name, find the 'public' directory and get the path after it
+                          const publicIndex = pathParts.findIndex(p => p === 'public');
+                          const objectPath = publicIndex >= 0 ? pathParts.slice(publicIndex + 1).join('/') : pathParts.slice(1).join('/');
+                          const fileUrl = `/public-objects/${objectPath}`;
                           
                           // Remove from uploading, add to attachments
                           setUploadingFiles(prev => prev.filter(f => f.id !== fileId));
