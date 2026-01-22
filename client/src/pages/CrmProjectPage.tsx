@@ -157,6 +157,7 @@ export default function CrmProjectPage() {
     budgetedHours: number | null;
     budgetedMinutes: number | null;
     actualHours: number | null;
+    actualMinutes: number | null;
     description: string;
   } | null>(null);
 
@@ -284,6 +285,7 @@ export default function CrmProjectPage() {
         budgetedHours: project.budgetedHours ?? null,
         budgetedMinutes: project.budgetedMinutes ?? null,
         actualHours: project.actualHours ?? null,
+        actualMinutes: project.actualMinutes ?? null,
         description: project.project?.description || "",
       });
       setHasChanges(startDate !== null && project.dueDate === null);
@@ -542,6 +544,7 @@ export default function CrmProjectPage() {
         budgetedHours: project.budgetedHours ?? null,
         budgetedMinutes: project.budgetedMinutes ?? null,
         actualHours: project.actualHours ?? null,
+        actualMinutes: project.actualMinutes ?? null,
         description: project.project?.description || "",
       });
     }
@@ -585,6 +588,7 @@ export default function CrmProjectPage() {
       budgetedHours: formData.budgetedHours,
       budgetedMinutes: formData.budgetedMinutes,
       actualHours: formData.actualHours,
+      actualMinutes: formData.actualMinutes,
       projectDescription: formData.description || null,
     };
     
@@ -905,15 +909,35 @@ export default function CrmProjectPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Actual Hours</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={formData?.actualHours ?? ""}
-                      onChange={(e) => updateFormField("actualHours", e.target.value ? parseInt(e.target.value) : null)}
-                      placeholder="0"
-                      data-testid="input-actual-hours"
-                    />
+                    <label className="text-sm font-medium">Actual Time</label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={formData?.actualHours ?? ""}
+                          onChange={(e) => updateFormField("actualHours", e.target.value ? parseInt(e.target.value) : null)}
+                          placeholder="0"
+                          data-testid="input-actual-hours"
+                        />
+                        <span className="text-xs text-muted-foreground">Hours</span>
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="59"
+                          value={formData?.actualMinutes ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value ? Math.min(59, Math.max(0, parseInt(e.target.value))) : null;
+                            updateFormField("actualMinutes", val);
+                          }}
+                          placeholder="0"
+                          data-testid="input-actual-minutes"
+                        />
+                        <span className="text-xs text-muted-foreground">Minutes</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
@@ -975,16 +999,17 @@ export default function CrmProjectPage() {
 
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Hours:</span>
+                  <span className="text-sm font-medium">Time:</span>
                   <span className="text-sm">
-                    {formData?.actualHours ?? 0} / {formData?.budgetedHours ?? 0} hours
-                    {formData?.budgetedHours && formData.budgetedHours > 0 && (
+                    {formData?.actualHours ?? 0}h {formData?.actualMinutes ?? 0}m / {formData?.budgetedHours ?? 0}h {formData?.budgetedMinutes ?? 0}m
+                    {((formData?.budgetedHours ?? 0) > 0 || (formData?.budgetedMinutes ?? 0) > 0) && (
                       <span className="text-muted-foreground ml-1">
-                        ({Math.round(((formData?.actualHours || 0) / formData.budgetedHours) * 100)}%)
+                        ({Math.round((((formData?.actualHours || 0) * 60 + (formData?.actualMinutes || 0)) / ((formData?.budgetedHours || 0) * 60 + (formData?.budgetedMinutes || 1))) * 100)}%)
                       </span>
                     )}
                   </span>
-                  {formData?.budgetedHours && formData?.actualHours && formData.actualHours > formData.budgetedHours && (
+                  {((formData?.actualHours || 0) * 60 + (formData?.actualMinutes || 0)) > ((formData?.budgetedHours || 0) * 60 + (formData?.budgetedMinutes || 0)) && 
+                   ((formData?.budgetedHours || 0) > 0 || (formData?.budgetedMinutes || 0) > 0) && (
                     <Badge variant="destructive" className="text-xs">Over Budget</Badge>
                   )}
                 </div>

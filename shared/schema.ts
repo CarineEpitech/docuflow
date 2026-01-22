@@ -408,6 +408,7 @@ export const crmProjects = pgTable("crm_projects", {
   budgetedHours: integer("budgeted_hours"),
   budgetedMinutes: integer("budgeted_minutes").default(0),
   actualHours: integer("actual_hours"),
+  actualMinutes: integer("actual_minutes").default(0),
   documentationEnabled: integer("documentation_enabled").default(0),
   isDocumentationOnly: integer("is_documentation_only").default(0),
   reviewStartedAt: timestamp("review_started_at"),

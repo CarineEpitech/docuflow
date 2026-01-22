@@ -102,6 +102,7 @@ export default function ProjectCreatePage() {
     budgetedHours: "",
     budgetedMinutes: "",
     actualHours: "",
+    actualMinutes: "",
   });
   const [contactOpen, setContactOpen] = useState(false);
 
@@ -196,7 +197,7 @@ export default function ProjectCreatePage() {
   }, [formData.startDate, formData.projectType, formData.budgetedHours, hoursPerDay]);
 
   const createProjectMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null; projectType?: string | null; startDate?: string | null; dueDate?: string | null; budgetedHours?: number | null; budgetedMinutes?: number | null; actualHours?: number | null }) => {
+    mutationFn: async (data: { name: string; description?: string | null; clientId?: string | null; status?: string | null; projectType?: string | null; startDate?: string | null; dueDate?: string | null; budgetedHours?: number | null; budgetedMinutes?: number | null; actualHours?: number | null; actualMinutes?: number | null }) => {
       return apiRequest("POST", "/api/crm/projects", data);
     },
     onSuccess: (response) => {
@@ -255,6 +256,7 @@ export default function ProjectCreatePage() {
       budgetedHours: formData.budgetedHours ? parseInt(formData.budgetedHours) : null,
       budgetedMinutes: formData.budgetedMinutes ? parseInt(formData.budgetedMinutes) : null,
       actualHours: formData.actualHours ? parseInt(formData.actualHours) : null,
+      actualMinutes: formData.actualMinutes ? parseInt(formData.actualMinutes) : null,
     });
   };
 
@@ -485,16 +487,37 @@ export default function ProjectCreatePage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="actualHours">Actual Hours</Label>
-                <Input
-                  id="actualHours"
-                  type="number"
-                  min="0"
-                  value={formData.actualHours}
-                  onChange={(e) => setFormData({ ...formData, actualHours: e.target.value })}
-                  placeholder="0"
-                  data-testid="input-actual-hours"
-                />
+                <Label>Actual Time</Label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      id="actualHours"
+                      type="number"
+                      min="0"
+                      value={formData.actualHours}
+                      onChange={(e) => setFormData({ ...formData, actualHours: e.target.value })}
+                      placeholder="0"
+                      data-testid="input-actual-hours"
+                    />
+                    <span className="text-xs text-muted-foreground">Hours</span>
+                  </div>
+                  <div className="flex-1">
+                    <Input
+                      id="actualMinutes"
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={formData.actualMinutes}
+                      onChange={(e) => {
+                        const mins = e.target.value ? Math.min(59, Math.max(0, parseInt(e.target.value))).toString() : "";
+                        setFormData({ ...formData, actualMinutes: mins });
+                      }}
+                      placeholder="0"
+                      data-testid="input-actual-minutes"
+                    />
+                    <span className="text-xs text-muted-foreground">Minutes</span>
+                  </div>
+                </div>
               </div>
             </div>
 
