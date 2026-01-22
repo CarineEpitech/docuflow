@@ -577,14 +577,6 @@ export default function CrmPage() {
                     <List className="w-4 h-4" />
                   </Button>
                 </div>
-                {contactViewMode === "table" && (
-                  <ColumnVisibilityDropdown
-                    columns={contactColumnVisibility.columns}
-                    visibleColumns={contactColumnVisibility.visibleColumns}
-                    toggleColumn={contactColumnVisibility.toggleColumn}
-                    resetToDefaults={contactColumnVisibility.resetToDefaults}
-                  />
-                )}
                 <Button onClick={() => navigate("/crm/client/new")} size="icon" data-testid="button-add-contact">
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -1166,6 +1158,19 @@ export default function CrmPage() {
             </Card>
           )}
         </TabsContent>
+
+        {activeTab === "clients" && (
+          <div className="flex items-center justify-end gap-3">
+            {contactViewMode === "table" && (
+              <ColumnVisibilityDropdown
+                columns={contactColumnVisibility.columns}
+                visibleColumns={contactColumnVisibility.visibleColumns}
+                toggleColumn={contactColumnVisibility.toggleColumn}
+                resetToDefaults={contactColumnVisibility.resetToDefaults}
+              />
+            )}
+          </div>
+        )}
 
         <TabsContent value="clients" className="space-y-4 mt-0">
           {contactViewMode === "cards" ? (
