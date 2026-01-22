@@ -1385,11 +1385,11 @@ export default function CrmProjectPage() {
                                 })()}
                               </>
                             )}
-                            <div className={`absolute top-1 ${isCurrentUser ? '-left-14' : '-right-14'} flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                            <div className={`flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
                               <Button
-                                size="icon"
+                                size="sm"
                                 variant="ghost"
-                                className="h-6 w-6"
+                                className="h-6 px-2 text-xs"
                                 onClick={() => {
                                   setEditingNoteId(note.id);
                                   setEditNoteContent(note.content);
@@ -1397,16 +1397,18 @@ export default function CrmProjectPage() {
                                 }}
                                 data-testid={`button-edit-note-${note.id}`}
                               >
-                                <Pencil className="w-3 h-3" />
+                                <Pencil className="w-3 h-3 mr-1" />
+                                Edit
                               </Button>
                               <Button
-                                size="icon"
+                                size="sm"
                                 variant="ghost"
-                                className="h-6 w-6"
+                                className="h-6 px-2 text-xs text-destructive hover:text-destructive"
                                 onClick={() => deleteNoteMutation.mutate(note.id)}
                                 data-testid={`button-delete-note-${note.id}`}
                               >
-                                <Trash2 className="w-3 h-3 text-destructive" />
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Delete
                               </Button>
                             </div>
                           </div>
