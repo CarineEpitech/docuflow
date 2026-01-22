@@ -1466,18 +1466,20 @@ export default function CrmProjectPage() {
                 )}
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
-                    <NoteInput
+                    <Textarea
                       value={newNoteContent}
-                      onChange={setNewNoteContent}
-                      users={users}
-                      mentionedUserIds={newNoteMentions}
-                      onMentionAdd={(userId) => setNewNoteMentions(prev => [...prev, userId])}
-                      onSubmit={handleAddNote}
-                      placeholder="Type a message... (@ to mention)"
-                      testId="textarea-new-note"
-                      attachments={newNoteAttachments}
-                      onAttachmentsChange={setNewNoteAttachments}
-                      showAttachButton={false}
+                      onChange={(e) => setNewNoteContent(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (newNoteContent.trim() || newNoteAttachments.length > 0) {
+                            handleAddNote();
+                          }
+                        }
+                      }}
+                      placeholder="Type a message and press Enter to send..."
+                      className="min-h-[40px] resize-none"
+                      data-testid="textarea-new-note"
                     />
                   </div>
                   <Button
