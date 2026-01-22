@@ -1177,7 +1177,7 @@ export default function CrmProjectPage() {
         </CardHeader>
         <CardContent className="flex flex-col flex-1 p-0">
           {/* Chat Messages Area */}
-          <div className="flex-1 space-y-4 max-h-80 overflow-y-auto p-4 border-b">
+          <div className="flex-1 space-y-4 max-h-80 overflow-y-auto scrollbar-hide p-4 border-b">
             {notesLoading ? (
               <p className="text-sm text-muted-foreground text-center py-4">Loading notes...</p>
             ) : notes.length === 0 ? (
