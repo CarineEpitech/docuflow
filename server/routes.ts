@@ -1774,6 +1774,23 @@ Instructions:
     }
   });
 
+  // Get CRM project by documentation project ID
+  // NOTE: This route MUST come before /api/crm/projects/:id to avoid matching "by-project" as :id
+  app.get("/api/crm/projects/by-project/:projectId", isAuthenticated, async (req: any, res) => {
+    try {
+      const crmProject = await storage.getCrmProjectByProjectId(req.params.projectId);
+      
+      if (!crmProject) {
+        return res.status(404).json({ message: "Project not found in CRM" });
+      }
+      
+      res.json(crmProject);
+    } catch (error) {
+      console.error("Error fetching CRM project by project ID:", error);
+      res.status(500).json({ message: "Failed to fetch project" });
+    }
+  });
+
   // Delete CRM project by project ID (for Documentation page)
   // NOTE: This route MUST come before /api/crm/projects/:id to avoid matching "by-project" as :id
   app.delete("/api/crm/projects/by-project/:projectId", isAuthenticated, async (req: any, res) => {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { FileText, ArrowLeft, PanelLeftClose, PanelLeft, Menu } from "lucide-react";
+import { FileText, ArrowLeft, PanelLeftClose, PanelLeft, Menu, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -10,7 +10,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { Project } from "@shared/schema";
+import type { Project, CrmProject } from "@shared/schema";
 
 export default function ProjectPage() {
   const params = useParams<{ projectId: string }>();
@@ -35,6 +35,12 @@ export default function ProjectPage() {
 
   const { data: project, isLoading: projectLoading } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
+    enabled: !!projectId,
+  });
+
+  // Fetch the associated CRM project to enable navigation to project details
+  const { data: crmProject } = useQuery<CrmProject>({
+    queryKey: ["/api/crm/projects/by-project", projectId],
     enabled: !!projectId,
   });
 
@@ -142,16 +148,28 @@ export default function ProjectPage() {
               <Breadcrumbs project={project} />
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setLocation("/documentation")}
-            data-testid="button-back-to-docs"
-            className="flex-shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            <span className="hidden sm:inline">Back</span>
-          </Button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {crmProject && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setLocation(`/crm/project/${crmProject.id}`)}
+                data-testid="button-view-project-details"
+              >
+                <ExternalLink className="w-4 h-4 mr-1" />
+                <span className="hidden sm:inline">Project Details</span>
+              </Button>
+            )}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setLocation("/documentation")}
+              data-testid="button-back-to-docs"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Back</span>
+            </Button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-hidden flex items-center justify-center p-4">
           <div className="text-center py-8 md:py-16">
