@@ -667,70 +667,83 @@ export default function CrmPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/80 p-1 h-auto">
-          <TabsTrigger value="projects" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-projects">
-            <FolderKanban className="w-4 h-4" />
-            Projects
-            {(allProjectsData?.total ?? crmProjectsData?.total ?? 0) > 0 && (
-              <Badge variant="secondary" className="ml-1">{allProjectsData?.total ?? crmProjectsData?.total}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="clients" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-clients">
-            <Users className="w-4 h-4" />
-            Contacts
-            {clients.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <TabsList className="bg-muted/80 p-1 h-auto">
+            <TabsTrigger value="projects" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-projects">
+              <FolderKanban className="w-4 h-4" />
+              Projects
+              {(allProjectsData?.total ?? crmProjectsData?.total ?? 0) > 0 && (
+                <Badge variant="secondary" className="ml-1">{allProjectsData?.total ?? crmProjectsData?.total}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="clients" className="gap-2 px-4 py-2 data-[state=active]:border data-[state=active]:border-border" data-testid="tab-clients">
+              <Users className="w-4 h-4" />
+              Contacts
+              {clients.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{clients.length}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-        {activeTab === "projects" && (
-          <div className="flex items-center justify-end gap-3">
-            {user?.role === "admin" && (
-              <Select value={userFilter} onValueChange={setUserFilter}>
-                <SelectTrigger className="w-[180px]" data-testid="select-user-filter">
-                  <User className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Filter by user" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                  {users.map(u => (
-                    <SelectItem key={u.id} value={u.id}>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="w-5 h-5">
-                          <AvatarImage src={u.profileImageUrl || undefined} />
-                          <AvatarFallback className="text-xs">
-                            {(u.firstName?.[0] || "") + (u.lastName?.[0] || "")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span>{u.firstName} {u.lastName}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30">
-              <Switch
-                id="hide-internal"
-                checked={hideInternalProjects}
-                onCheckedChange={setHideInternalProjects}
-                data-testid="switch-hide-internal"
-              />
-              <Label htmlFor="hide-internal" className="text-sm text-muted-foreground cursor-pointer whitespace-nowrap">
-                Hide internal
-              </Label>
+          {activeTab === "projects" && (
+            <div className="flex items-center gap-3">
+              {user?.role === "admin" && (
+                <Select value={userFilter} onValueChange={setUserFilter}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-user-filter">
+                    <User className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Filter by user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map(u => (
+                      <SelectItem key={u.id} value={u.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="w-5 h-5">
+                            <AvatarImage src={u.profileImageUrl || undefined} />
+                            <AvatarFallback className="text-xs">
+                              {(u.firstName?.[0] || "") + (u.lastName?.[0] || "")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{u.firstName} {u.lastName}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30">
+                <Switch
+                  id="hide-internal"
+                  checked={hideInternalProjects}
+                  onCheckedChange={setHideInternalProjects}
+                  data-testid="switch-hide-internal"
+                />
+                <Label htmlFor="hide-internal" className="text-sm text-muted-foreground cursor-pointer whitespace-nowrap">
+                  Hide internal
+                </Label>
+              </div>
+              {projectViewMode === "table" && (
+                <ColumnVisibilityDropdown
+                  columns={projectColumnVisibility.columns}
+                  visibleColumns={projectColumnVisibility.visibleColumns}
+                  toggleColumn={projectColumnVisibility.toggleColumn}
+                  resetToDefaults={projectColumnVisibility.resetToDefaults}
+                />
+              )}
             </div>
-            {projectViewMode === "table" && (
+          )}
+
+          {activeTab === "clients" && contactViewMode === "table" && (
+            <div className="flex items-center gap-3">
               <ColumnVisibilityDropdown
-                columns={projectColumnVisibility.columns}
-                visibleColumns={projectColumnVisibility.visibleColumns}
-                toggleColumn={projectColumnVisibility.toggleColumn}
-                resetToDefaults={projectColumnVisibility.resetToDefaults}
+                columns={contactColumnVisibility.columns}
+                visibleColumns={contactColumnVisibility.visibleColumns}
+                toggleColumn={contactColumnVisibility.toggleColumn}
+                resetToDefaults={contactColumnVisibility.resetToDefaults}
               />
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
         <TabsContent value="projects" className="space-y-4 mt-0">
           {projectViewMode === "kanban" ? (
@@ -1192,19 +1205,6 @@ export default function CrmPage() {
             </Card>
           )}
         </TabsContent>
-
-        {activeTab === "clients" && (
-          <div className="flex items-center justify-end gap-3">
-            {contactViewMode === "table" && (
-              <ColumnVisibilityDropdown
-                columns={contactColumnVisibility.columns}
-                visibleColumns={contactColumnVisibility.visibleColumns}
-                toggleColumn={contactColumnVisibility.toggleColumn}
-                resetToDefaults={contactColumnVisibility.resetToDefaults}
-              />
-            )}
-          </div>
-        )}
 
         <TabsContent value="clients" className="space-y-4 mt-0">
           {contactViewMode === "cards" ? (
