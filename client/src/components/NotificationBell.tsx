@@ -81,7 +81,7 @@ export function NotificationBell() {
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
             <Badge 
-              className="absolute -top-1 left-1/2 -translate-x-1/2 h-5 min-w-[1.25rem] px-1 text-[10px] font-medium"
+              className="absolute -top-1.5 -right-1.5 h-5 min-w-[1.25rem] px-1 text-[10px] font-medium"
               variant="destructive"
             >
               {unreadCount > 99 ? "99+" : unreadCount}
