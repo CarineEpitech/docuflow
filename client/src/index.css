@@ -261,12 +261,14 @@
 
 /* Table styles */
 .tiptap-editor table {
-  @apply border-collapse w-full my-4;
+  @apply w-full my-4;
+  border-collapse: collapse;
 }
 
 .tiptap-editor table th,
 .tiptap-editor table td {
-  @apply border border-border px-3 py-2 min-w-[100px] text-left align-top bg-background;
+  @apply px-3 py-2 min-w-[100px] text-left align-top bg-background;
+  border: 1px solid hsl(var(--border));
 }
 
 .tiptap-editor table th {
