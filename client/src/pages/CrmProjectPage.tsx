@@ -86,6 +86,7 @@ import type {
 } from "@shared/schema";
 import { NoteInput } from "@/components/NoteInput";
 import { CrmTagSelector } from "@/components/CrmTagSelector";
+import { TimeTrackingSummary } from "@/components/TimeTrackingSummary";
 import type { CrmTag } from "@shared/schema";
 
 // Helper to parse field options from database format
@@ -1214,6 +1215,15 @@ export default function CrmProjectPage() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Time Tracking Summary */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <TimeTrackingSummary 
+          projectId={projectId!} 
+          budgetedHours={formData?.budgetedHours ?? null}
+          budgetedMinutes={formData?.budgetedMinutes ?? null}
+        />
       </div>
 
       {/* Project Notes Section - Chat Style */}
