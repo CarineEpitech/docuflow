@@ -1217,15 +1217,6 @@ export default function CrmProjectPage() {
         </Card>
       </div>
 
-      {/* Time Tracking Summary */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <TimeTrackingSummary 
-          projectId={projectId!} 
-          budgetedHours={formData?.budgetedHours ?? null}
-          budgetedMinutes={formData?.budgetedMinutes ?? null}
-        />
-      </div>
-
       {/* Project Notes Section - Chat Style */}
       <Card className="flex flex-col">
         <CardHeader className="pb-2">
@@ -1678,6 +1669,15 @@ export default function CrmProjectPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Time Tracking Summary */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <TimeTrackingSummary 
+          projectId={projectId!} 
+          budgetedHours={formData?.budgetedHours ?? null}
+          budgetedMinutes={formData?.budgetedMinutes ?? null}
+        />
+      </div>
 
       {/* Stage History Section */}
       <Card>
