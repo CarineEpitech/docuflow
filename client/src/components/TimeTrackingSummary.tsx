@@ -24,7 +24,14 @@ function formatDuration(seconds: number): string {
 
 export function TimeTrackingSummary({ projectId, budgetedHours, budgetedMinutes }: TimeTrackingSummaryProps) {
   const { data: entriesResponse, isLoading } = useQuery<{ data: TimeEntry[] }>({
-    queryKey: ["/api/time-tracking/entries", `crmProjectId=${projectId}`],
+    queryKey: ["/api/time-tracking/entries", { crmProjectId: projectId }],
+    queryFn: async () => {
+      const res = await fetch(`/api/time-tracking/entries?crmProjectId=${projectId}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch entries");
+      return res.json();
+    },
   });
 
   const { data: usersData } = useQuery<User[]>({

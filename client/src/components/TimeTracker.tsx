@@ -30,7 +30,11 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
 
-export function TimeTracker() {
+interface TimeTrackerProps {
+  testId?: string;
+}
+
+export function TimeTracker({ testId = "button-time-tracker-toggle" }: TimeTrackerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [description, setDescription] = useState("");
@@ -172,7 +176,7 @@ export function TimeTracker() {
           variant={hasActiveEntry ? (isRunning ? "default" : "secondary") : "outline"}
           size="sm"
           className={`gap-2 ${isRunning ? "animate-pulse" : ""}`}
-          data-testid="button-time-tracker-toggle"
+          data-testid={testId}
         >
           <Clock className="h-4 w-4" />
           {hasActiveEntry ? (

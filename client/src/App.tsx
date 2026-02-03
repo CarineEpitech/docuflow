@@ -48,7 +48,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
                 <span className="font-semibold text-sm">DocuFlow</span>
               </div>
             </div>
-            <TimeTracker />
+            <TimeTracker testId="button-time-tracker-mobile" />
           </header>
           <main className="flex-1 overflow-auto bg-background scrollbar-hide">
             {children}

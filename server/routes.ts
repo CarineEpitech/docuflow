@@ -3533,7 +3533,7 @@ Instructions:
       }
       
       const entries = await storage.getTimeEntries(filters);
-      res.json(entries);
+      res.json({ data: entries });
     } catch (error) {
       console.error("Error fetching time entries:", error);
       res.status(500).json({ message: "Failed to fetch time entries" });
@@ -3846,7 +3846,7 @@ Instructions:
       }
       
       const entries = await storage.getTimeEntries(filters);
-      res.json(entries);
+      res.json({ data: entries });
     } catch (error) {
       console.error("Error fetching project time entries:", error);
       res.status(500).json({ message: "Failed to fetch project time entries" });
