@@ -129,6 +129,50 @@ export default function TimeTrackingPage() {
     };
   }, [filteredEntries]);
 
+  const groupedByProject = useMemo(() => {
+    const groups: Record<string, {
+      projectId: string;
+      projectName: string;
+      totalDuration: number;
+      totalIdleTime: number;
+      entriesCount: number;
+      entries: TimeEntry[];
+      latestEntry: TimeEntry | null;
+    }> = {};
+
+    for (const entry of filteredEntries) {
+      const projectId = entry.crmProjectId;
+      if (!groups[projectId]) {
+        groups[projectId] = {
+          projectId,
+          projectName: "",
+          totalDuration: 0,
+          totalIdleTime: 0,
+          entriesCount: 0,
+          entries: [],
+          latestEntry: null,
+        };
+      }
+      groups[projectId].totalDuration += entry.duration || 0;
+      groups[projectId].totalIdleTime += entry.idleTime || 0;
+      groups[projectId].entriesCount += 1;
+      groups[projectId].entries.push(entry);
+      
+      if (!groups[projectId].latestEntry || new Date(entry.startTime) > new Date(groups[projectId].latestEntry.startTime)) {
+        groups[projectId].latestEntry = entry;
+      }
+    }
+
+    return Object.values(groups).map(group => ({
+      ...group,
+      projectName: projects.find(p => p.id === group.projectId)?.project?.name || "Unknown Project",
+    })).sort((a, b) => {
+      const aTime = a.latestEntry ? new Date(a.latestEntry.startTime).getTime() : 0;
+      const bTime = b.latestEntry ? new Date(b.latestEntry.startTime).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [filteredEntries, projects]);
+
   const getProjectName = (projectId: string) => {
     const project = projects.find((p) => p.id === projectId);
     return project?.project?.name || "Unknown Project";
@@ -305,42 +349,39 @@ export default function TimeTrackingPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredEntries.length === 0 ? (
+          {groupedByProject.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Clock className="h-12 w-12 mx-auto mb-4 opacity-20" />
               <p>No time entries found</p>
               <p className="text-sm mt-1">Start tracking time using the timer in the sidebar</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {filteredEntries.map((entry) => (
+            <div className="space-y-3">
+              {groupedByProject.map((group) => (
                 <div
-                  key={entry.id}
+                  key={group.projectId}
                   className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border hover-elevate gap-3"
-                  data-testid={`time-entry-${entry.id}`}
+                  data-testid={`time-entry-group-${group.projectId}`}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium truncate">{getProjectName(entry.crmProjectId)}</span>
-                      {getStatusBadge(entry.status)}
+                      <span className="font-medium truncate">{group.projectName}</span>
+                      <Badge variant="secondary" className="text-xs">{group.entriesCount} {group.entriesCount === 1 ? "session" : "sessions"}</Badge>
                     </div>
-                    {entry.description && (
-                      <p className="text-sm text-muted-foreground truncate mt-1">{entry.description}</p>
-                    )}
                     <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
-                      <span>{format(new Date(entry.startTime), "MMM d, yyyy")}</span>
-                      <span>{format(new Date(entry.startTime), "h:mm a")}</span>
-                      {entry.endTime && (
-                        <span>- {format(new Date(entry.endTime), "h:mm a")}</span>
+                      {group.latestEntry && (
+                        <>
+                          <span>Last tracked: {format(new Date(group.latestEntry.startTime), "MMM d, yyyy")}</span>
+                          <span className="hidden sm:inline">{getUserName(group.latestEntry.userId)}</span>
+                        </>
                       )}
-                      <span className="hidden sm:inline">{getUserName(entry.userId)}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <div className="font-mono font-medium">{formatDetailedDuration(entry.duration || 0)}</div>
-                      {entry.idleTime && entry.idleTime > 0 && (
-                        <div className="text-xs text-muted-foreground">+{formatDuration(entry.idleTime)} idle</div>
+                      <div className="font-mono font-medium text-lg">{formatDetailedDuration(group.totalDuration)}</div>
+                      {group.totalIdleTime > 0 && (
+                        <div className="text-xs text-muted-foreground">+{formatDuration(group.totalIdleTime)} idle</div>
                       )}
                     </div>
                   </div>
