@@ -180,14 +180,14 @@ export default function CompanyDocumentEditorPage() {
       <div className="sticky top-0 z-20 bg-background border-b no-print" data-testid="company-document-header">
         <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-to-docs">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
             <span className="text-sm text-muted-foreground truncate">
               {companyDoc?.name || "Document"}
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-to-docs">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
             <span className="hidden sm:inline text-sm text-muted-foreground">
               {saveMutation.isPending ? "Saving..." : hasUnsavedChanges ? "Unsaved" : ""}
             </span>
