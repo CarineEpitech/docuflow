@@ -3495,5 +3495,363 @@ Instructions:
     }
   });
 
+  // ========== TIME TRACKING ROUTES ==========
+  
+  // Get time entries with filters
+  app.get("/api/time-tracking/entries", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const user = await storage.getUser(userId);
+      
+      // Parse query params
+      const filters: {
+        userId?: string;
+        crmProjectId?: string;
+        startDate?: Date;
+        endDate?: Date;
+        status?: string;
+      } = {};
+      
+      // Non-admins can only see their own entries
+      if (user?.role !== "admin") {
+        filters.userId = userId;
+      } else if (req.query.userId) {
+        filters.userId = req.query.userId as string;
+      }
+      
+      if (req.query.crmProjectId) {
+        filters.crmProjectId = req.query.crmProjectId as string;
+      }
+      if (req.query.startDate) {
+        filters.startDate = new Date(req.query.startDate as string);
+      }
+      if (req.query.endDate) {
+        filters.endDate = new Date(req.query.endDate as string);
+      }
+      if (req.query.status) {
+        filters.status = req.query.status as string;
+      }
+      
+      const entries = await storage.getTimeEntries(filters);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching time entries:", error);
+      res.status(500).json({ message: "Failed to fetch time entries" });
+    }
+  });
+  
+  // Get time stats/summary
+  app.get("/api/time-tracking/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const user = await storage.getUser(userId);
+      
+      const filters: {
+        userId?: string;
+        crmProjectId?: string;
+        startDate?: Date;
+        endDate?: Date;
+      } = {};
+      
+      // Non-admins can only see their own stats
+      if (user?.role !== "admin") {
+        filters.userId = userId;
+      } else if (req.query.userId) {
+        filters.userId = req.query.userId as string;
+      }
+      
+      if (req.query.crmProjectId) {
+        filters.crmProjectId = req.query.crmProjectId as string;
+      }
+      if (req.query.startDate) {
+        filters.startDate = new Date(req.query.startDate as string);
+      }
+      if (req.query.endDate) {
+        filters.endDate = new Date(req.query.endDate as string);
+      }
+      
+      const stats = await storage.getTimeStats(filters);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching time stats:", error);
+      res.status(500).json({ message: "Failed to fetch time stats" });
+    }
+  });
+  
+  // Get active time entry for current user
+  app.get("/api/time-tracking/active", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const entry = await storage.getActiveTimeEntry(userId);
+      res.json(entry || null);
+    } catch (error) {
+      console.error("Error fetching active time entry:", error);
+      res.status(500).json({ message: "Failed to fetch active time entry" });
+    }
+  });
+  
+  // Start time tracking
+  app.post("/api/time-tracking/start", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const { crmProjectId, description } = req.body;
+      
+      if (!crmProjectId) {
+        return res.status(400).json({ message: "Project is required" });
+      }
+      
+      // Check if there's already an active entry
+      const activeEntry = await storage.getActiveTimeEntry(userId);
+      if (activeEntry) {
+        return res.status(400).json({ message: "You already have an active time entry. Please stop it first." });
+      }
+      
+      const entry = await storage.createTimeEntry({
+        userId,
+        crmProjectId,
+        description: description || null,
+        startTime: new Date(),
+        status: "running",
+        lastActivityAt: new Date(),
+        duration: 0,
+        idleTime: 0,
+      });
+      
+      res.json(entry);
+    } catch (error) {
+      console.error("Error starting time tracking:", error);
+      res.status(500).json({ message: "Failed to start time tracking" });
+    }
+  });
+  
+  // Pause time tracking
+  app.post("/api/time-tracking/:id/pause", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const entry = await storage.getTimeEntry(req.params.id);
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+      
+      if (entry.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      if (entry.status !== "running") {
+        return res.status(400).json({ message: "Entry is not running" });
+      }
+      
+      // Calculate elapsed time since last activity
+      const now = new Date();
+      const lastActivity = entry.lastActivityAt || entry.startTime;
+      const elapsedSeconds = Math.floor((now.getTime() - new Date(lastActivity).getTime()) / 1000);
+      
+      const updated = await storage.updateTimeEntry(entry.id, {
+        status: "paused",
+        duration: (entry.duration || 0) + elapsedSeconds,
+        lastActivityAt: now,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error pausing time tracking:", error);
+      res.status(500).json({ message: "Failed to pause time tracking" });
+    }
+  });
+  
+  // Resume time tracking
+  app.post("/api/time-tracking/:id/resume", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const { discardIdleTime } = req.body;
+      const entry = await storage.getTimeEntry(req.params.id);
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+      
+      if (entry.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      if (entry.status !== "paused") {
+        return res.status(400).json({ message: "Entry is not paused" });
+      }
+      
+      const now = new Date();
+      let idleTimeToAdd = 0;
+      
+      // If not discarding idle time, track it
+      if (!discardIdleTime && entry.lastActivityAt) {
+        const pauseDuration = Math.floor((now.getTime() - new Date(entry.lastActivityAt).getTime()) / 1000);
+        idleTimeToAdd = pauseDuration;
+      }
+      
+      const updated = await storage.updateTimeEntry(entry.id, {
+        status: "running",
+        idleTime: (entry.idleTime || 0) + idleTimeToAdd,
+        lastActivityAt: now,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error resuming time tracking:", error);
+      res.status(500).json({ message: "Failed to resume time tracking" });
+    }
+  });
+  
+  // Stop time tracking
+  app.post("/api/time-tracking/:id/stop", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const entry = await storage.getTimeEntry(req.params.id);
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+      
+      if (entry.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      if (entry.status === "stopped") {
+        return res.status(400).json({ message: "Entry is already stopped" });
+      }
+      
+      const now = new Date();
+      let finalDuration = entry.duration || 0;
+      
+      // If was running, add the remaining time
+      if (entry.status === "running" && entry.lastActivityAt) {
+        const elapsedSeconds = Math.floor((now.getTime() - new Date(entry.lastActivityAt).getTime()) / 1000);
+        finalDuration += elapsedSeconds;
+      }
+      
+      const updated = await storage.updateTimeEntry(entry.id, {
+        status: "stopped",
+        endTime: now,
+        duration: finalDuration,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error stopping time tracking:", error);
+      res.status(500).json({ message: "Failed to stop time tracking" });
+    }
+  });
+  
+  // Update activity (heartbeat) - for idle detection
+  app.post("/api/time-tracking/:id/activity", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const entry = await storage.getTimeEntry(req.params.id);
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+      
+      if (entry.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      if (entry.status !== "running") {
+        return res.json(entry); // Just return current state if not running
+      }
+      
+      // Update duration and last activity
+      const now = new Date();
+      const lastActivity = entry.lastActivityAt || entry.startTime;
+      const elapsedSeconds = Math.floor((now.getTime() - new Date(lastActivity).getTime()) / 1000);
+      
+      const updated = await storage.updateTimeEntry(entry.id, {
+        duration: (entry.duration || 0) + elapsedSeconds,
+        lastActivityAt: now,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating activity:", error);
+      res.status(500).json({ message: "Failed to update activity" });
+    }
+  });
+  
+  // Update time entry (description, etc.)
+  app.patch("/api/time-tracking/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const entry = await storage.getTimeEntry(req.params.id);
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+      
+      if (entry.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      const { description } = req.body;
+      
+      const updated = await storage.updateTimeEntry(entry.id, {
+        description: description !== undefined ? description : entry.description,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating time entry:", error);
+      res.status(500).json({ message: "Failed to update time entry" });
+    }
+  });
+  
+  // Delete time entry
+  app.delete("/api/time-tracking/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const user = await storage.getUser(userId);
+      const entry = await storage.getTimeEntry(req.params.id);
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+      
+      // Only owner or admin can delete
+      if (entry.userId !== userId && user?.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      await storage.deleteTimeEntry(entry.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting time entry:", error);
+      res.status(500).json({ message: "Failed to delete time entry" });
+    }
+  });
+  
+  // Get time entries for a specific CRM project (for project page)
+  app.get("/api/time-tracking/project/:crmProjectId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const user = await storage.getUser(userId);
+      
+      const filters: {
+        crmProjectId: string;
+        userId?: string;
+      } = {
+        crmProjectId: req.params.crmProjectId,
+      };
+      
+      // Non-admins can only see their own entries
+      if (user?.role !== "admin") {
+        filters.userId = userId;
+      }
+      
+      const entries = await storage.getTimeEntries(filters);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching project time entries:", error);
+      res.status(500).json({ message: "Failed to fetch project time entries" });
+    }
+  });
+
   return httpServer;
 }

@@ -987,3 +987,57 @@ export const insertCrmCustomFieldValueSchema = createInsertSchema(crmCustomField
 
 export type CrmCustomFieldValue = typeof crmCustomFieldValues.$inferSelect;
 export type InsertCrmCustomFieldValue = z.infer<typeof insertCrmCustomFieldValueSchema>;
+
+// Time entry status values
+export const timeEntryStatusValues = ["running", "paused", "stopped"] as const;
+export type TimeEntryStatus = typeof timeEntryStatusValues[number];
+
+// Time Entries table - tracks time spent on CRM projects
+export const timeEntries = pgTable("time_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  crmProjectId: varchar("crm_project_id").notNull().references(() => crmProjects.id, { onDelete: "cascade" }),
+  description: text("description"),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  duration: integer("duration").default(0), // Total tracked time in seconds (excluding idle)
+  idleTime: integer("idle_time").default(0), // Total idle time in seconds
+  status: varchar("status", { length: 20 }).notNull().default("running"),
+  lastActivityAt: timestamp("last_activity_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_time_entries_user").on(table.userId),
+  index("idx_time_entries_crm_project").on(table.crmProjectId),
+  index("idx_time_entries_status").on(table.status),
+  index("idx_time_entries_start").on(table.startTime),
+]);
+
+export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
+  user: one(users, {
+    fields: [timeEntries.userId],
+    references: [users.id],
+  }),
+  crmProject: one(crmProjects, {
+    fields: [timeEntries.crmProjectId],
+    references: [crmProjects.id],
+  }),
+}));
+
+export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TimeEntry = typeof timeEntries.$inferSelect;
+export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+
+// Time entry with user and project info for display
+export type TimeEntryWithDetails = TimeEntry & {
+  user?: SafeUser;
+  crmProject?: CrmProject & {
+    project?: Project;
+    client?: CrmClient;
+  };
+};

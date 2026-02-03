@@ -20,6 +20,7 @@ import {
   teamInvites,
   notifications,
   audioRecordings,
+  timeEntries,
   type User,
   type SafeUser,
   type InsertUser,
@@ -70,6 +71,9 @@ import {
   type NotificationWithDetails,
   type AudioRecording,
   type InsertAudioRecording,
+  type TimeEntry,
+  type InsertTimeEntry,
+  type TimeEntryWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, like, or, isNull, sql, gt, asc, count } from "drizzle-orm";
@@ -240,6 +244,27 @@ export interface IStorage {
   updateCrmFieldValuesOnOptionRename(fieldId: string, oldLabel: string, newLabel: string): Promise<void>;
   updateCrmProjectsColumnOnOptionRename(column: "status" | "projectType", oldLabel: string, newLabel: string): Promise<void>;
   updateCrmClientsColumnOnOptionRename(column: "status", oldLabel: string, newLabel: string): Promise<void>;
+  
+  // Time Tracking
+  getTimeEntries(options: { 
+    userId?: string; 
+    crmProjectId?: string; 
+    startDate?: Date; 
+    endDate?: Date;
+    status?: string;
+  }): Promise<TimeEntryWithDetails[]>;
+  getTimeEntry(id: string): Promise<TimeEntryWithDetails | undefined>;
+  getActiveTimeEntry(userId: string): Promise<TimeEntry | undefined>;
+  createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry>;
+  updateTimeEntry(id: string, data: Partial<InsertTimeEntry>): Promise<TimeEntry | undefined>;
+  deleteTimeEntry(id: string): Promise<void>;
+  getTimeStats(options: { userId?: string; crmProjectId?: string; startDate?: Date; endDate?: Date }): Promise<{
+    totalDuration: number;
+    totalIdleTime: number;
+    entriesCount: number;
+    byProject: Array<{ crmProjectId: string; projectName: string; totalDuration: number }>;
+    byUser: Array<{ userId: string; userName: string; totalDuration: number }>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1922,6 +1947,204 @@ export class DatabaseStorage implements IStorage {
         ...field,
       });
     }
+  }
+
+  // Time Tracking methods
+  async getTimeEntries(options: { 
+    userId?: string; 
+    crmProjectId?: string; 
+    startDate?: Date; 
+    endDate?: Date;
+    status?: string;
+  }): Promise<TimeEntryWithDetails[]> {
+    const conditions = [];
+    
+    if (options.userId) {
+      conditions.push(eq(timeEntries.userId, options.userId));
+    }
+    if (options.crmProjectId) {
+      conditions.push(eq(timeEntries.crmProjectId, options.crmProjectId));
+    }
+    if (options.status) {
+      conditions.push(eq(timeEntries.status, options.status));
+    }
+    if (options.startDate) {
+      conditions.push(sql`${timeEntries.startTime} >= ${options.startDate}`);
+    }
+    if (options.endDate) {
+      conditions.push(sql`${timeEntries.startTime} <= ${options.endDate}`);
+    }
+    
+    const entries = await db
+      .select()
+      .from(timeEntries)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(timeEntries.startTime));
+    
+    // Fetch user and project details
+    const enrichedEntries: TimeEntryWithDetails[] = [];
+    for (const entry of entries) {
+      const [user] = await db.select().from(users).where(eq(users.id, entry.userId));
+      const [crmProject] = await db.select().from(crmProjects).where(eq(crmProjects.id, entry.crmProjectId));
+      
+      let projectDetails = undefined;
+      let clientDetails = undefined;
+      
+      if (crmProject) {
+        const [project] = await db.select().from(projects).where(eq(projects.id, crmProject.projectId));
+        projectDetails = project;
+        
+        if (crmProject.clientId) {
+          const [client] = await db.select().from(crmClients).where(eq(crmClients.id, crmProject.clientId));
+          clientDetails = client;
+        }
+      }
+      
+      const { password, ...safeUser } = user || {};
+      
+      enrichedEntries.push({
+        ...entry,
+        user: user ? safeUser as SafeUser : undefined,
+        crmProject: crmProject ? {
+          ...crmProject,
+          project: projectDetails,
+          client: clientDetails,
+        } : undefined,
+      });
+    }
+    
+    return enrichedEntries;
+  }
+
+  async getTimeEntry(id: string): Promise<TimeEntryWithDetails | undefined> {
+    const [entry] = await db.select().from(timeEntries).where(eq(timeEntries.id, id));
+    if (!entry) return undefined;
+    
+    const [user] = await db.select().from(users).where(eq(users.id, entry.userId));
+    const [crmProject] = await db.select().from(crmProjects).where(eq(crmProjects.id, entry.crmProjectId));
+    
+    let projectDetails = undefined;
+    let clientDetails = undefined;
+    
+    if (crmProject) {
+      const [project] = await db.select().from(projects).where(eq(projects.id, crmProject.projectId));
+      projectDetails = project;
+      
+      if (crmProject.clientId) {
+        const [client] = await db.select().from(crmClients).where(eq(crmClients.id, crmProject.clientId));
+        clientDetails = client;
+      }
+    }
+    
+    const { password, ...safeUser } = user || {};
+    
+    return {
+      ...entry,
+      user: user ? safeUser as SafeUser : undefined,
+      crmProject: crmProject ? {
+        ...crmProject,
+        project: projectDetails,
+        client: clientDetails,
+      } : undefined,
+    };
+  }
+
+  async getActiveTimeEntry(userId: string): Promise<TimeEntry | undefined> {
+    const [entry] = await db
+      .select()
+      .from(timeEntries)
+      .where(and(
+        eq(timeEntries.userId, userId),
+        or(
+          eq(timeEntries.status, "running"),
+          eq(timeEntries.status, "paused")
+        )
+      ))
+      .orderBy(desc(timeEntries.startTime))
+      .limit(1);
+    return entry;
+  }
+
+  async createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry> {
+    const [newEntry] = await db
+      .insert(timeEntries)
+      .values({
+        id: randomUUID(),
+        ...entry,
+      })
+      .returning();
+    return newEntry;
+  }
+
+  async updateTimeEntry(id: string, data: Partial<InsertTimeEntry>): Promise<TimeEntry | undefined> {
+    const [updated] = await db
+      .update(timeEntries)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(timeEntries.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTimeEntry(id: string): Promise<void> {
+    await db.delete(timeEntries).where(eq(timeEntries.id, id));
+  }
+
+  async getTimeStats(options: { 
+    userId?: string; 
+    crmProjectId?: string; 
+    startDate?: Date; 
+    endDate?: Date 
+  }): Promise<{
+    totalDuration: number;
+    totalIdleTime: number;
+    entriesCount: number;
+    byProject: Array<{ crmProjectId: string; projectName: string; totalDuration: number }>;
+    byUser: Array<{ userId: string; userName: string; totalDuration: number }>;
+  }> {
+    const entries = await this.getTimeEntries({
+      ...options,
+      status: "stopped",
+    });
+    
+    const totalDuration = entries.reduce((sum, e) => sum + (e.duration || 0), 0);
+    const totalIdleTime = entries.reduce((sum, e) => sum + (e.idleTime || 0), 0);
+    
+    // Group by project
+    const projectMap = new Map<string, { projectName: string; totalDuration: number }>();
+    for (const entry of entries) {
+      const projectId = entry.crmProjectId;
+      const projectName = entry.crmProject?.project?.name || "Unknown Project";
+      const existing = projectMap.get(projectId) || { projectName, totalDuration: 0 };
+      existing.totalDuration += entry.duration || 0;
+      projectMap.set(projectId, existing);
+    }
+    
+    // Group by user
+    const userMap = new Map<string, { userName: string; totalDuration: number }>();
+    for (const entry of entries) {
+      const userId = entry.userId;
+      const userName = entry.user ? `${entry.user.firstName || ""} ${entry.user.lastName || ""}`.trim() || entry.user.email : "Unknown User";
+      const existing = userMap.get(userId) || { userName, totalDuration: 0 };
+      existing.totalDuration += entry.duration || 0;
+      userMap.set(userId, existing);
+    }
+    
+    return {
+      totalDuration,
+      totalIdleTime,
+      entriesCount: entries.length,
+      byProject: Array.from(projectMap.entries()).map(([crmProjectId, data]) => ({
+        crmProjectId,
+        ...data,
+      })),
+      byUser: Array.from(userMap.entries()).map(([userId, data]) => ({
+        userId,
+        ...data,
+      })),
+    };
   }
 }
 
