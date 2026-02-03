@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/popover";
 import {
   AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -413,19 +415,18 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <Button
-            variant="outline"
+          <AlertDialogCancel
             onClick={handleNotWorking}
             data-testid="button-idle-no"
           >
             No, pause timer
-          </Button>
-          <Button
+          </AlertDialogCancel>
+          <AlertDialogAction
             onClick={handleStillWorking}
             data-testid="button-idle-yes"
           >
             Yes, still working
-          </Button>
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
