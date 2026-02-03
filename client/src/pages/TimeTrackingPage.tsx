@@ -1,0 +1,352 @@
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Clock, Calendar, TrendingUp, Timer, Filter, X } from "lucide-react";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import type { TimeEntry, CrmProjectWithDetails, User } from "@shared/schema";
+
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
+function formatDetailedDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, "0")}`;
+}
+
+type DateFilter = "today" | "week" | "month" | "all";
+
+export default function TimeTrackingPage() {
+  const [dateFilter, setDateFilter] = useState<DateFilter>("week");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
+
+  const { data: entriesData, isLoading: isLoadingEntries } = useQuery<{ data: TimeEntry[] }>({
+    queryKey: ["/api/time-tracking/entries"],
+  });
+
+  const { data: statsData, isLoading: isLoadingStats } = useQuery<{
+    totalDuration: number;
+    totalIdleTime: number;
+    entriesCount: number;
+    averageDuration: number;
+  }>({
+    queryKey: ["/api/time-tracking/stats"],
+  });
+
+  const { data: projectsResponse } = useQuery<{ data: CrmProjectWithDetails[] }>({
+    queryKey: ["/api/crm/projects"],
+  });
+
+  const { data: usersData } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const entries = entriesData?.data || [];
+  const projects = projectsResponse?.data || [];
+  const users = usersData || [];
+  const stats = statsData;
+
+  const filteredEntries = useMemo(() => {
+    const now = new Date();
+    
+    return entries.filter((entry) => {
+      const entryDate = new Date(entry.startTime);
+      
+      if (dateFilter === "today") {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        if (!isWithinInterval(entryDate, { start: today, end: tomorrow })) {
+          return false;
+        }
+      } else if (dateFilter === "week") {
+        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+        const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+        if (!isWithinInterval(entryDate, { start: weekStart, end: weekEnd })) {
+          return false;
+        }
+      } else if (dateFilter === "month") {
+        const monthStart = startOfMonth(now);
+        const monthEnd = endOfMonth(now);
+        if (!isWithinInterval(entryDate, { start: monthStart, end: monthEnd })) {
+          return false;
+        }
+      }
+
+      if (projectFilter !== "all" && entry.crmProjectId !== projectFilter) {
+        return false;
+      }
+
+      if (userFilter !== "all" && entry.userId !== userFilter) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [entries, dateFilter, projectFilter, userFilter]);
+
+  const filteredStats = useMemo(() => {
+    const totalDuration = filteredEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+    const totalIdleTime = filteredEntries.reduce((sum, e) => sum + (e.idleTime || 0), 0);
+    const completedEntries = filteredEntries.filter((e) => e.status === "stopped");
+    const avgDuration = completedEntries.length > 0 
+      ? Math.round(totalDuration / completedEntries.length) 
+      : 0;
+
+    return {
+      totalDuration,
+      totalIdleTime,
+      entriesCount: filteredEntries.length,
+      averageDuration: avgDuration,
+    };
+  }, [filteredEntries]);
+
+  const getProjectName = (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    return project?.project?.name || "Unknown Project";
+  };
+
+  const getUserName = (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email : "Unknown User";
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "running":
+        return <Badge variant="default" className="bg-green-600">Running</Badge>;
+      case "paused":
+        return <Badge variant="secondary">Paused</Badge>;
+      case "idle":
+        return <Badge variant="outline" className="border-amber-500 text-amber-600">Idle</Badge>;
+      case "stopped":
+        return <Badge variant="outline">Completed</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const clearFilters = () => {
+    setDateFilter("week");
+    setProjectFilter("all");
+    setUserFilter("all");
+  };
+
+  const hasActiveFilters = dateFilter !== "week" || projectFilter !== "all" || userFilter !== "all";
+
+  if (isLoadingEntries) {
+    return (
+      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Time Tracking</h1>
+          <p className="text-muted-foreground">Track and analyze your team's time across projects</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card data-testid="card-stat-total-time">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Time</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatDuration(filteredStats.totalDuration)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {filteredStats.entriesCount} entries
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-stat-avg-session">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Session</CardTitle>
+            <Timer className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatDuration(filteredStats.averageDuration)}</div>
+            <p className="text-xs text-muted-foreground mt-1">per completed entry</p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-stat-idle-time">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Idle Time</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatDuration(filteredStats.totalIdleTime)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {filteredStats.totalDuration > 0 
+                ? `${Math.round((filteredStats.totalIdleTime / (filteredStats.totalDuration + filteredStats.totalIdleTime)) * 100)}% of tracked time`
+                : "0% of tracked time"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-stat-productivity">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Productivity</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {filteredStats.totalDuration > 0 
+                ? `${Math.round((filteredStats.totalDuration / (filteredStats.totalDuration + filteredStats.totalIdleTime)) * 100)}%`
+                : "0%"}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">active vs total time</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              Time Entries
+            </CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
+                <SelectTrigger className="w-32" data-testid="select-date-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="all">All Time</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="w-40" data-testid="select-project-filter">
+                  <SelectValue placeholder="All Projects" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.project?.name || "Unnamed"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={userFilter} onValueChange={setUserFilter}>
+                <SelectTrigger className="w-40" data-testid="select-user-filter">
+                  <SelectValue placeholder="All Users" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {`${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+                  <X className="h-3 w-3" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredEntries.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Clock className="h-12 w-12 mx-auto mb-4 opacity-20" />
+              <p>No time entries found</p>
+              <p className="text-sm mt-1">Start tracking time using the timer in the sidebar</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border hover-elevate gap-3"
+                  data-testid={`time-entry-${entry.id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium truncate">{getProjectName(entry.crmProjectId)}</span>
+                      {getStatusBadge(entry.status)}
+                    </div>
+                    {entry.description && (
+                      <p className="text-sm text-muted-foreground truncate mt-1">{entry.description}</p>
+                    )}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                      <span>{format(new Date(entry.startTime), "MMM d, yyyy")}</span>
+                      <span>{format(new Date(entry.startTime), "h:mm a")}</span>
+                      {entry.endTime && (
+                        <span>- {format(new Date(entry.endTime), "h:mm a")}</span>
+                      )}
+                      <span className="hidden sm:inline">{getUserName(entry.userId)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="font-mono font-medium">{formatDetailedDuration(entry.duration || 0)}</div>
+                      {entry.idleTime && entry.idleTime > 0 && (
+                        <div className="text-xs text-muted-foreground">+{formatDuration(entry.idleTime)} idle</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

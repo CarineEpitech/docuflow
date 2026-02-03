@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
-import { Folder, ChevronRight, MoreHorizontal, Pencil, LogOut, FileText, Sparkles, Briefcase, Building2, Shield } from "lucide-react";
+import { Folder, ChevronRight, MoreHorizontal, Pencil, LogOut, FileText, Sparkles, Briefcase, Building2, Shield, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -190,6 +190,22 @@ export function AppSidebar() {
                     >
                       <FileText className="w-4 h-4 shrink-0" />
                       {!isCollapsed && <span className="text-sm">Documentation</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/time-tracking"}
+                    className="h-9 rounded-md"
+                  >
+                    <Link
+                      href="/time-tracking"
+                      className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'gap-3'}`}
+                      data-testid="link-time-tracking"
+                    >
+                      <Clock className="w-4 h-4 shrink-0" />
+                      {!isCollapsed && <span className="text-sm">Time Tracking</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

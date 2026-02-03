@@ -24,6 +24,7 @@ import CompanyDocumentsPage from "@/pages/CompanyDocumentsPage";
 import CompanyDocumentEditorPage from "@/pages/CompanyDocumentEditorPage";
 import FileViewerPage from "@/pages/FileViewerPage";
 import AdminPage from "@/pages/AdminPage";
+import TimeTrackingPage from "@/pages/TimeTrackingPage";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -100,6 +101,7 @@ function Router() {
         <Route path="/admin" component={AdminPage} />
         <Route path="/admin/create" component={AdminPage} />
         <Route path="/admin/user/:id" component={AdminPage} />
+        <Route path="/time-tracking" component={TimeTrackingPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
