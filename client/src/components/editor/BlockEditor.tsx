@@ -67,6 +67,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const lowlight = createLowlight(common);
 
@@ -113,6 +118,8 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
   const [documentUploadProgress, setDocumentUploadProgress] = useState(0);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+  const [tableSize, setTableSize] = useState({ rows: 0, cols: 0 });
+  const [showTablePicker, setShowTablePicker] = useState(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
@@ -734,16 +741,59 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn("h-8 w-8", editor.isActive("table") && "bg-accent")}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-          data-testid="button-table"
-        >
-          <Table2 className="w-4 h-4" />
-        </Button>
+        <Popover open={showTablePicker} onOpenChange={setShowTablePicker}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn("h-8 w-8", editor.isActive("table") && "bg-accent")}
+              onMouseDown={(e) => e.preventDefault()}
+              data-testid="button-table"
+            >
+              <Table2 className="w-4 h-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto p-3" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-center">
+                {tableSize.rows > 0 && tableSize.cols > 0 
+                  ? `${tableSize.rows} x ${tableSize.cols}` 
+                  : "Select table size"}
+              </p>
+              <div 
+                className="grid gap-0.5"
+                style={{ gridTemplateColumns: `repeat(8, 1fr)` }}
+                onMouseLeave={() => setTableSize({ rows: 0, cols: 0 })}
+              >
+                {Array.from({ length: 8 * 8 }).map((_, i) => {
+                  const row = Math.floor(i / 8) + 1;
+                  const col = (i % 8) + 1;
+                  const isSelected = row <= tableSize.rows && col <= tableSize.cols;
+                  return (
+                    <div
+                      key={i}
+                      className={cn(
+                        "w-5 h-5 border border-border rounded-sm cursor-pointer transition-colors",
+                        isSelected ? "bg-primary" : "bg-muted/30 hover:bg-muted"
+                      )}
+                      onMouseEnter={() => setTableSize({ rows: row, cols: col })}
+                      onClick={() => {
+                        editor.chain().focus(undefined, { scrollIntoView: false }).insertTable({ 
+                          rows: row, 
+                          cols: col, 
+                          withHeaderRow: true 
+                        }).run();
+                        setShowTablePicker(false);
+                        setTableSize({ rows: 0, cols: 0 });
+                      }}
+                      data-testid={`table-cell-${row}-${col}`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <Separator orientation="vertical" className="mx-1 h-6" />
 
