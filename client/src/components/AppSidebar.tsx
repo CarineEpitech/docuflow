@@ -39,6 +39,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ChatBot } from "@/components/ChatBot";
 import { NotificationBell } from "@/components/NotificationBell";
+import { TimeTracker } from "@/components/TimeTracker";
 import type { Project } from "@shared/schema";
 
 export function AppSidebar() {
@@ -218,6 +219,7 @@ export function AppSidebar() {
         <SidebarFooter className="mt-auto p-3 group-data-[collapsible=icon]:p-2">
           <div className="flex items-center justify-start gap-1 mb-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:mb-2 group-data-[collapsible=icon]:items-center">
             <SidebarTrigger data-testid="button-sidebar-toggle" className="h-8 w-8 shrink-0 flex items-center justify-center" />
+            <TimeTracker />
             <NotificationBell />
             <ChatBot />
             <ThemeToggle />
