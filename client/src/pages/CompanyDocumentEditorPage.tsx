@@ -231,7 +231,7 @@ export default function CompanyDocumentEditorPage() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto scrollbar-hidden print-content">
-        <div className="px-4 md:px-6 max-w-3xl">
+        <div className="px-4 md:px-6 w-full">
           <div className="py-6">
             <Input
               value={title}
