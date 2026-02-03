@@ -32,9 +32,10 @@ function formatDuration(seconds: number): string {
 
 interface TimeTrackerProps {
   testId?: string;
+  iconOnly?: boolean;
 }
 
-export function TimeTracker({ testId = "button-time-tracker-toggle" }: TimeTrackerProps) {
+export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = false }: TimeTrackerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [description, setDescription] = useState("");
@@ -173,18 +174,22 @@ export function TimeTracker({ testId = "button-time-tracker-toggle" }: TimeTrack
     <Popover open={isExpanded} onOpenChange={setIsExpanded}>
       <PopoverTrigger asChild>
         <Button 
-          variant={hasActiveEntry ? (isRunning ? "default" : "secondary") : "outline"}
-          size="sm"
-          className={`gap-2 ${isRunning ? "animate-pulse" : ""}`}
+          variant={hasActiveEntry ? (isRunning ? "default" : "secondary") : "ghost"}
+          size={iconOnly ? "icon" : "sm"}
+          className={`${iconOnly ? "h-8 w-8" : "gap-2"} ${isRunning ? "animate-pulse" : ""}`}
           data-testid={testId}
         >
           <Clock className="h-4 w-4" />
-          {hasActiveEntry ? (
-            <span className="font-mono text-sm">{formatDuration(displayDuration)}</span>
-          ) : (
-            <span>Track Time</span>
+          {!iconOnly && (
+            <>
+              {hasActiveEntry ? (
+                <span className="font-mono text-sm">{formatDuration(displayDuration)}</span>
+              ) : (
+                <span>Track Time</span>
+              )}
+              {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </>
           )}
-          {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-4" align="end">
