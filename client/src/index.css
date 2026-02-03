@@ -280,10 +280,6 @@
   @apply bg-card;
 }
 
-.tiptap-editor table tr:hover td:not([style*="background-color"]) {
-  @apply bg-muted/30;
-}
-
 .tiptap-editor .selectedCell {
   @apply bg-primary/10;
 }
