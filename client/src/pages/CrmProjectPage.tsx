@@ -1671,13 +1671,11 @@ export default function CrmProjectPage() {
       </Card>
 
       {/* Time Tracking Summary */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <TimeTrackingSummary 
-          projectId={projectId!} 
-          budgetedHours={formData?.budgetedHours ?? null}
-          budgetedMinutes={formData?.budgetedMinutes ?? null}
-        />
-      </div>
+      <TimeTrackingSummary 
+        projectId={projectId!} 
+        budgetedHours={formData?.budgetedHours ?? null}
+        budgetedMinutes={formData?.budgetedMinutes ?? null}
+      />
 
       {/* Stage History Section */}
       <Card>
