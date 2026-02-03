@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, Calendar, TrendingUp, Timer, Filter, X } from "lucide-react";
+import { Clock, Calendar, TrendingUp, Timer, Filter, X, ChevronDown, ChevronRight } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import type { TimeEntry, CrmProjectWithDetails, User } from "@shared/schema";
 
@@ -46,6 +46,19 @@ export default function TimeTrackingPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("week");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+
+  const toggleProjectExpanded = (projectId: string) => {
+    setExpandedProjects(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(projectId)) {
+        newSet.delete(projectId);
+      } else {
+        newSet.add(projectId);
+      }
+      return newSet;
+    });
+  };
 
   const { data: entriesData, isLoading: isLoadingEntries } = useQuery<{ data: TimeEntry[] }>({
     queryKey: ["/api/time-tracking/entries"],
@@ -357,36 +370,76 @@ export default function TimeTrackingPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {groupedByProject.map((group) => (
-                <div
-                  key={group.projectId}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border hover-elevate gap-3"
-                  data-testid={`time-entry-group-${group.projectId}`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium truncate">{group.projectName}</span>
-                      <Badge variant="secondary" className="text-xs">{group.entriesCount} {group.entriesCount === 1 ? "session" : "sessions"}</Badge>
+              {groupedByProject.map((group) => {
+                const isExpanded = expandedProjects.has(group.projectId);
+                return (
+                  <div key={group.projectId} className="rounded-lg border overflow-hidden">
+                    <div
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover-elevate gap-3 cursor-pointer"
+                      data-testid={`time-entry-group-${group.projectId}`}
+                      onClick={() => toggleProjectExpanded(group.projectId)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                          <span className="font-medium truncate">{group.projectName}</span>
+                          <Badge variant="secondary" className="text-xs">{group.entriesCount} {group.entriesCount === 1 ? "session" : "sessions"}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2 ml-6">
+                          {group.latestEntry && (
+                            <>
+                              <span>Last tracked: {format(new Date(group.latestEntry.startTime), "MMM d, yyyy")}</span>
+                              <span className="hidden sm:inline">{getUserName(group.latestEntry.userId)}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="font-mono font-medium text-lg">{formatDetailedDuration(group.totalDuration)}</div>
+                          {group.totalIdleTime > 0 && (
+                            <div className="text-xs text-muted-foreground">+{formatDuration(group.totalIdleTime)} idle</div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
-                      {group.latestEntry && (
-                        <>
-                          <span>Last tracked: {format(new Date(group.latestEntry.startTime), "MMM d, yyyy")}</span>
-                          <span className="hidden sm:inline">{getUserName(group.latestEntry.userId)}</span>
-                        </>
-                      )}
-                    </div>
+                    {isExpanded && (
+                      <div className="border-t bg-muted/30 divide-y">
+                        {group.entries.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).map((entry) => (
+                          <div
+                            key={entry.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 px-4 gap-2"
+                            data-testid={`time-entry-${entry.id}`}
+                          >
+                            <div className="flex-1 min-w-0 ml-6">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {getStatusBadge(entry.status)}
+                                {entry.description && (
+                                  <span className="text-sm text-muted-foreground truncate">{entry.description}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                                <span>{format(new Date(entry.startTime), "MMM d, yyyy")}</span>
+                                <span>{format(new Date(entry.startTime), "h:mm a")}</span>
+                                {entry.endTime && (
+                                  <span>- {format(new Date(entry.endTime), "h:mm a")}</span>
+                                )}
+                                <span className="hidden sm:inline">{getUserName(entry.userId)}</span>
+                              </div>
+                            </div>
+                            <div className="text-right ml-6 sm:ml-0">
+                              <div className="font-mono text-sm">{formatDetailedDuration(entry.duration || 0)}</div>
+                              {entry.idleTime && entry.idleTime > 0 && (
+                                <div className="text-xs text-muted-foreground">+{formatDuration(entry.idleTime)} idle</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="font-mono font-medium text-lg">{formatDetailedDuration(group.totalDuration)}</div>
-                      {group.totalIdleTime > 0 && (
-                        <div className="text-xs text-muted-foreground">+{formatDuration(group.totalIdleTime)} idle</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
