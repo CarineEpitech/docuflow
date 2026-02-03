@@ -145,7 +145,7 @@ export default function TimeTrackingPage() {
       case "idle":
         return <Badge variant="outline" className="border-amber-500 text-amber-600">Idle</Badge>;
       case "stopped":
-        return <Badge variant="outline">Completed</Badge>;
+        return <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50 dark:bg-green-950">Completed</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
