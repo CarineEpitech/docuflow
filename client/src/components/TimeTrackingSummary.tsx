@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Clock, TrendingUp, Users, AlertTriangle } from "lucide-react";
+import { Clock, TrendingUp, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
-import type { TimeEntry, User } from "@shared/schema";
+import type { TimeEntry } from "@shared/schema";
 
 interface TimeTrackingSummaryProps {
   projectId: string;
@@ -34,12 +33,7 @@ export function TimeTrackingSummary({ projectId, budgetedHours, budgetedMinutes 
     },
   });
 
-  const { data: usersData } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-  });
-
   const entries = entriesResponse?.data || [];
-  const users = usersData || [];
 
   const totalTrackedSeconds = entries.reduce((sum, e) => sum + (e.duration || 0), 0);
   const totalIdleSeconds = entries.reduce((sum, e) => sum + (e.idleTime || 0), 0);
@@ -53,20 +47,6 @@ export function TimeTrackingSummary({ projectId, budgetedHours, budgetedMinutes 
 
   const isOverBudget = totalTrackedSeconds > budgetedTotalSeconds && budgetedTotalSeconds > 0;
   const remainingSeconds = Math.max(0, budgetedTotalSeconds - totalTrackedSeconds);
-
-  const userBreakdown = entries.reduce((acc, entry) => {
-    if (!acc[entry.userId]) {
-      acc[entry.userId] = { duration: 0, entries: 0 };
-    }
-    acc[entry.userId].duration += entry.duration || 0;
-    acc[entry.userId].entries += 1;
-    return acc;
-  }, {} as Record<string, { duration: number; entries: number }>);
-
-  const getUserName = (userId: string) => {
-    const user = users.find((u) => u.id === userId);
-    return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email : "Unknown";
-  };
 
   if (isLoading) {
     return (
@@ -151,31 +131,6 @@ export function TimeTrackingSummary({ projectId, budgetedHours, budgetedMinutes 
             <div className="font-medium">{formatDuration(totalIdleSeconds)}</div>
           </div>
         </div>
-
-        {Object.keys(userBreakdown).length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Users className="h-3 w-3" />
-              <span>Team Breakdown</span>
-            </div>
-            <div className="space-y-1">
-              {Object.entries(userBreakdown)
-                .sort((a, b) => b[1].duration - a[1].duration)
-                .slice(0, 5)
-                .map(([userId, data]) => (
-                  <div key={userId} className="flex items-center justify-between text-sm">
-                    <span className="truncate">{getUserName(userId)}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs">{formatDuration(data.duration)}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {data.entries}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
 
         {entries.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-2">
