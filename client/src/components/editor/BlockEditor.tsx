@@ -880,12 +880,35 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
                         style={{ backgroundColor: color !== "transparent" ? color : undefined }}
                         title={label}
                         onClick={() => {
-                          if (color === "transparent") {
-                            editor.chain().focus().setCellAttribute("backgroundColor", null).run();
-                          } else {
-                            editor.chain().focus().setCellAttribute("backgroundColor", color).run();
+                          const { state, view } = editor;
+                          const { selection } = state;
+                          const { $from } = selection;
+                          
+                          // Find the table cell at current position
+                          let cellPos: number | null = null;
+                          let cellNode: any = null;
+                          
+                          for (let depth = $from.depth; depth >= 0; depth--) {
+                            const node = $from.node(depth);
+                            if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+                              cellPos = $from.before(depth);
+                              cellNode = node;
+                              break;
+                            }
                           }
+                          
+                          if (cellPos !== null && cellNode) {
+                            const tr = state.tr;
+                            const newAttrs = {
+                              ...cellNode.attrs,
+                              backgroundColor: color === "transparent" ? null : color,
+                            };
+                            tr.setNodeMarkup(cellPos, undefined, newAttrs);
+                            view.dispatch(tr);
+                          }
+                          
                           setShowTableColorPicker(false);
+                          editor.commands.focus();
                         }}
                         data-testid={`table-color-${label.toLowerCase()}`}
                       />
