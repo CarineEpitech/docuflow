@@ -4,19 +4,21 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useActivityDetection } from "@/hooks/useActivityDetection";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { Play, Pause, Square, Clock, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { Play, Pause, Square, Clock, ChevronDown, ChevronUp, AlertCircle, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { TimeEntry, CrmProjectWithDetails } from "@shared/schema";
 
 function formatDuration(seconds: number): string {
@@ -37,6 +39,7 @@ interface TimeTrackerProps {
 
 export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = false }: TimeTrackerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [displayDuration, setDisplayDuration] = useState(0);
@@ -207,18 +210,50 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
             <>
               <div className="space-y-2">
                 <label className="text-sm text-muted-foreground">Select Project</label>
-                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                  <SelectTrigger data-testid="select-time-project">
-                    <SelectValue placeholder="Choose a project..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.project?.name || "Unnamed Project"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={projectSelectorOpen}
+                      className="w-full justify-between"
+                      data-testid="select-time-project"
+                    >
+                      {selectedProjectId
+                        ? projects.find((p) => p.id === selectedProjectId)?.project?.name || "Unnamed Project"
+                        : "Choose a project..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search projects..." />
+                      <CommandList>
+                        <CommandEmpty>No project found.</CommandEmpty>
+                        <CommandGroup>
+                          {projects.map((project) => (
+                            <CommandItem
+                              key={project.id}
+                              value={project.project?.name || "Unnamed Project"}
+                              onSelect={() => {
+                                setSelectedProjectId(project.id);
+                                setProjectSelectorOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedProjectId === project.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {project.project?.name || "Unnamed Project"}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               
               <div className="space-y-2">
