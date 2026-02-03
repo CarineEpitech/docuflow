@@ -16,6 +16,10 @@ import { AudioPlayer, setAudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Dropcursor from "@tiptap/extension-dropcursor";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
 import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useState, useRef } from "react";
 import {
@@ -41,6 +45,7 @@ import {
   Loader2,
   Paperclip,
   Mic,
+  Table2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -152,6 +157,12 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
         color: "hsl(221, 83%, 53%)",
         width: 2,
       }),
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableCell,
+      TableHeader,
     ],
     content: content || { type: "doc", content: [{ type: "paragraph" }] },
     editable,
@@ -665,6 +676,26 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
           data-testid="button-code-block"
         >
           <Code className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).setHorizontalRule().run()}
+          data-testid="button-horizontal-rule"
+        >
+          <Minus className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("h-8 w-8", editor.isActive("table") && "bg-accent")}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+          data-testid="button-table"
+        >
+          <Table2 className="w-4 h-4" />
         </Button>
 
         <Separator orientation="vertical" className="mx-1 h-6" />
