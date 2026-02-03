@@ -277,7 +277,7 @@
 }
 
 .tiptap-editor table td {
-  @apply bg-card;
+  @apply bg-transparent;
 }
 
 .tiptap-editor .selectedCell {
