@@ -1358,7 +1358,7 @@ export default function CrmProjectPage() {
                                         {attachments.map((att, idx) => (
                                           <a
                                             key={idx}
-                                            href={`${att.url}?download=true`}
+                                            href={`${att.url}?download=true&filename=${encodeURIComponent(att.filename)}`}
                                             download={att.filename}
                                             className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-colors ${
                                               isCurrentUser 

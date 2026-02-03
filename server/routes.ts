@@ -612,6 +612,7 @@ export async function registerRoutes(
   app.get("/public-objects/:filePath(*)", async (req, res) => {
     const filePath = req.params.filePath;
     const forceDownload = req.query.download === 'true';
+    const originalFilename = req.query.filename as string | undefined;
     const objectStorageService = new ObjectStorageService();
     try {
       const file = await objectStorageService.searchPublicObject(filePath);
@@ -621,7 +622,8 @@ export async function registerRoutes(
       
       // Set Content-Disposition header for forced downloads
       if (forceDownload) {
-        const filename = filePath.split('/').pop() || 'download';
+        // Use original filename if provided, otherwise fall back to path
+        const filename = originalFilename || filePath.split('/').pop() || 'download';
         res.set('Content-Disposition', `attachment; filename="${filename}"`);
       }
       
