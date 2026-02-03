@@ -47,6 +47,11 @@ import {
   Paperclip,
   Mic,
   Table2,
+  Paintbrush,
+  Trash2,
+  Plus,
+  RowsIcon,
+  Columns,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -120,6 +125,7 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [tableSize, setTableSize] = useState({ rows: 0, cols: 0 });
   const [showTablePicker, setShowTablePicker] = useState(false);
+  const [showTableColorPicker, setShowTableColorPicker] = useState(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
@@ -177,8 +183,46 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
         resizable: true,
       }),
       TableRow,
-      TableCell,
-      TableHeader,
+      TableCell.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            backgroundColor: {
+              default: null,
+              parseHTML: element => element.getAttribute('data-background-color') || element.style.backgroundColor || null,
+              renderHTML: attributes => {
+                if (!attributes.backgroundColor) {
+                  return {};
+                }
+                return {
+                  'data-background-color': attributes.backgroundColor,
+                  style: `background-color: ${attributes.backgroundColor}`,
+                };
+              },
+            },
+          };
+        },
+      }),
+      TableHeader.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            backgroundColor: {
+              default: null,
+              parseHTML: element => element.getAttribute('data-background-color') || element.style.backgroundColor || null,
+              renderHTML: attributes => {
+                if (!attributes.backgroundColor) {
+                  return {};
+                }
+                return {
+                  'data-background-color': attributes.backgroundColor,
+                  style: `background-color: ${attributes.backgroundColor}`,
+                };
+              },
+            },
+          };
+        },
+      }),
     ],
     content: content || { type: "doc", content: [{ type: "paragraph" }] },
     editable,
@@ -794,6 +838,97 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
             </div>
           </PopoverContent>
         </Popover>
+
+        {editor.isActive("table") && (
+          <>
+            <Popover open={showTableColorPicker} onOpenChange={setShowTableColorPicker}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onMouseDown={(e) => e.preventDefault()}
+                  data-testid="button-table-color"
+                >
+                  <Paintbrush className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-3" onOpenAutoFocus={(e) => e.preventDefault()}>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Cell Background</p>
+                  <div className="grid grid-cols-6 gap-1">
+                    {[
+                      { color: "transparent", label: "None" },
+                      { color: "#fef3c7", label: "Yellow" },
+                      { color: "#dcfce7", label: "Green" },
+                      { color: "#dbeafe", label: "Blue" },
+                      { color: "#fce7f3", label: "Pink" },
+                      { color: "#f3e8ff", label: "Purple" },
+                      { color: "#fed7aa", label: "Orange" },
+                      { color: "#fecaca", label: "Red" },
+                      { color: "#e5e7eb", label: "Gray" },
+                      { color: "#cffafe", label: "Cyan" },
+                      { color: "#d1fae5", label: "Teal" },
+                      { color: "#fef9c3", label: "Lime" },
+                    ].map(({ color, label }) => (
+                      <button
+                        key={color}
+                        className={cn(
+                          "w-6 h-6 rounded border border-border cursor-pointer hover:scale-110 transition-transform",
+                          color === "transparent" && "bg-[repeating-linear-gradient(45deg,#ccc,#ccc_2px,transparent_2px,transparent_8px)]"
+                        )}
+                        style={{ backgroundColor: color !== "transparent" ? color : undefined }}
+                        title={label}
+                        onClick={() => {
+                          if (color === "transparent") {
+                            editor.chain().focus().setCellAttribute("backgroundColor", null).run();
+                          } else {
+                            editor.chain().focus().setCellAttribute("backgroundColor", color).run();
+                          }
+                          setShowTableColorPicker(false);
+                        }}
+                        data-testid={`table-color-${label.toLowerCase()}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().addRowAfter().run()}
+              title="Add row"
+              data-testid="button-add-row"
+            >
+              <RowsIcon className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().addColumnAfter().run()}
+              title="Add column"
+              data-testid="button-add-column"
+            >
+              <Columns className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().deleteTable().run()}
+              title="Delete table"
+              data-testid="button-delete-table"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </>
+        )}
 
         <Separator orientation="vertical" className="mx-1 h-6" />
 
