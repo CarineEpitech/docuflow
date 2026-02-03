@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, Calendar, TrendingUp, Timer, Filter, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Clock, Calendar, TrendingUp, Timer, Filter, X, ChevronDown, ChevronRight, LayoutList, Table2 } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import type { TimeEntry, CrmProjectWithDetails, User } from "@shared/schema";
 
@@ -42,11 +42,14 @@ function formatDetailedDuration(seconds: number): string {
 
 type DateFilter = "today" | "week" | "month" | "all";
 
+type ViewMode = "grouped" | "table";
+
 export default function TimeTrackingPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("week");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>("grouped");
 
   const toggleProjectExpanded = (projectId: string) => {
     setExpandedProjects(prev => {
@@ -358,18 +361,39 @@ export default function TimeTrackingPage() {
                   Clear
                 </Button>
               )}
+
+              <div className="flex items-center border rounded-md">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-8 w-8 rounded-r-none ${viewMode === "grouped" ? "bg-muted" : ""}`}
+                  onClick={() => setViewMode("grouped")}
+                  data-testid="button-view-grouped"
+                >
+                  <LayoutList className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-8 w-8 rounded-l-none ${viewMode === "table" ? "bg-muted" : ""}`}
+                  onClick={() => setViewMode("table")}
+                  data-testid="button-view-table"
+                >
+                  <Table2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          {groupedByProject.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
+        <CardContent className="p-0">
+          {filteredEntries.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground p-6">
               <Clock className="h-12 w-12 mx-auto mb-4 opacity-20" />
               <p>No time entries found</p>
               <p className="text-sm mt-1">Start tracking time using the timer in the sidebar</p>
             </div>
-          ) : (
-            <div className="space-y-3">
+          ) : viewMode === "grouped" ? (
+            <div className="space-y-3 p-6">
               {groupedByProject.map((group) => {
                 const isExpanded = expandedProjects.has(group.projectId);
                 return (
@@ -440,6 +464,51 @@ export default function TimeTrackingPage() {
                   </div>
                 );
               })}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Project</th>
+                    <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
+                    <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Date</th>
+                    <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Time</th>
+                    <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">User</th>
+                    <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Duration</th>
+                    <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Idle</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredEntries
+                    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+                    .map((entry) => (
+                      <tr key={entry.id} className="hover:bg-muted/50" data-testid={`table-time-entry-${entry.id}`}>
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-sm">{getProjectName(entry.crmProjectId)}</span>
+                          {entry.description && (
+                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{entry.description}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">{getStatusBadge(entry.status)}</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                          {format(new Date(entry.startTime), "MMM d, yyyy")}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                          {format(new Date(entry.startTime), "h:mm a")}
+                          {entry.endTime && ` - ${format(new Date(entry.endTime), "h:mm a")}`}
+                        </td>
+                        <td className="px-4 py-3 text-sm">{getUserName(entry.userId)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="font-mono text-sm font-medium">{formatDetailedDuration(entry.duration || 0)}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm text-muted-foreground">
+                          {entry.idleTime && entry.idleTime > 0 ? formatDuration(entry.idleTime) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
