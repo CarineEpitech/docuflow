@@ -690,7 +690,7 @@ export default function CrmPage() {
               {user?.role === "admin" && (
                 <Select value={userFilter} onValueChange={setUserFilter}>
                   <SelectTrigger className="w-[180px]" data-testid="select-user-filter">
-                    <User className="w-4 h-4 mr-2" />
+                    <User className="w-4 h-4 mr-1" />
                     <SelectValue placeholder="Filter by user" />
                   </SelectTrigger>
                   <SelectContent>
