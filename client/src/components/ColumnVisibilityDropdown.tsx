@@ -28,12 +28,10 @@ export function ColumnVisibilityDropdown({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          size="sm"
-          className="gap-1.5"
+          size="icon"
           data-testid="button-column-visibility"
         >
           <Columns3 className="w-4 h-4" />
-          <span className="hidden sm:inline">Columns</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
