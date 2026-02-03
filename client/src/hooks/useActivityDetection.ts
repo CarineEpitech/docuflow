@@ -6,13 +6,15 @@ interface ActivityDetectionOptions {
   status: "running" | "paused" | "idle" | null;
   idleTimeoutSeconds?: number;
   heartbeatIntervalSeconds?: number;
+  onIdleDetected?: () => void;
 }
 
 export function useActivityDetection({
   entryId,
   status,
-  idleTimeoutSeconds = 300,
+  idleTimeoutSeconds = 60,
   heartbeatIntervalSeconds = 60,
+  onIdleDetected,
 }: ActivityDetectionOptions) {
   const lastActivityRef = useRef<number>(Date.now());
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -30,20 +32,21 @@ export function useActivityDetection({
     }
   }, [entryId, status]);
 
-  const pauseForIdle = useCallback(async () => {
+  const handleIdleDetected = useCallback(() => {
     if (!entryId || status !== "running" || isIdleRef.current) return;
 
     isIdleRef.current = true;
-    try {
-      await apiRequest("POST", `/api/time-tracking/${entryId}/pause`);
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/active"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/entries"] });
-    } catch (error) {
-      console.error("Failed to pause for idle:", error);
+    if (onIdleDetected) {
+      onIdleDetected();
     }
-  }, [entryId, status]);
+  }, [entryId, status, onIdleDetected]);
 
   const handleActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+  }, []);
+
+  const resetIdleState = useCallback(() => {
+    isIdleRef.current = false;
     lastActivityRef.current = Date.now();
   }, []);
 
@@ -75,9 +78,9 @@ export function useActivityDetection({
     idleCheckIntervalRef.current = setInterval(() => {
       const idleTime = (Date.now() - lastActivityRef.current) / 1000;
       if (idleTime >= idleTimeoutSeconds && !isIdleRef.current) {
-        pauseForIdle();
+        handleIdleDetected();
       }
-    }, 10000);
+    }, 5000);
 
     return () => {
       events.forEach((event) => {
@@ -90,10 +93,11 @@ export function useActivityDetection({
         clearInterval(idleCheckIntervalRef.current);
       }
     };
-  }, [entryId, status, idleTimeoutSeconds, heartbeatIntervalSeconds, handleActivity, sendHeartbeat, pauseForIdle]);
+  }, [entryId, status, idleTimeoutSeconds, heartbeatIntervalSeconds, handleActivity, sendHeartbeat, handleIdleDetected]);
 
   return {
     lastActivityTime: lastActivityRef.current,
     isIdle: isIdleRef.current,
+    resetIdleState,
   };
 }
