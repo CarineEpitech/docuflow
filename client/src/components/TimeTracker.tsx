@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useActivityDetection } from "@/hooks/useActivityDetection";
@@ -16,8 +16,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Play, Pause, Square, Clock, ChevronDown, ChevronUp, AlertCircle, Check, ChevronsUpDown } from "lucide-react";
+import { Play, Pause, Square, Clock, ChevronDown, ChevronUp, AlertCircle, Check, ChevronsUpDown, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TimeEntry, CrmProjectWithDetails } from "@shared/schema";
 
@@ -43,6 +51,9 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [displayDuration, setDisplayDuration] = useState(0);
+  const [showIdleDialog, setShowIdleDialog] = useState(false);
+  const [idleCountdown, setIdleCountdown] = useState(30);
+  const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const { data: activeEntry, isLoading: isLoadingActive } = useQuery<TimeEntry | null>({
     queryKey: ["/api/time-tracking/active"],
@@ -133,12 +144,54 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
     }
   }, [activeEntry]);
   
-  useActivityDetection({
+  const handleIdleDetected = useCallback(() => {
+    setShowIdleDialog(true);
+    setIdleCountdown(30);
+  }, []);
+
+  const { resetIdleState } = useActivityDetection({
     entryId: activeEntry?.id || null,
     status: activeEntry?.status as "running" | "paused" | "idle" | null,
-    idleTimeoutSeconds: 300,
+    idleTimeoutSeconds: 60,
     heartbeatIntervalSeconds: 60,
+    onIdleDetected: handleIdleDetected,
   });
+
+  useEffect(() => {
+    if (showIdleDialog) {
+      setIdleCountdown(30);
+      const countdownInterval = setInterval(() => {
+        setIdleCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            if (activeEntry) {
+              pauseMutation.mutate(activeEntry.id);
+            }
+            setShowIdleDialog(false);
+            return 30;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(countdownInterval);
+    }
+  }, [showIdleDialog, activeEntry, pauseMutation]);
+
+  const handleStillWorking = useCallback(() => {
+    setShowIdleDialog(false);
+    resetIdleState();
+    if (activeEntry) {
+      activityMutation.mutate(activeEntry.id);
+    }
+  }, [resetIdleState, activeEntry, activityMutation]);
+
+  const handleNotWorking = useCallback(() => {
+    setShowIdleDialog(false);
+    if (activeEntry) {
+      pauseMutation.mutate(activeEntry.id);
+    }
+  }, [activeEntry, pauseMutation]);
   
   const handleStart = useCallback(() => {
     if (!selectedProjectId) return;
@@ -174,6 +227,7 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
   }
   
   return (
+    <>
     <Popover open={isExpanded} onOpenChange={setIsExpanded}>
       <PopoverTrigger asChild>
         <Button 
@@ -346,5 +400,35 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
         </div>
       </PopoverContent>
     </Popover>
+
+    <AlertDialog open={showIdleDialog} onOpenChange={setShowIdleDialog}>
+      <AlertDialogContent data-testid="dialog-idle-check">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <Timer className="h-5 w-5 text-amber-500" />
+            Are you still working?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            We haven't detected any activity for the last minute. The timer will pause automatically in {idleCountdown} seconds if there's no response.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <Button
+            variant="outline"
+            onClick={handleNotWorking}
+            data-testid="button-idle-no"
+          >
+            No, pause timer
+          </Button>
+          <Button
+            onClick={handleStillWorking}
+            data-testid="button-idle-yes"
+          >
+            Yes, still working
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
