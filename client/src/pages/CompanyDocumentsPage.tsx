@@ -454,9 +454,8 @@ export default function CompanyDocumentsPage() {
                     <FilePlus className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Create Document</span>
                   </Button>
-                  <Button onClick={() => { setDocumentDescription(""); setSelectedFiles([]); setShowUploadDialog(true); }} data-testid="button-upload-document">
-                    <Upload className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Upload Files</span>
+                  <Button size="icon" onClick={() => { setDocumentDescription(""); setSelectedFiles([]); setShowUploadDialog(true); }} data-testid="button-upload-document">
+                    <Upload className="h-4 w-4" />
                   </Button>
                 </>
               )}
