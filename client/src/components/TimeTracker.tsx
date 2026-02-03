@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useActivityDetection } from "@/hooks/useActivityDetection";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -15,7 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { Play, Pause, Square, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Play, Pause, Square, Clock, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 import type { TimeEntry, CrmProjectWithDetails } from "@shared/schema";
 
 function formatDuration(seconds: number): string {
@@ -124,14 +125,12 @@ export function TimeTracker() {
     }
   }, [activeEntry]);
   
-  useEffect(() => {
-    if (activeEntry?.status === "running") {
-      const activityInterval = setInterval(() => {
-        activityMutation.mutate(activeEntry.id);
-      }, 60000);
-      return () => clearInterval(activityInterval);
-    }
-  }, [activeEntry?.id, activeEntry?.status]);
+  useActivityDetection({
+    entryId: activeEntry?.id || null,
+    status: activeEntry?.status as "running" | "paused" | "idle" | null,
+    idleTimeoutSeconds: 300,
+    heartbeatIntervalSeconds: 60,
+  });
   
   const handleStart = useCallback(() => {
     if (!selectedProjectId) return;
@@ -235,6 +234,17 @@ export function TimeTracker() {
             </>
           ) : (
             <>
+              {(activeEntry.status === "paused" || activeEntry.status === "idle") && (
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-2 text-sm">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>
+                    {activeEntry.status === "idle" 
+                      ? "Timer paused due to inactivity" 
+                      : "Timer is paused"}
+                  </span>
+                </div>
+              )}
+              
               <div className="bg-muted rounded-lg p-3">
                 <div className="text-sm text-muted-foreground">Working on</div>
                 <div className="font-medium truncate">
