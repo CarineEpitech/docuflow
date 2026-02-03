@@ -268,7 +268,7 @@
 .tiptap-editor table th,
 .tiptap-editor table td {
   @apply px-3 py-2 min-w-[100px] text-left align-top bg-background;
-  border: 2px solid hsl(var(--border));
+  border: 3px solid hsl(var(--border));
 }
 
 .tiptap-editor table th {
