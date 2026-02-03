@@ -214,8 +214,9 @@
 }
 
 .tiptap-editor hr {
-  @apply my-8 border-0 bg-border;
+  @apply my-8 border-0;
   height: 2px;
+  background-color: hsl(var(--foreground) / 0.3);
 }
 
 .tiptap-editor hr[data-width="thin"] {
