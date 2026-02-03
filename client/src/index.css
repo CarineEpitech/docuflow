@@ -266,14 +266,18 @@
 
 .tiptap-editor table th,
 .tiptap-editor table td {
-  @apply border border-border px-3 py-2 min-w-[100px] text-left align-top;
+  @apply border border-border px-3 py-2 min-w-[100px] text-left align-top bg-background;
 }
 
 .tiptap-editor table th {
   @apply bg-muted font-semibold;
 }
 
-.tiptap-editor table tr:hover td {
+.tiptap-editor table td {
+  @apply bg-card;
+}
+
+.tiptap-editor table tr:hover td:not([style*="background-color"]) {
   @apply bg-muted/30;
 }
 
