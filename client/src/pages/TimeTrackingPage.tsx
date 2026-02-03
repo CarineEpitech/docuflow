@@ -32,9 +32,12 @@ function formatDetailedDuration(seconds: number): string {
   const secs = seconds % 60;
   
   if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    return `${hours}h ${minutes}m ${secs}s`;
   }
-  return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  if (minutes > 0) {
+    return `${minutes}m ${secs}s`;
+  }
+  return `${secs}s`;
 }
 
 type DateFilter = "today" | "week" | "month" | "all";
