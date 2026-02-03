@@ -214,7 +214,20 @@
 }
 
 .tiptap-editor hr {
-  @apply my-8 border-border;
+  @apply my-8 border-0 bg-border;
+  height: 2px;
+}
+
+.tiptap-editor hr[data-width="thin"] {
+  height: 1px;
+}
+
+.tiptap-editor hr[data-width="medium"] {
+  height: 2px;
+}
+
+.tiptap-editor hr[data-width="thick"] {
+  height: 4px;
 }
 
 .tiptap-editor img {

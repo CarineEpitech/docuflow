@@ -14,6 +14,7 @@ import { VideoEmbed, extractVideoInfo } from "./VideoEmbed";
 import { FileAttachment } from "./FileAttachment";
 import { AudioPlayer, setAudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
+import { CustomHorizontalRule } from "./CustomHorizontalRule";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Dropcursor from "@tiptap/extension-dropcursor";
 import { Table } from "@tiptap/extension-table";
@@ -60,6 +61,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const lowlight = createLowlight(common);
 
@@ -115,7 +122,9 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
       StarterKit.configure({
         codeBlock: false,
         dropcursor: false,
+        horizontalRule: false,
       }),
+      CustomHorizontalRule,
       Placeholder.configure({
         placeholder: ({ node }) => {
           if (node.type.name === "heading") {
@@ -677,16 +686,54 @@ export function BlockEditor({ content, onChange, onImageUpload, onDocumentUpload
         >
           <Code className="w-4 h-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).setHorizontalRule().run()}
-          data-testid="button-horizontal-rule"
-        >
-          <Minus className="w-4 h-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onMouseDown={(e) => e.preventDefault()}
+              data-testid="button-horizontal-rule"
+            >
+              <Minus className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-[140px]">
+            <DropdownMenuItem
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                editor.chain().focus(undefined, { scrollIntoView: false }).setHorizontalRule({ width: "thin" }).run();
+              }}
+              className="flex items-center gap-2"
+              data-testid="hr-thin"
+            >
+              <div className="flex-1 h-[1px] bg-foreground" />
+              <span className="text-xs text-muted-foreground shrink-0">Thin</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                editor.chain().focus(undefined, { scrollIntoView: false }).setHorizontalRule({ width: "medium" }).run();
+              }}
+              className="flex items-center gap-2"
+              data-testid="hr-medium"
+            >
+              <div className="flex-1 h-[2px] bg-foreground" />
+              <span className="text-xs text-muted-foreground shrink-0">Medium</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                editor.chain().focus(undefined, { scrollIntoView: false }).setHorizontalRule({ width: "thick" }).run();
+              }}
+              className="flex items-center gap-2"
+              data-testid="hr-thick"
+            >
+              <div className="flex-1 h-[4px] bg-foreground" />
+              <span className="text-xs text-muted-foreground shrink-0">Thick</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button
           variant="ghost"
           size="icon"
