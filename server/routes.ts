@@ -1066,7 +1066,7 @@ export async function registerRoutes(
               byDocument.set(key, existing);
             }
             
-            for (const [docKey, chunks] of byDocument) {
+            Array.from(byDocument.entries()).forEach(([docKey, chunks]) => {
               const first = chunks[0];
               const breadcrumbPath = first.breadcrumbs.length > 0 
                 ? first.breadcrumbs.join(" > ") + " > " + first.title
@@ -1077,7 +1077,7 @@ export async function registerRoutes(
               for (const chunk of chunks) {
                 relevantContext += chunk.chunkText + "\n\n";
               }
-            }
+            });
           }
         } catch (error) {
           console.error("Error searching embeddings:", error);
@@ -1154,7 +1154,7 @@ export async function registerRoutes(
                 byCompanyDoc.set(key, existing);
               }
               
-              for (const [docKey, chunks] of byCompanyDoc) {
+              Array.from(byCompanyDoc.entries()).forEach(([docKey, chunks]) => {
                 const first = chunks[0];
                 const docPath = first.folderName !== "Root" 
                   ? `${first.folderName} / ${first.title}`
@@ -1165,7 +1165,7 @@ export async function registerRoutes(
                 for (const chunk of chunks) {
                   relevantContext += chunk.chunkText + "\n\n";
                 }
-              }
+              });
             }
           } catch (companySearchError) {
             console.error("Error searching company document embeddings:", companySearchError);
@@ -2037,9 +2037,13 @@ Instructions:
       const existingNote = existingNotes.find(n => n.id === req.params.noteId);
       const oldMentions = existingNote?.mentionedUserIds || [];
       
-      const updateData: { content?: string; mentionedUserIds?: string[] | null; attachments?: string | null } = {
-        ...parsed.data,
-      };
+      const updateData: { content?: string; mentionedUserIds?: string[] | null; attachments?: string | null } = {};
+      if (parsed.data.content !== undefined) {
+        updateData.content = parsed.data.content;
+      }
+      if (parsed.data.mentionedUserIds !== undefined) {
+        updateData.mentionedUserIds = parsed.data.mentionedUserIds;
+      }
       if (parsed.data.attachments !== undefined) {
         updateData.attachments = parsed.data.attachments ? JSON.stringify(parsed.data.attachments) : null;
       }

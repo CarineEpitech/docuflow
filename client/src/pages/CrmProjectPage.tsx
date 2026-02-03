@@ -186,6 +186,16 @@ export default function CrmProjectPage() {
 
   const { data: users = [] } = useQuery<SafeUser[]>({
     queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users", { credentials: "include" });
+      if (!res.ok) {
+        console.error("Failed to fetch users:", res.status, res.statusText);
+        return [];
+      }
+      return res.json();
+    },
+    enabled: !!currentUser,
+    staleTime: 60000, // Refetch after 1 minute to ensure fresh data
   });
 
   const { data: projectTags = [] } = useQuery<CrmTag[]>({
