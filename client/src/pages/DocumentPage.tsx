@@ -70,6 +70,11 @@ export default function DocumentPage() {
     enabled: !!documentId,
   });
 
+  const { data: crmProject } = useQuery<{ id: string }>({
+    queryKey: ["/api/crm/projects/by-project", pageDoc?.projectId],
+    enabled: !!pageDoc?.projectId,
+  });
+
   // Fetch all projects for navigation between folders
   const { data: allProjects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -422,7 +427,7 @@ export default function DocumentPage() {
               </Button>
             ) : null}
             <div className="min-w-0 flex-1">
-              <Breadcrumbs project={project} document={pageDoc} ancestors={ancestors} />
+              <Breadcrumbs project={project} document={pageDoc} ancestors={ancestors} crmProjectId={crmProject?.id} />
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
