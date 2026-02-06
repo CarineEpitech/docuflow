@@ -6,16 +6,15 @@ interface BreadcrumbsProps {
   project?: Project;
   document?: Document;
   ancestors?: Document[];
-  crmProjectId?: string;
 }
 
-export function Breadcrumbs({ project, document, ancestors = [], crmProjectId }: BreadcrumbsProps) {
+export function Breadcrumbs({ project, document, ancestors = [] }: BreadcrumbsProps) {
   return (
     <nav className="flex items-center gap-1 text-sm text-muted-foreground min-w-0 overflow-hidden" data-testid="nav-breadcrumbs">
       {project && (
         <>
           <Link
-            href={crmProjectId ? `/crm/project/${crmProjectId}` : `/project/${project.id}`}
+            href={`/project/${project.id}`}
             className="flex items-center gap-1 hover:text-foreground transition-colors flex-shrink-0"
             data-testid="breadcrumb-project"
           >

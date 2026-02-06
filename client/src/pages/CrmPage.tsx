@@ -766,7 +766,7 @@ export default function CrmPage() {
               </div>
             ) : (
             <DragDropContext onDragEnd={(result) => { cleanupScroll(); handleDragEnd(result); }} onDragStart={handleDragStart}>
-              <div ref={kanbanScrollRef} className="overflow-x-auto pb-4 scrollbar-hidden">
+              <div ref={kanbanScrollRef} className="overflow-x-auto pb-4 custom-scrollbar-x">
                 <div className="flex gap-4 min-w-max items-stretch">
                   {statusOptions.map((status) => {
                     const filteredProjects = filterProjects(allProjectsData?.data || []);
@@ -922,7 +922,7 @@ export default function CrmPage() {
           ) : (
             <Card className="overflow-hidden">
               <CardContent className="p-0">
-                <div className="overflow-x-auto scrollbar-hidden">
+                <div className="overflow-x-auto custom-scrollbar-x">
                   <table className="w-full min-w-[900px]">
                     <thead>
                       <tr className="bg-muted whitespace-nowrap">
@@ -1307,7 +1307,7 @@ export default function CrmPage() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-x-auto scrollbar-hidden">
+                <div className="overflow-x-auto custom-scrollbar-x">
                   <table className="w-full min-w-[700px]">
                     <thead>
                       <tr className="border-b bg-muted/50 whitespace-nowrap">

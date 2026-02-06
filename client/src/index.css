@@ -462,6 +462,32 @@
   @apply bg-muted-foreground/40;
 }
 
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar {
+  @apply h-2;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/40;
+}
+
+.custom-scrollbar-x {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
+}
+
 /* Keyboard shortcut badge */
 .kbd {
   @apply inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-mono bg-muted rounded border border-border;

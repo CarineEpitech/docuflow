@@ -70,11 +70,6 @@ export default function DocumentPage() {
     enabled: !!documentId,
   });
 
-  const { data: crmProject } = useQuery<{ id: string }>({
-    queryKey: ["/api/crm/projects/by-project", pageDoc?.projectId],
-    enabled: !!pageDoc?.projectId,
-  });
-
   // Fetch all projects for navigation between folders
   const { data: allProjects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -427,7 +422,7 @@ export default function DocumentPage() {
               </Button>
             ) : null}
             <div className="min-w-0 flex-1">
-              <Breadcrumbs project={project} document={pageDoc} ancestors={ancestors} crmProjectId={crmProject?.id} />
+              <Breadcrumbs project={project} document={pageDoc} ancestors={ancestors} />
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
@@ -482,7 +477,7 @@ export default function DocumentPage() {
             </div>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto scrollbar-hidden isolate print-content">
+        <div className="flex-1 overflow-y-auto custom-scrollbar isolate print-content">
           <div className={`${isMobile ? "px-4 w-full" : isSidebarCollapsed ? "px-8 w-full max-w-none" : "px-4 md:px-6 max-w-3xl"}`}>
             <BlockEditor
               isFullWidth={isSidebarCollapsed}
