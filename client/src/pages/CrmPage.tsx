@@ -810,7 +810,11 @@ export default function CrmPage() {
                                       >
                                         <Card
                                           className={`hover-elevate cursor-grab group ${snapshot.isDragging ? "shadow-lg rotate-2" : ""}`}
-                                          onClick={() => !snapshot.isDragging && setLocation(`/crm/project/${project.id}`)}
+                                          onClick={() => {
+                                            if (!snapshot.isDragging) {
+                                              window.open(`/crm/project/${project.id}`, '_blank');
+                                            }
+                                          }}
                                           data-testid={`kanban-card-${project.id}`}
                                         >
                                           <CardContent className="p-3">
@@ -959,7 +963,7 @@ export default function CrmPage() {
                           <tr 
                             key={crmProject.id} 
                             className="hover:bg-muted/50 cursor-pointer whitespace-nowrap transition-colors"
-                            onClick={() => setLocation(`/crm/project/${crmProject.id}`)}
+                            onClick={() => window.open(`/crm/project/${crmProject.id}`, '_blank')}
                             data-testid={`row-crm-project-${crmProject.id}`}
                           >
                             {projectColumnVisibility.isColumnVisible("project") && (
