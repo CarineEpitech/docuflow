@@ -77,7 +77,8 @@ export default function TimeTrackingPage() {
   });
 
   const { data: projectsResponse } = useQuery<{ data: CrmProjectWithDetails[] }>({
-    queryKey: ["/api/crm/projects"],
+    queryKey: ["/api/crm/projects", { pageSize: 500 }],
+    queryFn: () => fetch("/api/crm/projects?pageSize=500").then(r => r.json()),
   });
 
   const { data: usersData } = useQuery<User[]>({
