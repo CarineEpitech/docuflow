@@ -3859,5 +3859,127 @@ Instructions:
     }
   });
 
+  // Time Tracking Screenshots
+  app.post("/api/time-tracking/screenshots/upload-url", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const { timeEntryId } = req.body;
+
+      if (!timeEntryId) {
+        return res.status(400).json({ message: "timeEntryId is required" });
+      }
+
+      const entry = await storage.getTimeEntry(timeEntryId);
+      if (!entry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+      if (entry.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting screenshot upload URL:", error);
+      res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  app.post("/api/time-tracking/screenshots", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const { timeEntryId, crmProjectId, storageKey, capturedAt } = req.body;
+
+      if (!timeEntryId || !crmProjectId || !storageKey) {
+        return res.status(400).json({ message: "timeEntryId, crmProjectId, and storageKey are required" });
+      }
+
+      const entry = await storage.getTimeEntry(timeEntryId);
+      if (!entry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+      if (entry.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      let normalizedPath: string;
+      try {
+        normalizedPath = objectStorageService.normalizeObjectEntityPath(storageKey);
+      } catch {
+        return res.status(400).json({ message: "Invalid storageKey" });
+      }
+
+      const screenshot = await storage.createTimeEntryScreenshot({
+        timeEntryId,
+        userId,
+        crmProjectId,
+        storageKey: normalizedPath,
+        capturedAt: capturedAt ? new Date(capturedAt) : new Date(),
+      });
+
+      res.json(screenshot);
+    } catch (error) {
+      console.error("Error saving screenshot:", error);
+      res.status(500).json({ message: "Failed to save screenshot" });
+    }
+  });
+
+  app.get("/api/time-tracking/screenshots", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const user = await storage.getUser(userId);
+
+      const filters: {
+        timeEntryId?: string;
+        userId?: string;
+        crmProjectId?: string;
+      } = {};
+
+      if (req.query.timeEntryId) filters.timeEntryId = req.query.timeEntryId;
+      if (req.query.crmProjectId) filters.crmProjectId = req.query.crmProjectId;
+
+      if (user?.role !== "admin") {
+        filters.userId = userId;
+      } else if (req.query.userId) {
+        filters.userId = req.query.userId;
+      }
+
+      const screenshots = await storage.getTimeEntryScreenshots(filters);
+      res.json({ data: screenshots });
+    } catch (error) {
+      console.error("Error fetching screenshots:", error);
+      res.status(500).json({ message: "Failed to fetch screenshots" });
+    }
+  });
+
+  app.get("/api/time-tracking/screenshots/:id/image", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req)!;
+      const user = await storage.getUser(userId);
+      
+      const screenshot = await storage.getTimeEntryScreenshotById(req.params.id);
+      
+      if (!screenshot) {
+        return res.status(404).json({ message: "Screenshot not found" });
+      }
+
+      if (user?.role !== "admin" && screenshot.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectFile = await objectStorageService.getObjectEntityFile(screenshot.storageKey);
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving screenshot:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ message: "Screenshot file not found" });
+      }
+      res.status(500).json({ message: "Failed to serve screenshot" });
+    }
+  });
+
   return httpServer;
 }

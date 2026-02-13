@@ -21,6 +21,7 @@ import {
   notifications,
   audioRecordings,
   timeEntries,
+  timeEntryScreenshots,
   type User,
   type SafeUser,
   type InsertUser,
@@ -74,9 +75,11 @@ import {
   type TimeEntry,
   type InsertTimeEntry,
   type TimeEntryWithDetails,
+  type TimeEntryScreenshot,
+  type InsertTimeEntryScreenshot,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, like, or, isNull, sql, gt, asc, count } from "drizzle-orm";
+import { eq, and, desc, like, or, isNull, sql, gt, lte, asc, count } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -265,6 +268,18 @@ export interface IStorage {
     byProject: Array<{ crmProjectId: string; projectName: string; totalDuration: number }>;
     byUser: Array<{ userId: string; userName: string; totalDuration: number }>;
   }>;
+
+  // Time Entry Screenshots
+  createTimeEntryScreenshot(screenshot: InsertTimeEntryScreenshot): Promise<TimeEntryScreenshot>;
+  getTimeEntryScreenshotById(id: string): Promise<TimeEntryScreenshot | undefined>;
+  getTimeEntryScreenshots(options: {
+    timeEntryId?: string;
+    userId?: string;
+    crmProjectId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<TimeEntryScreenshot[]>;
+  deleteTimeEntryScreenshot(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2145,6 +2160,46 @@ export class DatabaseStorage implements IStorage {
         ...data,
       })),
     };
+  }
+
+  async createTimeEntryScreenshot(screenshot: InsertTimeEntryScreenshot): Promise<TimeEntryScreenshot> {
+    const [result] = await db.insert(timeEntryScreenshots).values(screenshot).returning();
+    return result;
+  }
+
+  async getTimeEntryScreenshotById(id: string): Promise<TimeEntryScreenshot | undefined> {
+    const [screenshot] = await db
+      .select()
+      .from(timeEntryScreenshots)
+      .where(eq(timeEntryScreenshots.id, id));
+    return screenshot;
+  }
+
+  async getTimeEntryScreenshots(options: {
+    timeEntryId?: string;
+    userId?: string;
+    crmProjectId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<TimeEntryScreenshot[]> {
+    const conditions = [];
+    if (options.timeEntryId) conditions.push(eq(timeEntryScreenshots.timeEntryId, options.timeEntryId));
+    if (options.userId) conditions.push(eq(timeEntryScreenshots.userId, options.userId));
+    if (options.crmProjectId) conditions.push(eq(timeEntryScreenshots.crmProjectId, options.crmProjectId));
+    if (options.startDate) conditions.push(gt(timeEntryScreenshots.capturedAt, options.startDate));
+    if (options.endDate) {
+      conditions.push(lte(timeEntryScreenshots.capturedAt, options.endDate));
+    }
+
+    return db
+      .select()
+      .from(timeEntryScreenshots)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(timeEntryScreenshots.capturedAt));
+  }
+
+  async deleteTimeEntryScreenshot(id: string): Promise<void> {
+    await db.delete(timeEntryScreenshots).where(eq(timeEntryScreenshots.id, id));
   }
 }
 

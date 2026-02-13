@@ -12,7 +12,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, Calendar, TrendingUp, Timer, Filter, X, ChevronDown, ChevronRight, LayoutList, Table2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Clock, Calendar, TrendingUp, Timer, Filter, X, ChevronDown, ChevronRight, LayoutList, Table2, Monitor, ImageIcon } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import type { TimeEntry, CrmProjectWithDetails, User } from "@shared/schema";
 
@@ -43,13 +49,26 @@ function formatDetailedDuration(seconds: number): string {
 type DateFilter = "today" | "week" | "month" | "all";
 
 type ViewMode = "grouped" | "table";
+type PageTab = "entries" | "screenshots";
+
+interface Screenshot {
+  id: string;
+  timeEntryId: string;
+  userId: string;
+  crmProjectId: string;
+  storageKey: string;
+  capturedAt: string;
+  createdAt: string;
+}
 
 export default function TimeTrackingPage() {
+  const [activeTab, setActiveTab] = useState<PageTab>("entries");
   const [dateFilter, setDateFilter] = useState<DateFilter>("week");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("grouped");
+  const [selectedScreenshot, setSelectedScreenshot] = useState<Screenshot | null>(null);
 
   const toggleProjectExpanded = (projectId: string) => {
     setExpandedProjects(prev => {
@@ -83,6 +102,16 @@ export default function TimeTrackingPage() {
 
   const { data: usersData } = useQuery<User[]>({
     queryKey: ["/api/users"],
+  });
+
+  const screenshotQueryParams = new URLSearchParams();
+  if (projectFilter !== "all") screenshotQueryParams.set("crmProjectId", projectFilter);
+  if (userFilter !== "all") screenshotQueryParams.set("userId", userFilter);
+
+  const { data: screenshotsData, isLoading: isLoadingScreenshots } = useQuery<{ data: Screenshot[] }>({
+    queryKey: ["/api/time-tracking/screenshots", projectFilter, userFilter],
+    queryFn: () => fetch(`/api/time-tracking/screenshots?${screenshotQueryParams.toString()}`).then(r => r.json()),
+    enabled: activeTab === "screenshots",
   });
 
   const entries = entriesData?.data || [];
@@ -245,13 +274,37 @@ export default function TimeTrackingPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold">Time Tracking</h1>
           <p className="text-muted-foreground">Track and analyze your team's time across projects</p>
         </div>
+        <div className="flex items-center border rounded-md">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`gap-2 rounded-r-none ${activeTab === "entries" ? "bg-muted" : ""}`}
+            onClick={() => setActiveTab("entries")}
+            data-testid="tab-entries"
+          >
+            <Clock className="h-4 w-4" />
+            Entries
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`gap-2 rounded-l-none ${activeTab === "screenshots" ? "bg-muted" : ""}`}
+            onClick={() => setActiveTab("screenshots")}
+            data-testid="tab-screenshots"
+          >
+            <Monitor className="h-4 w-4" />
+            Screenshots
+          </Button>
+        </div>
       </div>
 
+      {activeTab === "entries" && (
+      <>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card data-testid="card-stat-total-time">
           <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2">
@@ -514,6 +567,126 @@ export default function TimeTrackingPage() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
+
+      {activeTab === "screenshots" && (
+        <Card>
+          <CardHeader className="pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <CardTitle className="flex items-center gap-2">
+                <Monitor className="h-4 w-4" />
+                Screenshots
+              </CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={projectFilter} onValueChange={setProjectFilter}>
+                  <SelectTrigger className="w-40" data-testid="select-screenshot-project-filter">
+                    <SelectValue placeholder="All Projects" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.project?.name || "Unnamed"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={userFilter} onValueChange={setUserFilter}>
+                  <SelectTrigger className="w-40" data-testid="select-screenshot-user-filter">
+                    <SelectValue placeholder="All Users" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {`${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoadingScreenshots ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <Skeleton key={i} className="aspect-video rounded-lg" />
+                ))}
+              </div>
+            ) : !screenshotsData?.data?.length ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                <p>No screenshots captured yet</p>
+                <p className="text-sm mt-1">Enable screen sharing in the time tracker to start capturing screenshots</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {screenshotsData.data.map((screenshot) => {
+                  const project = projects.find(p => p.id === screenshot.crmProjectId);
+                  return (
+                    <div
+                      key={screenshot.id}
+                      className="group relative rounded-lg border overflow-visible hover-elevate cursor-pointer"
+                      onClick={() => setSelectedScreenshot(screenshot)}
+                      data-testid={`screenshot-${screenshot.id}`}
+                    >
+                      <div className="aspect-video bg-muted overflow-hidden rounded-t-lg">
+                        <img
+                          src={`/api/time-tracking/screenshots/${screenshot.id}/image`}
+                          alt={`Screenshot at ${format(new Date(screenshot.capturedAt), "h:mm a")}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                      <div className="p-2 space-y-0.5">
+                        <div className="text-xs font-medium truncate">
+                          {project?.project?.name || "Unknown Project"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {format(new Date(screenshot.capturedAt), "MMM d, yyyy h:mm a")}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {getUserName(screenshot.userId)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={!!selectedScreenshot} onOpenChange={(open) => !open && setSelectedScreenshot(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Monitor className="h-4 w-4" />
+              Screenshot Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedScreenshot && (
+            <div className="space-y-3">
+              <div className="rounded-lg overflow-hidden border bg-muted">
+                <img
+                  src={`/api/time-tracking/screenshots/${selectedScreenshot.id}/image`}
+                  alt="Screenshot"
+                  className="w-full h-auto"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                <span>{format(new Date(selectedScreenshot.capturedAt), "MMMM d, yyyy 'at' h:mm:ss a")}</span>
+                <span>{getUserName(selectedScreenshot.userId)}</span>
+                <span>{projects.find(p => p.id === selectedScreenshot.crmProjectId)?.project?.name || "Unknown Project"}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

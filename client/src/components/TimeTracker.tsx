@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useActivityDetection } from "@/hooks/useActivityDetection";
+import { useScreenCapture } from "@/hooks/useScreenCapture";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -27,7 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Play, Pause, Square, Clock, ChevronDown, ChevronUp, AlertCircle, Check, ChevronsUpDown, Timer } from "lucide-react";
+import { Play, Pause, Square, Clock, ChevronDown, ChevronUp, AlertCircle, Check, ChevronsUpDown, Timer, Monitor, MonitorOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TimeEntry, CrmProjectWithDetails } from "@shared/schema";
 
@@ -63,7 +64,8 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
   });
   
   const { data: projectsResponse } = useQuery<{ data: CrmProjectWithDetails[] }>({
-    queryKey: ["/api/crm/projects"],
+    queryKey: ["/api/crm/projects", { pageSize: 500 }],
+    queryFn: () => fetch("/api/crm/projects?pageSize=500").then(r => r.json()),
   });
   
   const projects = projectsResponse?.data || [];
@@ -221,6 +223,20 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
   const isRunning = activeEntry?.status === "running";
   const isPaused = activeEntry?.status === "paused";
   const hasActiveEntry = !!activeEntry;
+
+  const { isCapturing, captureError, startCapture, stopCapture } = useScreenCapture({
+    timeEntryId: activeEntry?.id || null,
+    crmProjectId: activeEntry?.crmProjectId || null,
+    isRunning: isRunning,
+  });
+
+  const handleToggleCapture = useCallback(() => {
+    if (isCapturing) {
+      stopCapture();
+    } else {
+      startCapture();
+    }
+  }, [isCapturing, startCapture, stopCapture]);
   
   const activeProject = projects.find(p => p.id === activeEntry?.crmProjectId);
   
@@ -357,6 +373,36 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                 )}
               </div>
               
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-border">
+                <Button
+                  size="sm"
+                  variant={isCapturing ? "default" : "outline"}
+                  className="gap-1.5 flex-1"
+                  onClick={handleToggleCapture}
+                  disabled={!isRunning}
+                  data-testid="button-toggle-screen-capture"
+                >
+                  {isCapturing ? (
+                    <>
+                      <Monitor className="h-3.5 w-3.5" />
+                      <span className="text-xs">Screen Sharing On</span>
+                    </>
+                  ) : (
+                    <>
+                      <MonitorOff className="h-3.5 w-3.5" />
+                      <span className="text-xs">Share Screen</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {captureError && (
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-xs">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{captureError}</span>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 {isRunning ? (
                   <Button

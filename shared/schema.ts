@@ -1041,3 +1041,42 @@ export type TimeEntryWithDetails = TimeEntry & {
     client?: CrmClient;
   };
 };
+
+// Time Entry Screenshots table
+export const timeEntryScreenshots = pgTable("time_entry_screenshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  timeEntryId: varchar("time_entry_id").notNull().references(() => timeEntries.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  crmProjectId: varchar("crm_project_id").notNull().references(() => crmProjects.id, { onDelete: "cascade" }),
+  storageKey: varchar("storage_key", { length: 500 }).notNull(),
+  capturedAt: timestamp("captured_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_screenshots_time_entry").on(table.timeEntryId),
+  index("idx_screenshots_user").on(table.userId),
+  index("idx_screenshots_project").on(table.crmProjectId),
+  index("idx_screenshots_captured").on(table.capturedAt),
+]);
+
+export const timeEntryScreenshotsRelations = relations(timeEntryScreenshots, ({ one }) => ({
+  timeEntry: one(timeEntries, {
+    fields: [timeEntryScreenshots.timeEntryId],
+    references: [timeEntries.id],
+  }),
+  user: one(users, {
+    fields: [timeEntryScreenshots.userId],
+    references: [users.id],
+  }),
+  crmProject: one(crmProjects, {
+    fields: [timeEntryScreenshots.crmProjectId],
+    references: [crmProjects.id],
+  }),
+}));
+
+export const insertTimeEntryScreenshotSchema = createInsertSchema(timeEntryScreenshots).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type TimeEntryScreenshot = typeof timeEntryScreenshots.$inferSelect;
+export type InsertTimeEntryScreenshot = z.infer<typeof insertTimeEntryScreenshotSchema>;
