@@ -3606,10 +3606,20 @@ Instructions:
         return res.status(400).json({ message: "Project is required" });
       }
       
-      // Check if there's already an active entry
+      // Auto-stop any existing active entry before starting a new one
       const activeEntry = await storage.getActiveTimeEntry(userId);
       if (activeEntry) {
-        return res.status(400).json({ message: "You already have an active time entry. Please stop it first." });
+        const now = new Date();
+        let finalDuration = activeEntry.duration || 0;
+        if (activeEntry.status === "running" && activeEntry.lastActivityAt) {
+          const elapsedSeconds = Math.floor((now.getTime() - new Date(activeEntry.lastActivityAt).getTime()) / 1000);
+          finalDuration += elapsedSeconds;
+        }
+        await storage.updateTimeEntry(activeEntry.id, {
+          status: "stopped",
+          endTime: now,
+          duration: finalDuration,
+        });
       }
       
       const entry = await storage.createTimeEntry({

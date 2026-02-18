@@ -1,8 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useActivityDetection } from "@/hooks/useActivityDetection";
-import { useScreenCapture } from "@/hooks/useScreenCapture";
+import { useState } from "react";
+import { useTimeTracker } from "@/contexts/TimeTrackerContext";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -30,13 +27,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Play, Pause, Square, Clock, ChevronDown, ChevronUp, AlertCircle, Check, ChevronsUpDown, Timer, Monitor, MonitorOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { TimeEntry, CrmProjectWithDetails } from "@shared/schema";
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  
   if (hours > 0) {
     return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   }
@@ -51,204 +46,48 @@ interface TimeTrackerProps {
 export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = false }: TimeTrackerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
-  const [description, setDescription] = useState("");
-  const [displayDuration, setDisplayDuration] = useState(0);
-  const [showIdleDialog, setShowIdleDialog] = useState(false);
-  const [idleCountdown, setIdleCountdown] = useState(30);
-  const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const { data: activeEntry, isLoading: isLoadingActive } = useQuery<TimeEntry | null>({
-    queryKey: ["/api/time-tracking/active"],
-    refetchInterval: 10000,
-  });
-  
-  const { data: projectsResponse } = useQuery<{ data: CrmProjectWithDetails[] }>({
-    queryKey: ["/api/crm/projects", { pageSize: 500 }],
-    queryFn: () => fetch("/api/crm/projects?pageSize=500").then(r => r.json()),
-  });
-  
-  const projects = projectsResponse?.data || [];
-  
-  const startMutation = useMutation({
-    mutationFn: async (data: { crmProjectId: string; description?: string }) => {
-      return apiRequest("POST", "/api/time-tracking/start", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/active"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/entries"] });
-      setDescription("");
-    },
-  });
-  
-  const pauseMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest("POST", `/api/time-tracking/${id}/pause`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/active"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/entries"] });
-    },
-  });
-  
-  const resumeMutation = useMutation({
-    mutationFn: async (data: { id: string; discardIdleTime?: boolean }) => {
-      return apiRequest("POST", `/api/time-tracking/${data.id}/resume`, { discardIdleTime: data.discardIdleTime });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/active"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/entries"] });
-    },
-  });
-  
-  const stopMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest("POST", `/api/time-tracking/${id}/stop`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/active"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/entries"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/stats"] });
-      setSelectedProjectId("");
-    },
-  });
-  
-  const activityMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest("POST", `/api/time-tracking/${id}/activity`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/active"] });
-    },
-  });
-  
-  useEffect(() => {
-    if (activeEntry) {
-      setSelectedProjectId(activeEntry.crmProjectId);
-      
-      const calculateDuration = () => {
-        let duration = activeEntry.duration || 0;
-        if (activeEntry.status === "running" && activeEntry.lastActivityAt) {
-          const elapsed = Math.floor((Date.now() - new Date(activeEntry.lastActivityAt).getTime()) / 1000);
-          duration += elapsed;
-        }
-        return duration;
-      };
-      
-      setDisplayDuration(calculateDuration());
-      
-      if (activeEntry.status === "running") {
-        const interval = setInterval(() => {
-          setDisplayDuration(calculateDuration());
-        }, 1000);
-        return () => clearInterval(interval);
-      }
-    } else {
-      setDisplayDuration(0);
-    }
-  }, [activeEntry]);
-  
-  const handleIdleDetected = useCallback(() => {
-    setShowIdleDialog(true);
-    setIdleCountdown(30);
-  }, []);
 
-  const { resetIdleState } = useActivityDetection({
-    entryId: activeEntry?.id || null,
-    status: activeEntry?.status as "running" | "paused" | "idle" | null,
-    idleTimeoutSeconds: 60,
-    heartbeatIntervalSeconds: 60,
-    onIdleDetected: handleIdleDetected,
-  });
+  const {
+    activeEntry,
+    isLoadingActive,
+    displayDuration,
+    isRunning,
+    isPaused,
+    hasActiveEntry,
+    projects,
+    selectedProjectId,
+    description,
+    showIdleDialog,
+    idleCountdown,
+    isCapturing,
+    captureError,
+    startMutationPending,
+    pauseMutationPending,
+    resumeMutationPending,
+    stopMutationPending,
+    setSelectedProjectId,
+    setDescription,
+    handleStart,
+    handlePause,
+    handleResume,
+    handleStop,
+    handleStillWorking,
+    handleNotWorking,
+    handleToggleCapture,
+    setShowIdleDialog,
+  } = useTimeTracker();
 
-  useEffect(() => {
-    if (showIdleDialog) {
-      setIdleCountdown(30);
-      const countdownInterval = setInterval(() => {
-        setIdleCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownInterval);
-            if (activeEntry) {
-              pauseMutation.mutate(activeEntry.id);
-            }
-            setShowIdleDialog(false);
-            return 30;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(countdownInterval);
-    }
-  }, [showIdleDialog, activeEntry, pauseMutation]);
-
-  const handleStillWorking = useCallback(() => {
-    setShowIdleDialog(false);
-    resetIdleState();
-    if (activeEntry) {
-      activityMutation.mutate(activeEntry.id);
-    }
-  }, [resetIdleState, activeEntry, activityMutation]);
-
-  const handleNotWorking = useCallback(() => {
-    setShowIdleDialog(false);
-    if (activeEntry) {
-      pauseMutation.mutate(activeEntry.id);
-    }
-  }, [activeEntry, pauseMutation]);
-  
-  const handleStart = useCallback(() => {
-    if (!selectedProjectId) return;
-    startMutation.mutate({ crmProjectId: selectedProjectId, description: description || undefined });
-  }, [selectedProjectId, description, startMutation]);
-  
-  const handlePause = useCallback(() => {
-    if (activeEntry) {
-      pauseMutation.mutate(activeEntry.id);
-    }
-  }, [activeEntry, pauseMutation]);
-  
-  const handleResume = useCallback(() => {
-    if (activeEntry) {
-      resumeMutation.mutate({ id: activeEntry.id, discardIdleTime: false });
-    }
-  }, [activeEntry, resumeMutation]);
-  
-  const handleStop = useCallback(() => {
-    if (activeEntry) {
-      stopMutation.mutate(activeEntry.id);
-    }
-  }, [activeEntry, stopMutation]);
-  
-  const isRunning = activeEntry?.status === "running";
-  const isPaused = activeEntry?.status === "paused";
-  const hasActiveEntry = !!activeEntry;
-
-  const { isCapturing, captureError, startCapture, stopCapture } = useScreenCapture({
-    timeEntryId: activeEntry?.id || null,
-    crmProjectId: activeEntry?.crmProjectId || null,
-    isRunning: isRunning,
-  });
-
-  const handleToggleCapture = useCallback(() => {
-    if (isCapturing) {
-      stopCapture();
-    } else {
-      startCapture();
-    }
-  }, [isCapturing, startCapture, stopCapture]);
-  
   const activeProject = projects.find(p => p.id === activeEntry?.crmProjectId);
-  
+
   if (isLoadingActive) {
     return null;
   }
-  
+
   return (
     <>
     <Popover open={isExpanded} onOpenChange={setIsExpanded}>
       <PopoverTrigger asChild>
-        <Button 
+        <Button
           variant={hasActiveEntry ? (isRunning ? "default" : "secondary") : "ghost"}
           size={iconOnly ? "icon" : "sm"}
           className={`${iconOnly ? "h-8 w-8" : "gap-2"} ${isRunning ? "animate-pulse" : ""}`}
@@ -277,8 +116,8 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
               </span>
             )}
           </div>
-          
-          {!hasActiveEntry ? (
+
+          {!hasActiveEntry && (
             <>
               <div className="space-y-2">
                 <label className="text-sm text-muted-foreground">Select Project</label>
@@ -327,7 +166,7 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                   </PopoverContent>
                 </Popover>
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-sm text-muted-foreground">Description (optional)</label>
                 <Input
@@ -337,10 +176,10 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                   data-testid="input-time-description"
                 />
               </div>
-              
+
               <Button
-                onClick={handleStart}
-                disabled={!selectedProjectId || startMutation.isPending}
+                onClick={() => handleStart()}
+                disabled={!selectedProjectId || startMutationPending}
                 className="w-full gap-2"
                 data-testid="button-start-tracking"
               >
@@ -348,19 +187,20 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                 Start Tracking
               </Button>
             </>
-          ) : (
+          )}
+          {hasActiveEntry && activeEntry && (
             <>
               {(activeEntry.status === "paused" || activeEntry.status === "idle") && (
                 <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-2 text-sm">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   <span>
-                    {activeEntry.status === "idle" 
-                      ? "Timer paused due to inactivity" 
+                    {activeEntry.status === "idle"
+                      ? "Timer stopped due to inactivity"
                       : "Timer is paused"}
                   </span>
                 </div>
               )}
-              
+
               <div className="bg-muted rounded-lg p-3">
                 <div className="text-sm text-muted-foreground">Working on</div>
                 <div className="font-medium truncate">
@@ -372,7 +212,7 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                   </div>
                 )}
               </div>
-              
+
               <div className="flex items-center gap-2 p-2 rounded-lg border border-border">
                 <Button
                   size="sm"
@@ -409,7 +249,7 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                     onClick={handlePause}
                     variant="secondary"
                     className="flex-1 gap-2"
-                    disabled={pauseMutation.isPending}
+                    disabled={pauseMutationPending}
                     data-testid="button-pause-tracking"
                   >
                     <Pause className="h-4 w-4" />
@@ -419,7 +259,7 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                   <Button
                     onClick={handleResume}
                     className="flex-1 gap-2"
-                    disabled={resumeMutation.isPending}
+                    disabled={resumeMutationPending}
                     data-testid="button-resume-tracking"
                   >
                     <Play className="h-4 w-4" />
@@ -430,14 +270,14 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                   onClick={handleStop}
                   variant="destructive"
                   className="flex-1 gap-2"
-                  disabled={stopMutation.isPending}
+                  disabled={stopMutationPending}
                   data-testid="button-stop-tracking"
                 >
                   <Square className="h-4 w-4" />
                   Stop
                 </Button>
               </div>
-              
+
               {isPaused && (
                 <div className="text-sm text-center text-muted-foreground">
                   Timer is paused
@@ -457,7 +297,7 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
             Are you still working?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            We haven't detected any activity for the last minute. The timer will pause automatically in {idleCountdown} seconds if there's no response.
+            No activity detected for the last 3 minutes. The timer will stop automatically in {idleCountdown} seconds if there's no response.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -465,7 +305,7 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
             onClick={handleNotWorking}
             data-testid="button-idle-no"
           >
-            No, pause timer
+            No, stop timer
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleStillWorking}

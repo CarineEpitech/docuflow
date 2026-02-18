@@ -1,0 +1,89 @@
+I need you to refactor and fix several issues in my Time Tracking feature.
+
+1️⃣ Fix Screenshot Capture Failure
+
+I keep seeing:
+
+"Screenshot capture failed. Will retry on next interval."
+
+Please:
+
+Identify why the screen capture fails (stream ending, permission loss, background tab throttling, canvas/video readiness, expired upload URL, etc.).
+
+Add proper validation before capturing:
+
+Check that the MediaStream is active.
+
+Ensure video.readyState === 4 before drawing to canvas.
+
+Handle stream ended events properly.
+
+Improve error handling and logging so I can see the real cause.
+
+Ensure screenshots only run while a valid active time entry exists.
+
+2️⃣ Fix Idle Detection & Auto-Pause Logic
+
+Current behavior:
+
+Warning appears after 1 minute of inactivity.
+
+It says the timer will auto-pause in 30 seconds.
+
+But the timer does NOT actually pause.
+
+Required changes:
+
+Change inactivity threshold to 3 minutes.
+
+After showing the warning, if no response after 30 seconds:
+
+Automatically stop the active time entry.
+
+Ensure the backend stopTimeEntry logic is triggered.
+
+Ensure the global timer state updates correctly.
+
+Make sure timeouts are stored and cleared properly to avoid duplicate timers.
+
+3️⃣ Refactor Timer Architecture (Single Source of Truth)
+
+Currently:
+
+The timer appears in the sidebar.
+
+The Time Tracking page does not stay fully synchronized.
+
+Multiple projects could theoretically run timers.
+
+I need:
+
+A single global active timer state (Context or global store).
+
+Only ONE active time entry at a time.
+
+If a new project timer starts:
+
+Automatically stop the currently active time entry.
+
+Then start the new one.
+
+The timer display must synchronize between:
+
+Sidebar clock panel
+
+Time Tracking page (inside each project card)
+
+Screenshot capture must attach only to the currently active time entry.
+
+Please refactor the timer logic cleanly to support this business rule.
+
+Business Rule
+
+At any given moment:
+
+Only one active time entry can exist per user.
+
+Starting a new one must stop the previous one automatically.
+
+Please implement the solution in a clean, scalable SaaS architecture pattern with proper state management and error handling.

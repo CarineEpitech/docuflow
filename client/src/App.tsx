@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { TimeTracker } from "@/components/TimeTracker";
+import { TimeTrackerProvider } from "@/contexts/TimeTrackerContext";
 import { FileText } from "lucide-react";
 import Landing from "@/pages/Landing";
 import AuthPage from "@/pages/AuthPage";
@@ -34,28 +35,30 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full bg-background">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 min-w-0 bg-background">
-          <header className="flex md:hidden items-center justify-between gap-3 px-4 py-3 border-b bg-background sticky top-0 z-50">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger data-testid="button-mobile-sidebar-toggle" />
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-primary flex items-center justify-center w-7 h-7">
-                  <FileText className="w-3.5 h-3.5 text-primary-foreground" />
+    <TimeTrackerProvider>
+      <SidebarProvider style={style as React.CSSProperties}>
+        <div className="flex h-screen w-full bg-background">
+          <AppSidebar />
+          <div className="flex flex-col flex-1 min-w-0 bg-background">
+            <header className="flex md:hidden items-center justify-between gap-3 px-4 py-3 border-b bg-background sticky top-0 z-50">
+              <div className="flex items-center gap-3">
+                <SidebarTrigger data-testid="button-mobile-sidebar-toggle" />
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg bg-primary flex items-center justify-center w-7 h-7">
+                    <FileText className="w-3.5 h-3.5 text-primary-foreground" />
+                  </div>
+                  <span className="font-semibold text-sm">DocuFlow</span>
                 </div>
-                <span className="font-semibold text-sm">DocuFlow</span>
               </div>
-            </div>
-            <TimeTracker testId="button-time-tracker-mobile" />
-          </header>
-          <main className="flex-1 overflow-auto bg-background scrollbar-hide">
-            {children}
-          </main>
+              <TimeTracker testId="button-time-tracker-mobile" />
+            </header>
+            <main className="flex-1 overflow-auto bg-background scrollbar-hide">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </TimeTrackerProvider>
   );
 }
 
