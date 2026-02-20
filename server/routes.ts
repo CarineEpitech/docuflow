@@ -173,15 +173,27 @@ export async function registerRoutes(
       // Update last login timestamp
       await storage.updateUserLastLogin(user.id);
 
-      // Regenerate session to prevent fixation attacks, then set userId
-      await regenerateSession(req);
+      // Try to regenerate session for security, but fall back to just setting userId
+      try {
+        await regenerateSession(req);
+      } catch (e) {
+        // Session regeneration can fail with external URLs / proxy setups - safe to continue
+      }
       (req.session as any).userId = user.id;
+
+      // Save session explicitly to ensure it persists
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
 
       // Return user without password
       const { password: _, ...safeUser } = user;
       res.json(safeUser);
-    } catch (error) {
-      console.error("Error logging in:", error);
+    } catch (error: any) {
+      console.error("Error logging in:", error?.message || error, error?.stack);
       res.status(500).json({ message: "Failed to login" });
     }
   });

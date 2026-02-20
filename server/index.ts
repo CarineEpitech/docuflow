@@ -5,6 +5,7 @@ import { createServer } from "http";
 import { storage } from "./storage";
 
 const app = express();
+app.set("trust proxy", 1);
 const httpServer = createServer(app);
 
 declare module "http" {
@@ -16,12 +17,17 @@ declare module "http" {
 app.use(
   express.json({
     verify: (req, _res, buf) => {
-      req.rawBody = buf;
+      try {
+        req.rawBody = buf;
+      } catch (e) {
+        // Ignore rawBody errors
+      }
     },
   }),
 );
 
 app.use(express.urlencoded({ extended: false }));
+
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -83,9 +89,10 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+    console.error("Unhandled error:", err?.message || err, err?.stack);
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
   });
 
   // importantly only setup vite in development and after
