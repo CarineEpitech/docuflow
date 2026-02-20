@@ -32,9 +32,32 @@ export default function AuthPage() {
     },
   });
 
+  const [debugError, setDebugError] = useState<string | null>(null);
+
   const loginMutation = useMutation({
     mutationFn: async (data: LoginData) => {
-      return apiRequest("POST", "/api/auth/login", data);
+      setDebugError(null);
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+          credentials: "include",
+        });
+        const text = await res.text();
+        if (!res.ok) {
+          setDebugError(`Server returned ${res.status}: ${text}`);
+          throw new Error(text || res.statusText);
+        }
+        return JSON.parse(text);
+      } catch (err: any) {
+        if (err.name === "TypeError" && err.message === "Failed to fetch") {
+          setDebugError(`Network error: Could not reach the server. This may be a CORS or proxy issue.`);
+        } else if (!debugError) {
+          setDebugError(`Error: ${err.message}`);
+        }
+        throw err;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
@@ -130,6 +153,11 @@ export default function AuthPage() {
                     </FormItem>
                   )}
                 />
+                {debugError && (
+                  <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm" data-testid="text-debug-error">
+                    {debugError}
+                  </div>
+                )}
                 <Button
                   type="submit"
                   className="w-full"
