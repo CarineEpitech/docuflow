@@ -213,3 +213,37 @@ Preferred communication style: Simple, everyday language.
 - Consistent spacing scale: 2, 3, 4, 6, 8, 12, 16 (Tailwind units)
 - Typography hierarchy with Inter for UI and system fonts for content
 - Shadow system: 2xs, xs, sm, md, lg, xl, 2xl
+
+### MCP Server (Claude Integration)
+
+**Location**: `mcp-server/`
+
+The MCP (Model Context Protocol) server enables Claude Desktop to interact with DocuFlow directly. It communicates via STDIO transport and calls the DocuFlow REST API using API key authentication.
+
+**Authentication**: Uses `X-API-Key` header with the `MCP_API_KEY` environment variable. The API key authenticates as the main admin user.
+
+**Build**: `npx tsc --project mcp-server/tsconfig.json` outputs to `mcp-server/build/index.js`
+
+**Available Tools** (22 total):
+- Projects: list_projects, get_project
+- Documents: list_documents, get_document, create_document, update_document, delete_document, list_recent_documents
+- Search: search (full-text across all projects)
+- CRM Clients: list_clients, get_client, create_client
+- CRM Projects: list_crm_projects, get_crm_project
+- Time Tracking: list_time_entries, get_time_tracking_stats, start_time_tracking, stop_time_tracking, get_active_time_entry
+- AI: ask_ai (semantic search + GPT response)
+- Users: list_users
+- Notifications: get_notifications
+
+**Environment Variables** (set in Claude Desktop config):
+- `DOCUFLOW_API_URL`: The published app URL (e.g. https://your-app.replit.app)
+- `DOCUFLOW_API_KEY`: The MCP_API_KEY value from the app's environment
+
+### Time Tracking Architecture
+
+**TimeTrackerContext** (`client/src/contexts/TimeTrackerContext.tsx`):
+- Single global source of truth for all timer state (active entry, duration, idle detection, screen capture)
+- Uses ref pattern (`stopScreenCaptureRef`) to avoid TDZ issues with circular callback dependencies
+- Idle detection: 3-minute inactivity threshold, auto-STOP after 30-second countdown dialog
+- Screenshot capture: Random 180-300s intervals, retry logic with max 5 consecutive failures, video readyState validation
+- Backend auto-stops previous active entry when starting a new one

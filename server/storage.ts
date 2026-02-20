@@ -141,7 +141,7 @@ export interface IStorage {
   // Link orphan projects to CRM (for migration of existing projects)
   linkOrphanProjectsToCrm(): Promise<{ linkedCount: number }>;
   
-  // Get all users for assignee dropdown
+  getMainAdmin(): Promise<SafeUser | undefined>;
   getAllUsers(): Promise<SafeUser[]>;
   
   // Update user role (admin only)
@@ -1082,6 +1082,13 @@ export class DatabaseStorage implements IStorage {
     }
     
     return { linkedCount };
+  }
+
+  async getMainAdmin(): Promise<SafeUser | undefined> {
+    const [admin] = await db.select().from(users).where(eq(users.isMainAdmin, 1)).limit(1);
+    if (admin) return admin;
+    const [anyAdmin] = await db.select().from(users).where(eq(users.role, "admin")).limit(1);
+    return anyAdmin;
   }
 
   async getAllUsers(): Promise<SafeUser[]> {

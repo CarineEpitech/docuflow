@@ -186,18 +186,23 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // Check for email/password session auth
+  const apiKey = req.headers["x-api-key"] as string | undefined;
+  if (apiKey && process.env.MCP_API_KEY && apiKey === process.env.MCP_API_KEY) {
+    const adminUser = await storage.getMainAdmin();
+    if (adminUser) {
+      (req.session as any).userId = adminUser.id;
+      return next();
+    }
+  }
+
   if (req.session && (req.session as any).userId) {
     return next();
   }
   
-  // Check for Replit OIDC auth
   const user = req.user as any;
   if (req.isAuthenticated?.() && user?.claims?.sub) {
-    // Check if token is still valid
     const now = Math.floor(Date.now() / 1000);
     if (user.expires_at && now > user.expires_at) {
-      // Try to refresh
       const refreshToken = user.refresh_token;
       if (!refreshToken) {
         return res.status(401).json({ message: "Unauthorized" });
