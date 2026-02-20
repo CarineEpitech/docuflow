@@ -35,6 +35,7 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  const isProxied = !!process.env.REPL_ID;
   return session({
     secret: sessionSecret,
     store: sessionStore,
@@ -42,9 +43,9 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isProxied || process.env.NODE_ENV === "production",
       maxAge: sessionTtl,
-      sameSite: "lax",
+      sameSite: isProxied ? "none" as const : "lax" as const,
     },
   });
 }
