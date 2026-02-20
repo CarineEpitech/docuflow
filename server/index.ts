@@ -14,6 +14,12 @@ declare module "http" {
   }
 }
 
+httpServer.on("request", (req) => {
+  if (req.url?.startsWith("/api")) {
+    console.log(`[RAW HTTP] ${req.method} ${req.url} from ${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`);
+  }
+});
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -23,10 +29,11 @@ app.use(
         // Ignore rawBody errors
       }
     },
+    limit: "10mb",
   }),
 );
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
 
 export function log(message: string, source = "express") {
