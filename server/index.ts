@@ -14,11 +14,6 @@ declare module "http" {
   }
 }
 
-httpServer.on("request", (req) => {
-  if (req.url?.startsWith("/api")) {
-    console.log(`[RAW HTTP] ${req.method} ${req.url} from ${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`);
-  }
-});
 
 app.use(
   express.json({

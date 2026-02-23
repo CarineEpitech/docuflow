@@ -1,0 +1,125 @@
+The documentation is generated when the toggle is enabled. We have 3 files in it(Ressources,Requirements,Deliverables). When creating documentation by clicking on the toggle, I want to have by default in:
+-Ressources((H1, Bold) Login Details
+
+(Normal) [Add login credentials information here]
+
+(H1, Bold) Conversations
+
+(Normal) [Add conversation references or summaries here]
+
+(H1, Bold) Recordings
+
+(Normal) [Add meeting or call recording links here]
+
+(H1, Bold) Files
+
+(Normal) [Add related documents or attachments here]
+
+(H1, Bold) Clients Notes
+
+(Normal) [Add client notes and remarks here])
+-Requirements((H1, Bold) Document Information
+
+(Bullets) Client: [Client Name]
+(Bullets) Prepared By: TECHMA Inc.
+(Bullets) Date: [Insert Date]
+(Bullets) Project Title: [Enhancement / Fix / Integration Name]
+(Bullets) Platforms: [Zoho CRM, Creator, API, etc.]
+(Bullets) Engagement Type: Hourly / Small Fixed Scope
+
+(H1, Bold) Table of Contents
+
+(Numbered List) 1. Overview
+(Numbered List) 2. Objectives
+(Numbered List) 3. Scope of Work
+(Numbered List) 4. Functional Changes
+(Numbered List) 5. Business Rules & Logic
+(Numbered List) 6. Constraints
+(Numbered List) 7. Acceptance Criteria
+
+(H1, Bold) 1. Overview
+
+(Normal) Brief description of what this update addresses.
+
+(H2, Bold) Include:
+
+(Bullets) Current issue or need
+(Bullets) Affected system/module
+(Bullets) Business impact
+
+(H1, Bold) 2. Objectives
+
+(Normal) What this update aims to achieve.
+
+(H2, Bold) Examples:
+
+(Bullets) Improve upload behavior
+(Bullets) Fix incorrect logic
+(Bullets) Add missing automation
+(Bullets) Increase visibility in CRM
+
+(H1, Bold) 3. Scope of Work
+
+(H2, Bold) Included
+
+(Bullets) [Feature / Fix 1]
+(Bullets) [Feature / Fix 2]
+(Bullets) [Enhancement 3]
+
+(H2, Bold) Not Included
+
+(Bullets) Major redesign
+(Bullets) New modules
+(Bullets) Unrelated automation
+(Bullets) Third-party migrations
+
+(H1, Bold) 4. Functional Changes
+
+(H2, Bold) 4.1 Change / Feature Name
+
+(H3, Bold) Current Behavior:
+(Normal) Describe how it works now.
+
+(H3, Bold) Required Behavior:
+(Normal) Describe expected behavior after update.
+
+(H3, Bold) System Impact:
+(Normal) Where this change applies (Portal / CRM / API / UI).
+
+(H1, Bold) 5. Business Rules & Logic
+
+(Normal) If/then logic and validation rules.
+
+(H2, Bold) Examples:
+
+(Bullets) If field is empty → hide button
+(Bullets) If deal is updated → redirect upload
+(Bullets) Updates must apply without user reinvite
+(Bullets) Logic must be dynamic (no hardcoding)
+
+(H1, Bold) 6. Constraints
+
+(Bullets) Must not disrupt live users
+(Bullets) Must not require portal reinvite
+(Bullets) Must remain compatible with existing integrations
+(Bullets) CRM remains system of record
+(Bullets) (Add project-specific constraints as needed.)
+
+(H1, Bold) 7. Acceptance Criteria
+
+(Normal) The project will be considered complete when:
+
+(Bullets) All listed changes are implemented
+(Bullets) No regression issues occur
+(Bullets) Existing users remain unaffected
+(Bullets) Client confirms expected behavior
+(Bullets) No manual workaround is required
+
+(H1, Bold) VIDEO)
+-Deliverables(
+(Bold,H1 and underlined)Client(
+(Bold,H2)Text,
+(Bold,H2)Video),
+(Bold,H1 and underlined)Internal(
+(Bold,H2)Text,
+(Bold,H2)Video))

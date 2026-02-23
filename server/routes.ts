@@ -158,30 +158,24 @@ export async function registerRoutes(
 
       const { email, password } = parsed.data;
 
-      // Find user by email
       const user = await storage.getUserByEmail(email);
       if (!user) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      // Verify password
       const isValid = await verifyPassword(password, user.password);
       if (!isValid) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      // Update last login timestamp
       await storage.updateUserLastLogin(user.id);
 
-      // Try to regenerate session for security, but fall back to just setting userId
       try {
         await regenerateSession(req);
       } catch (e) {
-        // Session regeneration can fail with external URLs / proxy setups - safe to continue
       }
       (req.session as any).userId = user.id;
 
-      // Save session explicitly to ensure it persists
       await new Promise<void>((resolve, reject) => {
         req.session.save((err) => {
           if (err) reject(err);
@@ -189,7 +183,6 @@ export async function registerRoutes(
         });
       });
 
-      // Return user without password
       const { password: _, ...safeUser } = user;
       res.json(safeUser);
     } catch (error: any) {
