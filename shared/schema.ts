@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import {
+  bigint,
   index,
   integer,
   jsonb,
@@ -412,7 +413,7 @@ export const crmProjects = pgTable("crm_projects", {
   documentationEnabled: integer("documentation_enabled").default(0),
   isDocumentationOnly: integer("is_documentation_only").default(0),
   reviewStartedAt: timestamp("review_started_at"),
-  totalReviewMs: integer("total_review_ms").default(0),
+  totalReviewMs: bigint("total_review_ms", { mode: "number" }).default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
