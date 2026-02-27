@@ -229,14 +229,14 @@ export default function TimeTrackingPage() {
     return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email : "Unknown User";
   };
 
+  // "idle" is a UI-only state (client-side), not a DB status.
+  // DB statuses are: "running" | "paused" | "stopped"
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "running":
         return <Badge variant="default" className="bg-green-600">Running</Badge>;
       case "paused":
         return <Badge variant="secondary">Paused</Badge>;
-      case "idle":
-        return <Badge variant="outline" className="border-amber-500 text-amber-600">Idle</Badge>;
       case "stopped":
         return <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50 dark:bg-green-950">Completed</Badge>;
       default:

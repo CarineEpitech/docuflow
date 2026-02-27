@@ -190,14 +190,17 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
           )}
           {hasActiveEntry && activeEntry && (
             <>
-              {(activeEntry.status === "paused" || activeEntry.status === "idle") && (
+              {activeEntry.status === "paused" && (
                 <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-2 text-sm">
                   <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>
-                    {activeEntry.status === "idle"
-                      ? "Timer stopped due to inactivity"
-                      : "Timer is paused"}
-                  </span>
+                  <span>Timer is paused</span>
+                </div>
+              )}
+              {/* Idle is a UI-only state (showIdleDialog), not a DB status */}
+              {showIdleDialog && activeEntry.status === "running" && (
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-2 text-sm">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>Inactivity detected — are you still working?</span>
                 </div>
               )}
 
