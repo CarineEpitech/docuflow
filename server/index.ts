@@ -1,4 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -14,6 +16,42 @@ declare module "http" {
   }
 }
 
+// ─── Security headers ───
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Vite dev server and inline scripts need this off
+    crossOriginEmbedderPolicy: false, // Allow embedding external resources (GCS images, etc.)
+  })
+);
+
+// ─── Rate limiting ───
+// Global: 120 requests per minute per IP (generous for SPA polling + API calls)
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { message: "Too many requests, please try again later" },
+  // TODO [PLACEHOLDER]: Tune these values after observing real traffic patterns.
+  // Consider per-user rate limiting (keyed on session userId) for Desktop Agent.
+});
+app.use("/api/", globalLimiter);
+
+// Stricter limit on auth endpoints to prevent brute force
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { message: "Too many login attempts, please try again later" },
+});
+app.use("/api/login", authLimiter);
+app.use("/api/register", authLimiter);
+
+// ─── Health check (before auth, unauthenticated) ───
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
 app.use(
   express.json({
