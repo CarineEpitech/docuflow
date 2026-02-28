@@ -3797,6 +3797,41 @@ Instructions:
     }
   });
   
+  // ─── Server-side stale session detection (agent-ready) ───
+  // Periodically flag running entries with no heartbeat for > STALE_THRESHOLD_MINUTES.
+  // TODO [PLACEHOLDER]: Policy — currently flag_only. Change to auto_pause or auto_stop
+  //   when Desktop Agent requirements are finalized.
+  const STALE_THRESHOLD_MINUTES = 10;
+  const STALE_CHECK_INTERVAL_MS = 2 * 60 * 1000; // check every 2 minutes
+
+  setInterval(async () => {
+    try {
+      const threshold = new Date(Date.now() - STALE_THRESHOLD_MINUTES * 60 * 1000);
+      const staleEntries = await storage.getStaleRunningEntries(threshold);
+
+      for (const entry of staleEntries) {
+        // flag_only: log the stale entry but don't auto-stop
+        console.warn(
+          `[StaleSession] Entry ${entry.id} (user: ${entry.userId}) has been running ` +
+          `with no heartbeat since ${entry.lastActivityAt?.toISOString() ?? "unknown"}. ` +
+          `Consider auto-pausing.`
+        );
+        // TODO [PLACEHOLDER]: Uncomment to auto-stop stale entries:
+        // const now = new Date();
+        // const lastActivity = entry.lastActivityAt || entry.startTime;
+        // const elapsed = Math.floor((now.getTime() - new Date(lastActivity).getTime()) / 1000);
+        // await storage.updateTimeEntry(entry.id, {
+        //   status: "stopped",
+        //   endTime: now,
+        //   duration: (entry.duration || 0) + elapsed,
+        // });
+        // console.log(`[StaleSession] Auto-stopped entry ${entry.id}`);
+      }
+    } catch (error) {
+      console.error("[StaleSession] Error checking stale entries:", error);
+    }
+  }, STALE_CHECK_INTERVAL_MS);
+
   // Update time entry (description, etc.)
   app.patch("/api/time-tracking/:id", isAuthenticated, async (req: any, res) => {
     try {

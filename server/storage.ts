@@ -79,7 +79,7 @@ import {
   type InsertTimeEntryScreenshot,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, like, or, isNull, sql, gt, lte, asc, count } from "drizzle-orm";
+import { eq, and, desc, like, or, isNull, sql, gt, lt, lte, asc, count } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -258,6 +258,8 @@ export interface IStorage {
   }): Promise<TimeEntryWithDetails[]>;
   getTimeEntry(id: string): Promise<TimeEntryWithDetails | undefined>;
   getActiveTimeEntry(userId: string): Promise<TimeEntry | undefined>;
+  /** Find running entries whose lastActivityAt is older than `staleThreshold` */
+  getStaleRunningEntries(staleThreshold: Date): Promise<TimeEntry[]>;
   createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry>;
   updateTimeEntry(id: string, data: Partial<InsertTimeEntry>): Promise<TimeEntry | undefined>;
   deleteTimeEntry(id: string): Promise<void>;
@@ -2214,6 +2216,16 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(timeEntries.startTime))
       .limit(1);
     return entry;
+  }
+
+  async getStaleRunningEntries(staleThreshold: Date): Promise<TimeEntry[]> {
+    return db
+      .select()
+      .from(timeEntries)
+      .where(and(
+        eq(timeEntries.status, "running"),
+        lt(timeEntries.lastActivityAt, staleThreshold)
+      ));
   }
 
   async createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry> {
