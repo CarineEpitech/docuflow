@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTimeTracker } from "@/contexts/TimeTrackerContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Clock, Calendar, TrendingUp, Timer, Filter, X, ChevronDown, ChevronRight, LayoutList, Table2, Monitor, ImageIcon } from "lucide-react";
+import { Clock, Calendar, TrendingUp, Timer, Filter, X, ChevronDown, ChevronRight, LayoutList, Table2, Monitor, ImageIcon, Play, Pause, Square } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import type { TimeEntry, CrmProjectWithDetails, User } from "@shared/schema";
 
@@ -70,6 +71,22 @@ export default function TimeTrackingPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grouped");
   const [selectedScreenshot, setSelectedScreenshot] = useState<Screenshot | null>(null);
 
+  // ─── Single Source of Truth: same context as Sidebar ───
+  const {
+    activeEntry: ctxActiveEntry,
+    displayDuration: ctxDisplayDuration,
+    isRunning: ctxIsRunning,
+    isPaused: ctxIsPaused,
+    hasActiveEntry: ctxHasActiveEntry,
+    projects: ctxProjects,
+    handlePause,
+    handleResume,
+    handleStop,
+    pauseMutationPending,
+    resumeMutationPending,
+    stopMutationPending,
+  } = useTimeTracker();
+
   const toggleProjectExpanded = (projectId: string) => {
     setExpandedProjects(prev => {
       const newSet = new Set(prev);
@@ -82,6 +99,7 @@ export default function TimeTrackingPage() {
     });
   };
 
+  // Historical data queries (read-only, for the entries table + stats)
   const { data: entriesData, isLoading: isLoadingEntries } = useQuery<{ data: TimeEntry[] }>({
     queryKey: ["/api/time-tracking/entries"],
   });
@@ -95,10 +113,8 @@ export default function TimeTrackingPage() {
     queryKey: ["/api/time-tracking/stats"],
   });
 
-  const { data: projectsResponse } = useQuery<{ data: CrmProjectWithDetails[] }>({
-    queryKey: ["/api/crm/projects", { pageSize: 500 }],
-    queryFn: () => fetch("/api/crm/projects?pageSize=500").then(r => r.json()),
-  });
+  // Use projects from context (same source as Sidebar) instead of a duplicate query
+  const projects = ctxProjects;
 
   const { data: usersData } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -115,7 +131,6 @@ export default function TimeTrackingPage() {
   });
 
   const entries = entriesData?.data || [];
-  const projects = projectsResponse?.data || [];
   const users = usersData || [];
   const stats = statsData;
 
@@ -229,14 +244,14 @@ export default function TimeTrackingPage() {
     return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email : "Unknown User";
   };
 
+  // "idle" is a UI-only state (client-side), not a DB status.
+  // DB statuses are: "running" | "paused" | "stopped"
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "running":
         return <Badge variant="default" className="bg-green-600">Running</Badge>;
       case "paused":
         return <Badge variant="secondary">Paused</Badge>;
-      case "idle":
-        return <Badge variant="outline" className="border-amber-500 text-amber-600">Idle</Badge>;
       case "stopped":
         return <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50 dark:bg-green-950">Completed</Badge>;
       default:
@@ -302,6 +317,46 @@ export default function TimeTrackingPage() {
           </Button>
         </div>
       </div>
+
+      {/* ─── Active Timer Banner (from context — same source as Sidebar) ─── */}
+      {ctxHasActiveEntry && ctxActiveEntry && (
+        <Card className={`border-2 ${ctxIsRunning ? "border-green-500/50" : "border-amber-500/50"}`}>
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`h-2.5 w-2.5 rounded-full ${ctxIsRunning ? "bg-green-500 animate-pulse" : "bg-amber-500"}`} />
+                <div className="min-w-0">
+                  <div className="font-medium text-sm truncate">
+                    {projects.find(p => p.id === ctxActiveEntry.crmProjectId)?.project?.name || "Unknown Project"}
+                  </div>
+                  {ctxActiveEntry.description && (
+                    <div className="text-xs text-muted-foreground truncate">{ctxActiveEntry.description}</div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className={`font-mono text-xl font-semibold ${ctxIsRunning ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                  {formatDetailedDuration(ctxDisplayDuration)}
+                </span>
+                <div className="flex gap-1.5">
+                  {ctxIsRunning ? (
+                    <Button size="sm" variant="secondary" onClick={handlePause} disabled={pauseMutationPending}>
+                      <Pause className="h-3.5 w-3.5" />
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={handleResume} disabled={resumeMutationPending}>
+                      <Play className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <Button size="sm" variant="destructive" onClick={handleStop} disabled={stopMutationPending}>
+                    <Square className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {activeTab === "entries" && (
       <>

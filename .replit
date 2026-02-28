@@ -46,6 +46,5 @@ externalPort = 80
 defaultBucketID = "replit-objstore-64708bc7-367f-45c8-9004-db72f81cbeba"
 
 [userenv]
-
-[userenv.shared]
-MCP_API_KEY = "b10f7586a7dae5a85d513cfc3dd5e3e6426d07127195f47591d431d723cae1ab"
+# MCP_API_KEY must be set via Replit Secrets (not hardcoded here).
+# Go to Tools > Secrets in Replit and add MCP_API_KEY there.

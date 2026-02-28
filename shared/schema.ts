@@ -1081,3 +1081,73 @@ export const insertTimeEntryScreenshotSchema = createInsertSchema(timeEntryScree
 
 export type TimeEntryScreenshot = typeof timeEntryScreenshots.$inferSelect;
 export type InsertTimeEntryScreenshot = z.infer<typeof insertTimeEntryScreenshotSchema>;
+
+// ─── Desktop Agent: Devices ───
+
+export const devices = pgTable("devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  os: varchar("os", { length: 100 }),
+  clientVersion: varchar("client_version", { length: 50 }),
+  /** SHA-256 hash of the device token (never store raw) */
+  deviceTokenHash: varchar("device_token_hash", { length: 64 }).notNull(),
+  lastSeenAt: timestamp("last_seen_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_devices_user").on(table.userId),
+  index("idx_devices_token_hash").on(table.deviceTokenHash),
+]);
+
+export const devicesRelations = relations(devices, ({ one }) => ({
+  user: one(users, { fields: [devices.userId], references: [users.id] }),
+}));
+
+export type Device = typeof devices.$inferSelect;
+export type InsertDevice = typeof devices.$inferInsert;
+
+// ─── Desktop Agent: Pairing Codes ───
+
+export const agentPairingCodes = pgTable("agent_pairing_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  code: varchar("code", { length: 10 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_pairing_code").on(table.code),
+]);
+
+export type AgentPairingCode = typeof agentPairingCodes.$inferSelect;
+
+// ─── Desktop Agent: Processed Batches (idempotency) ───
+
+export const agentProcessedBatches = pgTable("agent_processed_batches", {
+  batchId: varchar("batch_id").primaryKey(),
+  deviceId: varchar("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
+  eventCount: integer("event_count").notNull().default(0),
+  processedAt: timestamp("processed_at").defaultNow(),
+}, (table) => [
+  index("idx_processed_batches_device").on(table.deviceId),
+  index("idx_processed_batches_time").on(table.processedAt),
+]);
+
+// ─── Desktop Agent: Activity Events ───
+
+export const agentActivityEvents = pgTable("agent_activity_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deviceId: varchar("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  timeEntryId: varchar("time_entry_id").references(() => timeEntries.id, { onDelete: "set null" }),
+  batchId: varchar("batch_id").notNull(),
+  eventType: varchar("event_type", { length: 50 }).notNull(),
+  timestamp: timestamp("timestamp").notNull(),
+  data: jsonb("data"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_agent_events_device").on(table.deviceId),
+  index("idx_agent_events_user_time").on(table.userId, table.timestamp),
+  index("idx_agent_events_batch").on(table.batchId),
+]);

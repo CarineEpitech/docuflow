@@ -6,6 +6,7 @@ import { setupAuth, isAuthenticated, getUserId, hashPassword, verifyPassword, re
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
+import { registerAgentRoutes } from "./agentRoutes";
 import mammoth from "mammoth";
 import { 
   insertProjectSchema, 
@@ -36,6 +37,7 @@ import {
 } from "./transcripts";
 import { sendWelcomeEmail, sendPasswordUpdateEmail, sendProjectAssignmentEmail } from "./email";
 import { extractTextFromFile, isSupportedForExtraction, isVideoFile } from "./contentExtraction";
+import { logTimeEvent, logError, logStaleSession } from "./logger";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
 function getOpenAIClient(): OpenAI {
@@ -74,6 +76,9 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   await setupAuth(app);
+
+  // Desktop Agent routes (pairing, auth, ingestion)
+  registerAgentRoutes(app);
 
   // Auth user endpoint - returns current user info or null if not authenticated
   app.get("/api/auth/user", async (req: Request, res) => {
@@ -3637,10 +3642,11 @@ Instructions:
         duration: 0,
         idleTime: 0,
       });
-      
+
+      logTimeEvent("start", entry.id, userId, { crmProjectId });
       res.json(entry);
     } catch (error) {
-      console.error("Error starting time tracking:", error);
+      logError("time-tracking.start.failed", error, { userId: getUserId(req) });
       res.status(500).json({ message: "Failed to start time tracking" });
     }
   });
@@ -3674,13 +3680,14 @@ Instructions:
         lastActivityAt: now,
       });
       
+      logTimeEvent("pause", entry.id, userId);
       res.json(updated);
     } catch (error) {
-      console.error("Error pausing time tracking:", error);
+      logError("time-tracking.pause.failed", error, { entryId: req.params.id });
       res.status(500).json({ message: "Failed to pause time tracking" });
     }
   });
-  
+
   // Resume time tracking
   app.post("/api/time-tracking/:id/resume", isAuthenticated, async (req: any, res) => {
     try {
@@ -3715,13 +3722,14 @@ Instructions:
         lastActivityAt: now,
       });
       
+      logTimeEvent("resume", entry.id, userId, { discardIdleTime: !!discardIdleTime });
       res.json(updated);
     } catch (error) {
-      console.error("Error resuming time tracking:", error);
+      logError("time-tracking.resume.failed", error, { entryId: req.params.id });
       res.status(500).json({ message: "Failed to resume time tracking" });
     }
   });
-  
+
   // Stop time tracking
   app.post("/api/time-tracking/:id/stop", isAuthenticated, async (req: any, res) => {
     try {
@@ -3754,14 +3762,15 @@ Instructions:
         endTime: now,
         duration: finalDuration,
       });
-      
+
+      logTimeEvent("stop", entry.id, userId, { finalDuration });
       res.json(updated);
     } catch (error) {
-      console.error("Error stopping time tracking:", error);
+      logError("time-tracking.stop.failed", error, { entryId: req.params.id });
       res.status(500).json({ message: "Failed to stop time tracking" });
     }
   });
-  
+
   // Update activity (heartbeat) - for idle detection
   app.post("/api/time-tracking/:id/activity", isAuthenticated, async (req: any, res) => {
     try {
@@ -3797,6 +3806,37 @@ Instructions:
     }
   });
   
+  // ─── Server-side stale session detection (agent-ready) ───
+  // Periodically flag running entries with no heartbeat for > STALE_THRESHOLD_MINUTES.
+  // TODO [PLACEHOLDER]: Policy — currently flag_only. Change to auto_pause or auto_stop
+  //   when Desktop Agent requirements are finalized.
+  const STALE_THRESHOLD_MINUTES = 10;
+  const STALE_CHECK_INTERVAL_MS = 2 * 60 * 1000; // check every 2 minutes
+
+  setInterval(async () => {
+    try {
+      const threshold = new Date(Date.now() - STALE_THRESHOLD_MINUTES * 60 * 1000);
+      const staleEntries = await storage.getStaleRunningEntries(threshold);
+
+      for (const entry of staleEntries) {
+        // flag_only: log the stale entry but don't auto-stop
+        logStaleSession(entry.id, entry.userId, entry.lastActivityAt?.toISOString() ?? null);
+        // TODO [PLACEHOLDER]: Uncomment to auto-stop stale entries:
+        // const now = new Date();
+        // const lastActivity = entry.lastActivityAt || entry.startTime;
+        // const elapsed = Math.floor((now.getTime() - new Date(lastActivity).getTime()) / 1000);
+        // await storage.updateTimeEntry(entry.id, {
+        //   status: "stopped",
+        //   endTime: now,
+        //   duration: (entry.duration || 0) + elapsed,
+        // });
+        // console.log(`[StaleSession] Auto-stopped entry ${entry.id}`);
+      }
+    } catch (error) {
+      console.error("[StaleSession] Error checking stale entries:", error);
+    }
+  }, STALE_CHECK_INTERVAL_MS);
+
   // Update time entry (description, etc.)
   app.patch("/api/time-tracking/:id", isAuthenticated, async (req: any, res) => {
     try {
