@@ -36,6 +36,7 @@ import {
 } from "./transcripts";
 import { sendWelcomeEmail, sendPasswordUpdateEmail, sendProjectAssignmentEmail } from "./email";
 import { extractTextFromFile, isSupportedForExtraction, isVideoFile } from "./contentExtraction";
+import { logTimeEvent, logError, logStaleSession } from "./logger";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
 function getOpenAIClient(): OpenAI {
@@ -3637,10 +3638,11 @@ Instructions:
         duration: 0,
         idleTime: 0,
       });
-      
+
+      logTimeEvent("start", entry.id, userId, { crmProjectId });
       res.json(entry);
     } catch (error) {
-      console.error("Error starting time tracking:", error);
+      logError("time-tracking.start.failed", error, { userId: getUserId(req) });
       res.status(500).json({ message: "Failed to start time tracking" });
     }
   });
@@ -3674,13 +3676,14 @@ Instructions:
         lastActivityAt: now,
       });
       
+      logTimeEvent("pause", entry.id, userId);
       res.json(updated);
     } catch (error) {
-      console.error("Error pausing time tracking:", error);
+      logError("time-tracking.pause.failed", error, { entryId: req.params.id });
       res.status(500).json({ message: "Failed to pause time tracking" });
     }
   });
-  
+
   // Resume time tracking
   app.post("/api/time-tracking/:id/resume", isAuthenticated, async (req: any, res) => {
     try {
@@ -3715,13 +3718,14 @@ Instructions:
         lastActivityAt: now,
       });
       
+      logTimeEvent("resume", entry.id, userId, { discardIdleTime: !!discardIdleTime });
       res.json(updated);
     } catch (error) {
-      console.error("Error resuming time tracking:", error);
+      logError("time-tracking.resume.failed", error, { entryId: req.params.id });
       res.status(500).json({ message: "Failed to resume time tracking" });
     }
   });
-  
+
   // Stop time tracking
   app.post("/api/time-tracking/:id/stop", isAuthenticated, async (req: any, res) => {
     try {
@@ -3754,14 +3758,15 @@ Instructions:
         endTime: now,
         duration: finalDuration,
       });
-      
+
+      logTimeEvent("stop", entry.id, userId, { finalDuration });
       res.json(updated);
     } catch (error) {
-      console.error("Error stopping time tracking:", error);
+      logError("time-tracking.stop.failed", error, { entryId: req.params.id });
       res.status(500).json({ message: "Failed to stop time tracking" });
     }
   });
-  
+
   // Update activity (heartbeat) - for idle detection
   app.post("/api/time-tracking/:id/activity", isAuthenticated, async (req: any, res) => {
     try {
@@ -3811,11 +3816,7 @@ Instructions:
 
       for (const entry of staleEntries) {
         // flag_only: log the stale entry but don't auto-stop
-        console.warn(
-          `[StaleSession] Entry ${entry.id} (user: ${entry.userId}) has been running ` +
-          `with no heartbeat since ${entry.lastActivityAt?.toISOString() ?? "unknown"}. ` +
-          `Consider auto-pausing.`
-        );
+        logStaleSession(entry.id, entry.userId, entry.lastActivityAt?.toISOString() ?? null);
         // TODO [PLACEHOLDER]: Uncomment to auto-stop stale entries:
         // const now = new Date();
         // const lastActivity = entry.lastActivityAt || entry.startTime;

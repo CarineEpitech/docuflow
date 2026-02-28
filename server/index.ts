@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import { logError } from "./logger";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -129,7 +130,11 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    console.error("Unhandled error:", err?.message || err, err?.stack);
+    logError("unhandled-server-error", err, {
+      status,
+      path: _req.path,
+      method: _req.method,
+    });
     if (!res.headersSent) {
       res.status(status).json({ message });
     }
