@@ -1,20 +1,21 @@
 /**
- * Sync worker — drains the SQLite queue and sends batches to the server.
+ * Sync worker — drains the event queue and sends batches to the server.
  *
  * Offline-first: events accumulate locally and sync when connectivity returns.
- * Uses exponential backoff on failure (5s → 10s → 20s → ... → 5min max).
+ * Exponential backoff on failure (5s -> 10s -> 20s -> ... -> 5min max).
+ * Batch sync every 30s (or immediately if batch is full).
  *
- * Phase 2 D4 — Skeleton.
+ * Phase 3 MVP
  */
 
-import { app } from "electron";
 import { ApiClient } from "../lib/ApiClient";
 import { SqliteQueue } from "../lib/SqliteQueue";
 import { AgentStore } from "../lib/AgentStore";
 
-const SYNC_INTERVAL_MS = 10_000; // Check for pending events every 10s
+const SYNC_INTERVAL_MS = 30_000; // Sync every 30s
 const MAX_BACKOFF_MS = 5 * 60_000; // 5 minutes
 const BASE_BACKOFF_MS = 5_000;
+const BATCH_SIZE = 50;
 
 export class SyncWorker {
   private apiClient: ApiClient;
@@ -22,6 +23,7 @@ export class SyncWorker {
   private store: AgentStore;
   private timeout: ReturnType<typeof setTimeout> | null = null;
   private consecutiveFailures = 0;
+  private totalSynced = 0;
 
   constructor(apiClient: ApiClient, queue: SqliteQueue, store: AgentStore) {
     this.apiClient = apiClient;
@@ -30,8 +32,9 @@ export class SyncWorker {
   }
 
   start(): void {
-    this.scheduleNext(0);
-    console.log("[SyncWorker] Started");
+    // First sync after 5s to allow initial events to accumulate
+    this.scheduleNext(5000);
+    console.log("[SyncWorker] Started (30s interval)");
   }
 
   stop(): void {
@@ -39,7 +42,7 @@ export class SyncWorker {
       clearTimeout(this.timeout);
       this.timeout = null;
     }
-    console.log("[SyncWorker] Stopped");
+    console.log(`[SyncWorker] Stopped (total synced: ${this.totalSynced})`);
   }
 
   private scheduleNext(delayMs: number): void {
@@ -54,8 +57,7 @@ export class SyncWorker {
         return;
       }
 
-      const { batchId, events } = this.queue.getNextBatch(50);
-
+      const { batchId, events } = this.queue.getNextBatch(BATCH_SIZE);
       if (events.length === 0) {
         this.scheduleNext(SYNC_INTERVAL_MS);
         return;
@@ -63,6 +65,7 @@ export class SyncWorker {
 
       const deviceId = this.store.getDeviceId();
       if (!deviceId) {
+        this.queue.releaseBatch(batchId);
         this.scheduleNext(SYNC_INTERVAL_MS);
         return;
       }
@@ -71,7 +74,7 @@ export class SyncWorker {
         deviceId,
         batchId,
         clientType: "electron",
-        clientVersion: app.getVersion(),
+        clientVersion: this.store.getClientVersion(),
         events: events.map(e => ({
           type: e.eventType,
           timestamp: e.timestamp,
@@ -82,18 +85,26 @@ export class SyncWorker {
       if (result.ok) {
         this.queue.markBatchSynced(batchId);
         this.consecutiveFailures = 0;
-        console.log(`[SyncWorker] Batch ${batchId} synced (${result.accepted} events)`);
-      }
+        this.totalSynced += result.accepted || events.length;
+        console.log(`[SyncWorker] Batch synced: ${events.length} events (total: ${this.totalSynced})`);
 
-      // Immediately try next batch if there are more
-      this.scheduleNext(pending > events.length ? 100 : SYNC_INTERVAL_MS);
-    } catch (error) {
+        // If more pending, sync again quickly
+        const remaining = this.queue.pendingCount();
+        this.scheduleNext(remaining > 0 ? 1000 : SYNC_INTERVAL_MS);
+      } else {
+        // Server rejected but didn't error — release batch
+        this.queue.releaseBatch(batchId);
+        this.scheduleNext(SYNC_INTERVAL_MS);
+      }
+    } catch (error: any) {
       this.consecutiveFailures++;
       const backoff = Math.min(
         BASE_BACKOFF_MS * Math.pow(2, this.consecutiveFailures - 1),
         MAX_BACKOFF_MS
       );
-      console.error(`[SyncWorker] Sync failed (attempt ${this.consecutiveFailures}), retrying in ${backoff / 1000}s:`, error);
+      console.error(`[SyncWorker] Failed (attempt ${this.consecutiveFailures}), retry in ${backoff / 1000}s: ${error.message}`);
+
+      // Release the batch so it can be retried
       this.scheduleNext(backoff);
     }
   }
