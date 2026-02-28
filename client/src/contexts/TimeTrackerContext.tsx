@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, ty
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { MultiTabCoordinator, type TabRole, type TimeTrackingSyncPayload } from "@/lib/MultiTabCoordinator";
+import { ScreenCaptureWebService } from "@/lib/ScreenCaptureWebService";
 import type { TimeEntry, CrmProjectWithDetails } from "@shared/schema";
 
 interface TimeTrackerState {
@@ -73,15 +74,11 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   const lastTickRef = useRef<number>(Date.now());
   const isDocumentVisibleRef = useRef(!document.hidden);
 
-  // Screen capture refs
+  // Screen capture service (extracted — see ScreenCaptureWebService.ts)
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const consecutiveFailuresRef = useRef(0);
+  const screenCaptureRef = useRef<ScreenCaptureWebService | null>(null);
   const activeEntryRef = useRef<TimeEntry | null>(null);
-  const stopScreenCaptureRef = useRef<() => void>(() => {});
 
   // ─── Multi-tab coordinator ───
   const coordinatorRef = useRef<MultiTabCoordinator | null>(null);
@@ -135,7 +132,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       invalidateAll();
       setSelectedProjectId("");
-      stopScreenCaptureRef.current();
+      screenCaptureRef.current?.stop();
     },
   });
 
@@ -152,6 +149,20 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     activeEntryRef.current = activeEntry ?? null;
   }, [activeEntry]);
+
+  // ─── Screen capture service init ───
+  useEffect(() => {
+    const service = new ScreenCaptureWebService({
+      onStateChange: (state) => setIsCapturing(state.isCapturing),
+      onError: (msg) => setCaptureError(msg),
+      onErrorClear: () => setCaptureError(null),
+    });
+    screenCaptureRef.current = service;
+    return () => {
+      service.destroy();
+      screenCaptureRef.current = null;
+    };
+  }, []);
 
   // ─── Multi-tab coordinator init ───
   useEffect(() => {
@@ -217,7 +228,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
               isPaused: false,
               activeEntryId: activeEntry.id,
               crmProjectId: activeEntry.crmProjectId,
-              isCapturing: !!streamRef.current,
+              isCapturing: screenCaptureRef.current?.capturing ?? false,
               displayDuration: dur,
             });
           }
@@ -403,193 +414,18 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     }
   }, [activeEntry]);
 
-  // ─── Screen Capture (LEADER ONLY for scheduling) ───
-  const getRandomInterval = useCallback(() => {
-    return (180 + Math.random() * 120) * 1000; // 3-5 minutes
-  }, []);
-
-  const captureFrame = useCallback(async () => {
-    if (!activeEntry?.id || !activeEntry?.crmProjectId) {
-      console.warn("[ScreenCapture] No active entry, skipping capture");
-      return;
-    }
-
-    if (!streamRef.current) {
-      console.warn("[ScreenCapture] No stream available, stopping capture");
-      return;
-    }
-
-    const track = streamRef.current.getVideoTracks()[0];
-    if (!track || track.readyState !== "live") {
-      console.warn("[ScreenCapture] Video track not live, stopping capture");
-      stopScreenCaptureRef.current();
-      return;
-    }
-
-    try {
-      if (!videoRef.current) {
-        videoRef.current = document.createElement("video");
-        videoRef.current.srcObject = streamRef.current;
-        videoRef.current.muted = true;
-        await videoRef.current.play();
-      }
-
-      const video = videoRef.current;
-
-      if (video.readyState < 2) {
-        console.warn("[ScreenCapture] Video not ready (readyState:", video.readyState, "), waiting...");
-        await new Promise<void>((resolve) => {
-          const checkReady = () => {
-            if (video.readyState >= 2) {
-              resolve();
-            } else {
-              requestAnimationFrame(checkReady);
-            }
-          };
-          checkReady();
-          setTimeout(resolve, 3000);
-        });
-      }
-
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        console.warn("[ScreenCapture] Video dimensions are 0, skipping frame");
-        return;
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        console.error("[ScreenCapture] Failed to get canvas context");
-        return;
-      }
-
-      ctx.drawImage(video, 0, 0);
-
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", 0.7)
-      );
-      if (!blob || blob.size < 1000) {
-        console.warn("[ScreenCapture] Generated blob is empty or too small, skipping");
-        return;
-      }
-
-      const uploadRes = await apiRequest("POST", "/api/time-tracking/screenshots/upload-url", {
-        timeEntryId: activeEntry.id,
-      });
-      if (!uploadRes.ok) {
-        throw new Error(`Upload URL request failed: ${uploadRes.status}`);
-      }
-      const { uploadURL } = await uploadRes.json();
-
-      const putRes = await fetch(uploadURL, {
-        method: "PUT",
-        body: blob,
-        headers: { "Content-Type": "image/jpeg" },
-      });
-      if (!putRes.ok) {
-        throw new Error(`Screenshot upload failed: ${putRes.status}`);
-      }
-
-      const storageKey = new URL(uploadURL).pathname;
-
-      const saveRes = await apiRequest("POST", "/api/time-tracking/screenshots", {
-        timeEntryId: activeEntry.id,
-        crmProjectId: activeEntry.crmProjectId,
-        storageKey,
-        capturedAt: new Date().toISOString(),
-      });
-      if (!saveRes.ok) {
-        throw new Error(`Screenshot metadata save failed: ${saveRes.status}`);
-      }
-
-      consecutiveFailuresRef.current = 0;
-      setCaptureError(null);
-      console.log("[ScreenCapture] Screenshot captured and saved successfully");
-    } catch (err: any) {
-      consecutiveFailuresRef.current += 1;
-      console.error("[ScreenCapture] Capture failed:", err?.message || err);
-
-      if (consecutiveFailuresRef.current >= 5) {
-        setCaptureError("Screenshot capture stopped after multiple failures");
-        stopScreenCaptureRef.current();
-        return;
-      }
-
-      setCaptureError(`Capture failed (attempt ${consecutiveFailuresRef.current}/5). Will retry.`);
-    }
-  }, [activeEntry?.id, activeEntry?.crmProjectId]);
-
-  const scheduleNextCapture = useCallback(() => {
-    if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
-    captureTimerRef.current = setTimeout(async () => {
-      if (streamRef.current && activeEntry?.status === "running") {
-        await captureFrame();
-        scheduleNextCapture();
-      }
-    }, getRandomInterval());
-  }, [captureFrame, getRandomInterval, activeEntry?.status]);
-
-  const startScreenCapture = useCallback(async () => {
-    if (streamRef.current) return;
-    setCaptureError(null);
-    consecutiveFailuresRef.current = 0;
-
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
-
-      streamRef.current = stream;
-      setIsCapturing(true);
-
-      stream.getVideoTracks()[0].addEventListener("ended", () => {
-        stopScreenCaptureRef.current();
-      });
-
-      await captureFrame();
-      scheduleNextCapture();
-    } catch (err: any) {
-      console.error("[ScreenCapture] Permission denied:", err);
-      setCaptureError("Screen sharing was denied or cancelled");
-      setIsCapturing(false);
-    }
-  }, [captureFrame, scheduleNextCapture]);
-
-  const stopScreenCapture = useCallback(() => {
-    if (captureTimerRef.current) {
-      clearTimeout(captureTimerRef.current);
-      captureTimerRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-      videoRef.current = null;
-    }
-    setIsCapturing(false);
-    consecutiveFailuresRef.current = 0;
-  }, []);
-  stopScreenCaptureRef.current = stopScreenCapture;
-
+  // ─── Screen Capture via service (LEADER ONLY for scheduling) ───
   // Pause/resume capture scheduling based on running state
   useEffect(() => {
-    if (!isRunning && captureTimerRef.current) {
-      clearTimeout(captureTimerRef.current);
-      captureTimerRef.current = null;
-    } else if (isRunning && streamRef.current && !captureTimerRef.current) {
-      scheduleNextCapture();
-    }
-  }, [isRunning, scheduleNextCapture]);
+    const service = screenCaptureRef.current;
+    if (!service) return;
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => stopScreenCapture();
-  }, []);
+    if (!isRunning) {
+      service.pauseScheduling();
+    } else if (isRunning && service.capturing) {
+      service.resumeScheduling(activeEntry?.id ?? null, activeEntry?.crmProjectId ?? null);
+    }
+  }, [isRunning, activeEntry?.id, activeEntry?.crmProjectId]);
 
   // ─── Actions ───
   const handleStart = useCallback((projectId?: string) => {
@@ -617,12 +453,15 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   }, [activeEntry, stopMutation]);
 
   const handleToggleCapture = useCallback(() => {
+    const service = screenCaptureRef.current;
+    if (!service) return;
+
     if (isCapturing) {
-      stopScreenCapture();
+      service.stop();
     } else {
-      startScreenCapture();
+      service.start();
     }
-  }, [isCapturing, startScreenCapture, stopScreenCapture]);
+  }, [isCapturing]);
 
   const isPaused = activeEntry?.status === "paused";
   const hasActiveEntry = !!activeEntry;
