@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'" />
   <title>DocuFlow Desktop Agent</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -14,67 +14,106 @@
       height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
       user-select: none;
     }
-    .logo { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
-    .subtitle { font-size: 0.8rem; color: #94a3b8; margin-bottom: 2rem; }
+
+    /* Header */
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 1.5rem; border-bottom: 1px solid #1e293b;
+    }
+    .header-left { display: flex; align-items: center; gap: 0.5rem; }
+    .header .logo { font-size: 1rem; font-weight: 700; }
+    .header .version { font-size: 0.65rem; color: #64748b; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.connected { background: #22c55e; }
+    .status-dot.disconnected { background: #ef4444; }
 
     /* Views */
-    .view { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 320px; }
+    .view { display: none; flex-direction: column; flex: 1; padding: 1.5rem; overflow-y: auto; }
     .view.active { display: flex; }
 
     /* Form */
-    label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.25rem; align-self: flex-start; }
-    input {
-      width: 100%;
-      padding: 0.6rem 0.75rem;
-      border-radius: 0.5rem;
-      border: 1px solid #334155;
-      background: #1e293b;
-      color: #e2e8f0;
-      font-size: 0.9rem;
-      outline: none;
-      margin-bottom: 1rem;
+    label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.25rem; display: block; }
+    input, select {
+      width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.5rem;
+      border: 1px solid #334155; background: #1e293b; color: #e2e8f0;
+      font-size: 0.85rem; outline: none; margin-bottom: 0.75rem;
     }
-    input:focus { border-color: #6366f1; }
+    input:focus, select:focus { border-color: #6366f1; }
     input.code-input {
-      text-align: center;
-      font-family: monospace;
-      font-size: 1.5rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
+      text-align: center; font-family: monospace; font-size: 1.4rem;
+      letter-spacing: 0.3em; text-transform: uppercase;
     }
+    select { cursor: pointer; }
 
+    /* Buttons */
     button {
-      width: 100%;
-      padding: 0.7rem;
-      border: none;
-      border-radius: 0.5rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.15s;
+      padding: 0.6rem 1rem; border: none; border-radius: 0.5rem;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.15s; width: 100%;
     }
     button:hover { opacity: 0.9; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-primary { background: #6366f1; color: white; }
-    .btn-secondary { background: #334155; color: #e2e8f0; margin-top: 0.5rem; }
+    .btn-success { background: #22c55e; color: white; }
+    .btn-warning { background: #f59e0b; color: #1e293b; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-secondary { background: #334155; color: #e2e8f0; }
+    .btn-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    .btn-row button { flex: 1; }
 
-    .error { color: #f87171; font-size: 0.8rem; margin-top: 0.5rem; text-align: center; }
-    .status-text { font-size: 0.8rem; color: #94a3b8; margin-top: 1rem; text-align: center; }
-    .connected-icon { font-size: 3rem; margin-bottom: 1rem; }
-    .device-name { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
+    /* Timer */
+    .timer-display { text-align: center; padding: 2rem 0; margin-bottom: 1rem; }
+    .timer-time {
+      font-family: monospace; font-size: 3rem; font-weight: 700;
+      letter-spacing: 0.05em; margin-bottom: 0.25rem;
+    }
+    .timer-time.running { color: #22c55e; }
+    .timer-time.paused { color: #f59e0b; }
+    .timer-time.stopped { color: #64748b; }
+    .timer-status { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; }
+    .timer-status.running { color: #22c55e; }
+    .timer-status.paused { color: #f59e0b; }
+    .timer-status.stopped { color: #64748b; }
+    .timer-project { font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem; }
+
+    /* Cards */
+    .card {
+      background: #1e293b; border-radius: 0.75rem;
+      padding: 1rem; margin-bottom: 0.75rem;
+    }
+    .card-title { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+
+    /* Misc */
+    .error { color: #f87171; font-size: 0.8rem; margin-top: 0.25rem; text-align: center; }
+    .spacer { flex: 1; }
+    .text-center { text-align: center; }
+    .text-muted { color: #64748b; font-size: 0.8rem; }
+    .disconnect-link {
+      color: #64748b; font-size: 0.75rem; cursor: pointer;
+      text-align: center; padding: 0.5rem; margin-top: 0.5rem;
+    }
+    .disconnect-link:hover { color: #ef4444; }
   </style>
 </head>
 <body>
-  <div class="logo">DocuFlow Agent</div>
-  <div class="subtitle">Desktop time tracking &amp; activity monitor</div>
 
-  <!-- Pairing View -->
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <span class="logo">DocuFlow Agent</span>
+      <span class="version">v0.1.0</span>
+    </div>
+    <div class="status-dot disconnected" id="status-dot"></div>
+  </div>
+
+  <!-- PAIRING VIEW -->
   <div id="pairing-view" class="view active">
+    <div style="margin-bottom:1.5rem">
+      <div class="text-center text-muted">Connect to your DocuFlow workspace</div>
+    </div>
+
     <label for="server-url">Server URL</label>
     <input id="server-url" type="url" placeholder="https://your-docuflow.replit.app" />
 
@@ -88,49 +127,180 @@
     <div id="pair-error" class="error" style="display:none"></div>
   </div>
 
-  <!-- Connected View -->
+  <!-- CONNECTED VIEW -->
   <div id="connected-view" class="view">
-    <div class="connected-icon">&#x2705;</div>
-    <div class="device-name" id="connected-device-name"></div>
-    <div class="status-text">Connected and syncing</div>
-    <button id="unpair-btn" class="btn-secondary" style="margin-top:2rem">Disconnect</button>
+    <!-- Timer display -->
+    <div class="timer-display">
+      <div class="timer-time stopped" id="timer-time">00:00:00</div>
+      <div class="timer-status stopped" id="timer-status">STOPPED</div>
+      <div class="timer-project" id="timer-project"></div>
+    </div>
+
+    <!-- Start form (visible when stopped) -->
+    <div id="start-form">
+      <div class="card">
+        <div class="card-title">Start Tracking</div>
+        <label for="project-select">Project</label>
+        <select id="project-select">
+          <option value="">Loading projects...</option>
+        </select>
+        <label for="task-description">Description (optional)</label>
+        <input id="task-description" type="text" placeholder="What are you working on?" style="margin-bottom:0" />
+      </div>
+      <button id="start-btn" class="btn-success" disabled>Start Timer</button>
+      <div id="start-error" class="error" style="display:none"></div>
+    </div>
+
+    <!-- Controls (visible when running/paused) -->
+    <div id="timer-controls" style="display:none">
+      <div class="btn-row">
+        <button id="pause-btn" class="btn-warning">Pause</button>
+        <button id="resume-btn" class="btn-success" style="display:none">Resume</button>
+        <button id="stop-btn" class="btn-danger">Stop</button>
+      </div>
+      <div id="control-error" class="error" style="display:none"></div>
+    </div>
+
+    <!-- Connection info -->
+    <div class="spacer"></div>
+    <div class="card" style="margin-top:1rem">
+      <div class="card-title">Connection</div>
+      <div style="font-size:0.85rem">
+        <span id="conn-device-name" style="font-weight:600"></span>
+        <span class="text-muted" style="float:right" id="conn-server"></span>
+      </div>
+    </div>
+
+    <div class="disconnect-link" id="disconnect-link">Disconnect Device</div>
   </div>
 
   <script>
     const bridge = window.agentBridge;
+
+    // DOM refs
     const pairingView = document.getElementById("pairing-view");
     const connectedView = document.getElementById("connected-view");
+    const statusDot = document.getElementById("status-dot");
+    const timerTimeEl = document.getElementById("timer-time");
+    const timerStatusEl = document.getElementById("timer-status");
+    const timerProjectEl = document.getElementById("timer-project");
+    const startForm = document.getElementById("start-form");
+    const timerControls = document.getElementById("timer-controls");
+    const pauseBtn = document.getElementById("pause-btn");
+    const resumeBtn = document.getElementById("resume-btn");
+    const stopBtn = document.getElementById("stop-btn");
+    const startBtn = document.getElementById("start-btn");
+    const projectSelect = document.getElementById("project-select");
 
+    let timerInterval = null;
+
+    // Init
     async function init() {
       const state = await bridge.getState();
       if (state.isPaired) {
-        showConnected(state.deviceName);
+        showConnected(state);
       }
     }
 
-    function showConnected(name) {
+    // View switching
+    function showConnected(state) {
       pairingView.classList.remove("active");
       connectedView.classList.add("active");
-      document.getElementById("connected-device-name").textContent = name || "Device";
+      statusDot.classList.remove("disconnected");
+      statusDot.classList.add("connected");
+
+      document.getElementById("conn-device-name").textContent = state.deviceName || "Device";
+      try {
+        document.getElementById("conn-server").textContent = new URL(state.serverUrl).hostname;
+      } catch { document.getElementById("conn-server").textContent = ""; }
+
+      loadProjects();
+      updateTimerUI(state.timer || { status: "stopped", elapsed: 0 });
+      startTimerTick();
     }
 
     function showPairing() {
       connectedView.classList.remove("active");
       pairingView.classList.add("active");
+      statusDot.classList.remove("connected");
+      statusDot.classList.add("disconnected");
+      stopTimerTick();
+    }
+
+    // Projects
+    async function loadProjects() {
+      const result = await bridge.getProjects();
+      projectSelect.innerHTML = "";
+      if (!result.ok || !result.data.length) {
+        projectSelect.innerHTML = '<option value="">No projects available</option>';
+        startBtn.disabled = true;
+        return;
+      }
+      const defaultOpt = document.createElement("option");
+      defaultOpt.value = "";
+      defaultOpt.textContent = "Select a project...";
+      projectSelect.appendChild(defaultOpt);
+      result.data.forEach(function(p) {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name;
+        opt.dataset.name = p.name;
+        projectSelect.appendChild(opt);
+      });
+      startBtn.disabled = false;
+    }
+
+    // Timer UI
+    function formatTime(seconds) {
+      var h = Math.floor(seconds / 3600);
+      var m = Math.floor((seconds % 3600) / 60);
+      var s = seconds % 60;
+      return [h, m, s].map(function(v) { return String(v).padStart(2, "0"); }).join(":");
+    }
+
+    function updateTimerUI(timer) {
+      var status = timer.status || "stopped";
+
+      timerTimeEl.textContent = formatTime(timer.elapsed || 0);
+      timerTimeEl.className = "timer-time " + status;
+      timerStatusEl.textContent = status.toUpperCase();
+      timerStatusEl.className = "timer-status " + status;
+      timerProjectEl.textContent = timer.projectName || "";
+
+      if (status === "stopped") {
+        startForm.style.display = "block";
+        timerControls.style.display = "none";
+      } else {
+        startForm.style.display = "none";
+        timerControls.style.display = "block";
+        pauseBtn.style.display = status === "running" ? "block" : "none";
+        resumeBtn.style.display = status === "paused" ? "block" : "none";
+      }
+    }
+
+    function startTimerTick() {
+      stopTimerTick();
+      timerInterval = setInterval(async function() {
+        var timer = await bridge.timerState();
+        updateTimerUI(timer);
+      }, 1000);
+    }
+
+    function stopTimerTick() {
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     }
 
     // Pair
-    document.getElementById("pair-btn").addEventListener("click", async () => {
-      const serverUrl = document.getElementById("server-url").value.trim();
-      const deviceName = document.getElementById("device-name").value.trim();
-      const pairingCode = document.getElementById("pairing-code").value.trim().toUpperCase();
-      const errorEl = document.getElementById("pair-error");
-      const btn = document.getElementById("pair-btn");
+    document.getElementById("pair-btn").addEventListener("click", async function() {
+      var serverUrl = document.getElementById("server-url").value.trim();
+      var deviceName = document.getElementById("device-name").value.trim();
+      var pairingCode = document.getElementById("pairing-code").value.trim().toUpperCase();
+      var errorEl = document.getElementById("pair-error");
+      var btn = document.getElementById("pair-btn");
 
       errorEl.style.display = "none";
-
       if (!serverUrl || !deviceName || pairingCode.length !== 6) {
-        errorEl.textContent = "Please fill in all fields";
+        errorEl.textContent = "Please fill in all fields (code must be 6 characters)";
         errorEl.style.display = "block";
         return;
       }
@@ -138,23 +308,91 @@
       btn.disabled = true;
       btn.textContent = "Connecting...";
 
-      const result = await bridge.pair({ serverUrl, pairingCode, deviceName });
-
+      var result = await bridge.pair({ serverUrl: serverUrl, pairingCode: pairingCode, deviceName: deviceName });
       if (result.ok) {
-        showConnected(deviceName);
+        var state = await bridge.getState();
+        showConnected(state);
       } else {
         errorEl.textContent = result.error || "Pairing failed";
         errorEl.style.display = "block";
       }
-
       btn.disabled = false;
       btn.textContent = "Connect";
     });
 
-    // Unpair
-    document.getElementById("unpair-btn").addEventListener("click", async () => {
-      await bridge.unpair();
-      showPairing();
+    // Start timer
+    startBtn.addEventListener("click", async function() {
+      var crmProjectId = projectSelect.value;
+      var selectedOption = projectSelect.options[projectSelect.selectedIndex];
+      var projectName = selectedOption ? (selectedOption.dataset.name || selectedOption.textContent || "") : "";
+      var description = document.getElementById("task-description").value.trim();
+      var errorEl = document.getElementById("start-error");
+
+      errorEl.style.display = "none";
+      if (!crmProjectId) {
+        errorEl.textContent = "Please select a project";
+        errorEl.style.display = "block";
+        return;
+      }
+
+      startBtn.disabled = true;
+      startBtn.textContent = "Starting...";
+
+      var result = await bridge.timerStart({ crmProjectId: crmProjectId, projectName: projectName, description: description });
+      if (result.ok) {
+        var timer = await bridge.timerState();
+        updateTimerUI(Object.assign({}, timer, { projectName: projectName }));
+      } else {
+        errorEl.textContent = result.error || "Failed to start";
+        errorEl.style.display = "block";
+      }
+      startBtn.disabled = false;
+      startBtn.textContent = "Start Timer";
+    });
+
+    // Pause
+    pauseBtn.addEventListener("click", async function() {
+      pauseBtn.disabled = true;
+      var result = await bridge.timerPause();
+      if (!result.ok) showControlError(result.error);
+      pauseBtn.disabled = false;
+    });
+
+    // Resume
+    resumeBtn.addEventListener("click", async function() {
+      resumeBtn.disabled = true;
+      var result = await bridge.timerResume();
+      if (!result.ok) showControlError(result.error);
+      resumeBtn.disabled = false;
+    });
+
+    // Stop
+    stopBtn.addEventListener("click", async function() {
+      stopBtn.disabled = true;
+      var result = await bridge.timerStop();
+      if (!result.ok) showControlError(result.error);
+      else { loadProjects(); }
+      stopBtn.disabled = false;
+    });
+
+    // Disconnect
+    document.getElementById("disconnect-link").addEventListener("click", async function() {
+      if (confirm("Disconnect this device?")) {
+        await bridge.unpair();
+        showPairing();
+      }
+    });
+
+    function showControlError(msg) {
+      var el = document.getElementById("control-error");
+      el.textContent = msg || "Action failed";
+      el.style.display = "block";
+      setTimeout(function() { el.style.display = "none"; }, 3000);
+    }
+
+    // Listen for state pushes from main process
+    bridge.onStateUpdate(function(state) {
+      if (state.timer) updateTimerUI(state.timer);
     });
 
     init();

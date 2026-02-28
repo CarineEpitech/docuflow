@@ -1,11 +1,13 @@
 /**
- * SQLite-backed offline queue for activity events.
+ * Offline event queue for activity events.
  *
- * Events are stored locally and synced in batches.
- * Survives app restarts and network outages.
+ * MVP: In-memory array (survives for session lifetime).
+ * Production: Replace with better-sqlite3 for disk persistence across restarts.
  *
- * Phase 2 D4 — Skeleton with interface, no actual SQLite yet.
+ * Phase 3 MVP
  */
+
+import { randomUUID } from "crypto";
 
 export interface QueuedEvent {
   id: number;
@@ -18,38 +20,27 @@ export interface QueuedEvent {
 }
 
 export class SqliteQueue {
-  // [PLACEHOLDER]: Initialize better-sqlite3 database
-  // private db: BetterSqlite3.Database;
+  private events: QueuedEvent[] = [];
+  private nextId = 1;
 
   constructor() {
-    // [PLACEHOLDER]: Create/open SQLite database in userData path
-    // this.db = new Database(path.join(app.getPath('userData'), 'agent-queue.db'));
-    // this.migrate();
-    console.log("[SqliteQueue] Initialized (stub)");
-  }
-
-  /**
-   * Create tables if they don't exist.
-   */
-  private migrate(): void {
-    // [PLACEHOLDER]: Run CREATE TABLE IF NOT EXISTS
-    // CREATE TABLE events (
-    //   id INTEGER PRIMARY KEY AUTOINCREMENT,
-    //   batch_id TEXT,
-    //   event_type TEXT NOT NULL,
-    //   timestamp TEXT NOT NULL,
-    //   data TEXT DEFAULT '{}',
-    //   created_at TEXT DEFAULT (datetime('now')),
-    //   synced_at TEXT
-    // );
+    console.log("[SqliteQueue] Initialized (in-memory MVP)");
   }
 
   /**
    * Enqueue a new activity event for later sync.
    */
   enqueue(eventType: string, timestamp: Date, data: Record<string, unknown> = {}): void {
-    // [PLACEHOLDER]: INSERT INTO events
-    console.log(`[SqliteQueue] Enqueue: ${eventType} at ${timestamp.toISOString()}`);
+    this.events.push({
+      id: this.nextId++,
+      batchId: null,
+      eventType,
+      timestamp: timestamp.toISOString(),
+      data: JSON.stringify(data),
+      createdAt: new Date().toISOString(),
+      syncedAt: null,
+    });
+    console.log(`[SqliteQueue] Enqueue: ${eventType} (pending: ${this.pendingCount()})`);
   }
 
   /**
@@ -57,49 +48,62 @@ export class SqliteQueue {
    * Assigns a batchId to the selected events atomically.
    */
   getNextBatch(limit: number = 50): { batchId: string; events: QueuedEvent[] } {
-    // [PLACEHOLDER]: SELECT events WHERE synced_at IS NULL AND batch_id IS NULL LIMIT ?
-    // UPDATE events SET batch_id = ? WHERE id IN (...)
-    const batchId = crypto.randomUUID();
-    return { batchId, events: [] };
+    const batchId = randomUUID();
+    const pending = this.events.filter(e => !e.syncedAt && !e.batchId);
+    const batch = pending.slice(0, limit);
+
+    for (const event of batch) {
+      event.batchId = batchId;
+    }
+
+    return { batchId, events: batch };
   }
 
   /**
-   * Mark a batch as synced (set synced_at on all events with this batchId).
+   * Mark a batch as synced.
    */
   markBatchSynced(batchId: string): void {
-    // [PLACEHOLDER]: UPDATE events SET synced_at = datetime('now') WHERE batch_id = ?
-    console.log(`[SqliteQueue] Batch ${batchId} marked as synced`);
+    const now = new Date().toISOString();
+    for (const event of this.events) {
+      if (event.batchId === batchId) {
+        event.syncedAt = now;
+      }
+    }
+    console.log(`[SqliteQueue] Batch ${batchId.slice(0, 8)} synced`);
+
+    // Auto-cleanup synced events older than 5 minutes (in-memory only)
+    this.cleanup();
   }
 
   /**
-   * Release a failed batch (clear batchId so events can be retried).
+   * Release a failed batch for retry.
    */
   releaseBatch(batchId: string): void {
-    // [PLACEHOLDER]: UPDATE events SET batch_id = NULL WHERE batch_id = ?
-    console.log(`[SqliteQueue] Batch ${batchId} released for retry`);
+    for (const event of this.events) {
+      if (event.batchId === batchId) {
+        event.batchId = null;
+      }
+    }
+    console.log(`[SqliteQueue] Batch ${batchId.slice(0, 8)} released for retry`);
   }
 
   /**
    * Get count of unsynced events.
    */
   pendingCount(): number {
-    // [PLACEHOLDER]: SELECT COUNT(*) FROM events WHERE synced_at IS NULL
-    return 0;
+    return this.events.filter(e => !e.syncedAt).length;
   }
 
   /**
-   * Cleanup old synced events (older than `days` days).
+   * Cleanup synced events to prevent unbounded memory growth.
    */
-  cleanup(days: number = 7): number {
-    // [PLACEHOLDER]: DELETE FROM events WHERE synced_at IS NOT NULL AND synced_at < datetime('now', '-? days')
-    return 0;
+  cleanup(): number {
+    const before = this.events.length;
+    this.events = this.events.filter(e => !e.syncedAt);
+    return before - this.events.length;
   }
 
-  /**
-   * Close the database connection.
-   */
   close(): void {
-    // [PLACEHOLDER]: this.db.close();
-    console.log("[SqliteQueue] Closed");
+    console.log(`[SqliteQueue] Closed (${this.events.length} events in memory)`);
   }
 }

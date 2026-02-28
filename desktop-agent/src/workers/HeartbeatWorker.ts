@@ -1,10 +1,10 @@
 /**
  * Heartbeat worker — sends periodic heartbeats to the server.
  *
- * Interval: 60 seconds while running.
- * Includes device info and current active time entry (if any).
+ * Interval: 60 seconds.
+ * Includes deviceId, active time entry, and client info.
  *
- * Phase 2 D4 — Skeleton.
+ * Phase 3 MVP
  */
 
 import { app } from "electron";
@@ -26,9 +26,10 @@ export class HeartbeatWorker {
   start(): void {
     if (this.interval) return;
 
-    this.sendHeartbeat(); // Initial heartbeat
+    // Initial heartbeat after short delay
+    setTimeout(() => this.sendHeartbeat(), 2000);
     this.interval = setInterval(() => this.sendHeartbeat(), HEARTBEAT_INTERVAL_MS);
-    console.log("[HeartbeatWorker] Started");
+    console.log("[HeartbeatWorker] Started (60s interval)");
   }
 
   stop(): void {
@@ -44,18 +45,19 @@ export class HeartbeatWorker {
       const deviceId = this.store.getDeviceId();
       if (!deviceId) return;
 
-      await this.apiClient.sendHeartbeat({
+      const result = await this.apiClient.sendHeartbeat({
         deviceId,
-        timeEntryId: null, // [PLACEHOLDER]: Get from active tracking state
+        timeEntryId: this.store.getActiveEntryId(),
         timestamp: new Date().toISOString(),
-        activeApp: null, // [PLACEHOLDER]: Get from OS activity detection
+        activeApp: null,
         activeWindow: null,
         clientType: "electron",
-        clientVersion: app.getVersion(),
+        clientVersion: this.store.getClientVersion(),
       });
-    } catch (error) {
-      console.error("[HeartbeatWorker] Failed:", error);
-      // Non-fatal — will retry next interval
+
+      console.log(`[HeartbeatWorker] OK (server: ${result.serverTime})`);
+    } catch (error: any) {
+      console.error("[HeartbeatWorker] Failed:", error.message);
     }
   }
 }

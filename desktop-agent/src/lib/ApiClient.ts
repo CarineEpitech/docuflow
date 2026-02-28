@@ -4,7 +4,7 @@
  * Handles access token refresh, request retry with exponential backoff,
  * and proper error classification (network vs auth vs server).
  *
- * Phase 2 D4
+ * Phase 3 MVP
  */
 
 import { AgentStore } from "./AgentStore";
@@ -22,6 +22,25 @@ interface DeviceMeta {
   clientVersion?: string;
 }
 
+export interface TimeEntry {
+  id: string;
+  userId: string;
+  crmProjectId: string;
+  description: string | null;
+  startTime: string;
+  endTime: string | null;
+  status: "running" | "paused" | "stopped";
+  duration: number;
+  idleTime: number;
+  lastActivityAt: string | null;
+}
+
+export interface CrmProjectSummary {
+  id: string;
+  name: string;
+  status: string;
+}
+
 export class ApiClient {
   private store: AgentStore;
   private accessToken: string | null = null;
@@ -31,7 +50,7 @@ export class ApiClient {
     this.store = store;
   }
 
-  // ─── Public API ───
+  // ─── Pairing ───
 
   async completePairing(pairingCode: string, meta: DeviceMeta): Promise<PairingResult> {
     const serverUrl = this.store.getServerUrl();
@@ -53,19 +72,77 @@ export class ApiClient {
     return result;
   }
 
-  async sendHeartbeat(data: Record<string, unknown>): Promise<void> {
-    await this.authenticatedRequest("/api/agent/heartbeat", {
+  // ─── Timer control ───
+
+  async getActiveEntry(): Promise<TimeEntry | null> {
+    return this.authenticatedRequest("/api/agent/timer/active", { method: "GET" });
+  }
+
+  async getProjects(): Promise<CrmProjectSummary[]> {
+    const res = await this.authenticatedRequest("/api/agent/projects", { method: "GET" });
+    return res?.data ?? [];
+  }
+
+  async startTimer(crmProjectId: string, description?: string): Promise<TimeEntry> {
+    return this.authenticatedRequest("/api/agent/timer/start", {
+      method: "POST",
+      body: JSON.stringify({
+        crmProjectId,
+        description: description || null,
+        deviceId: this.store.getDeviceId(),
+        clientType: "desktop",
+        clientVersion: this.store.getClientVersion(),
+      }),
+    });
+  }
+
+  async pauseTimer(entryId: string): Promise<TimeEntry> {
+    return this.authenticatedRequest(`/api/agent/timer/${entryId}/pause`, {
+      method: "POST",
+      body: JSON.stringify({
+        deviceId: this.store.getDeviceId(),
+        clientType: "desktop",
+        clientVersion: this.store.getClientVersion(),
+      }),
+    });
+  }
+
+  async resumeTimer(entryId: string): Promise<TimeEntry> {
+    return this.authenticatedRequest(`/api/agent/timer/${entryId}/resume`, {
+      method: "POST",
+      body: JSON.stringify({
+        deviceId: this.store.getDeviceId(),
+        clientType: "desktop",
+        clientVersion: this.store.getClientVersion(),
+      }),
+    });
+  }
+
+  async stopTimer(entryId: string): Promise<TimeEntry> {
+    return this.authenticatedRequest(`/api/agent/timer/${entryId}/stop`, {
+      method: "POST",
+      body: JSON.stringify({
+        deviceId: this.store.getDeviceId(),
+        clientType: "desktop",
+        clientVersion: this.store.getClientVersion(),
+      }),
+    });
+  }
+
+  // ─── Heartbeat & Events ───
+
+  async sendHeartbeat(data: Record<string, unknown>): Promise<{ ok: boolean; serverTime: string }> {
+    return this.authenticatedRequest("/api/agent/heartbeat", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
   async sendEventsBatch(data: Record<string, unknown>): Promise<{ ok: boolean; accepted: number; duplicate?: boolean }> {
-    const res = await this.authenticatedRequest("/api/agent/events/batch", {
+    return this.authenticatedRequest("/api/agent/events/batch", {
       method: "POST",
       body: JSON.stringify(data),
     });
-    return res;
   }
 
   // ─── Internal ───
@@ -100,20 +177,21 @@ export class ApiClient {
       });
 
       if (!retry.ok) {
-        throw new Error(`Request failed: ${retry.status} ${retry.statusText}`);
+        const data = await retry.json().catch(() => ({ message: retry.statusText }));
+        throw new Error(data.message || `Request failed: ${retry.status}`);
       }
-      return retry.json();
+      return retry.json().catch(() => null);
     }
 
     if (!res.ok) {
-      throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+      const data = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(data.message || `Request failed: ${res.status}`);
     }
 
-    return res.json();
+    return res.json().catch(() => null);
   }
 
   private async ensureAccessToken(): Promise<void> {
-    // If token is still valid (with 60s buffer), reuse
     if (this.accessToken && Date.now() < this.tokenExpiresAt - 60_000) {
       return;
     }
@@ -141,10 +219,6 @@ export class ApiClient {
     this.tokenExpiresAt = new Date(expiresAt).getTime();
   }
 
-  /**
-   * Low-level fetch with retry on network errors.
-   * Retries up to 3 times with exponential backoff (1s, 2s, 4s).
-   */
   private async rawFetch(url: string, init: RequestInit, retries = 3): Promise<Response> {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
