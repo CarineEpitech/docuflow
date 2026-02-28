@@ -77,6 +77,13 @@ import {
   type TimeEntryWithDetails,
   type TimeEntryScreenshot,
   type InsertTimeEntryScreenshot,
+  type Device,
+  type InsertDevice,
+  type AgentPairingCode,
+  devices,
+  agentPairingCodes,
+  agentProcessedBatches,
+  agentActivityEvents,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, like, or, isNull, sql, gt, lt, lte, asc, count } from "drizzle-orm";
@@ -282,6 +289,36 @@ export interface IStorage {
     endDate?: Date;
   }): Promise<TimeEntryScreenshot[]>;
   deleteTimeEntryScreenshot(id: string): Promise<void>;
+
+  // ─── Desktop Agent ───
+
+  // Pairing codes
+  createAgentPairingCode(data: { userId: string; code: string; expiresAt: Date }): Promise<AgentPairingCode>;
+  getAgentPairingCode(code: string): Promise<AgentPairingCode | undefined>;
+  markPairingCodeUsed(id: string): Promise<void>;
+
+  // Devices
+  createDevice(data: InsertDevice): Promise<Device>;
+  getDevice(id: string): Promise<Device | undefined>;
+  getDeviceByTokenHash(deviceId: string, tokenHash: string): Promise<Device | undefined>;
+  updateDeviceLastSeen(id: string): Promise<void>;
+  revokeDevice(id: string): Promise<void>;
+  getUserDevices(userId: string): Promise<Device[]>;
+
+  // Agent batch idempotency
+  isAgentBatchProcessed(batchId: string): Promise<boolean>;
+  markAgentBatchProcessed(batchId: string, deviceId: string, eventCount: number): Promise<void>;
+
+  // Agent activity events
+  createAgentActivityEvents(events: Array<{
+    deviceId: string;
+    userId: string;
+    timeEntryId: string | null;
+    batchId: string;
+    eventType: string;
+    timestamp: Date;
+    data?: Record<string, unknown>;
+  }>): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2348,6 +2385,95 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTimeEntryScreenshot(id: string): Promise<void> {
     await db.delete(timeEntryScreenshots).where(eq(timeEntryScreenshots.id, id));
+  }
+
+  // ═══════════════════════════════════════
+  // Desktop Agent
+  // ═══════════════════════════════════════
+
+  async createAgentPairingCode(data: { userId: string; code: string; expiresAt: Date }): Promise<AgentPairingCode> {
+    const [result] = await db.insert(agentPairingCodes).values(data).returning();
+    return result;
+  }
+
+  async getAgentPairingCode(code: string): Promise<AgentPairingCode | undefined> {
+    const [result] = await db
+      .select()
+      .from(agentPairingCodes)
+      .where(eq(agentPairingCodes.code, code));
+    return result;
+  }
+
+  async markPairingCodeUsed(id: string): Promise<void> {
+    await db
+      .update(agentPairingCodes)
+      .set({ usedAt: new Date() })
+      .where(eq(agentPairingCodes.id, id));
+  }
+
+  async createDevice(data: InsertDevice): Promise<Device> {
+    const [result] = await db.insert(devices).values(data).returning();
+    return result;
+  }
+
+  async getDevice(id: string): Promise<Device | undefined> {
+    const [result] = await db.select().from(devices).where(eq(devices.id, id));
+    return result;
+  }
+
+  async getDeviceByTokenHash(deviceId: string, tokenHash: string): Promise<Device | undefined> {
+    const [result] = await db
+      .select()
+      .from(devices)
+      .where(and(eq(devices.id, deviceId), eq(devices.deviceTokenHash, tokenHash)));
+    return result;
+  }
+
+  async updateDeviceLastSeen(id: string): Promise<void> {
+    await db
+      .update(devices)
+      .set({ lastSeenAt: new Date() })
+      .where(eq(devices.id, id));
+  }
+
+  async revokeDevice(id: string): Promise<void> {
+    await db
+      .update(devices)
+      .set({ revokedAt: new Date() })
+      .where(eq(devices.id, id));
+  }
+
+  async getUserDevices(userId: string): Promise<Device[]> {
+    return db
+      .select()
+      .from(devices)
+      .where(eq(devices.userId, userId))
+      .orderBy(desc(devices.createdAt));
+  }
+
+  async isAgentBatchProcessed(batchId: string): Promise<boolean> {
+    const [result] = await db
+      .select()
+      .from(agentProcessedBatches)
+      .where(eq(agentProcessedBatches.batchId, batchId));
+    return !!result;
+  }
+
+  async markAgentBatchProcessed(batchId: string, deviceId: string, eventCount: number): Promise<void> {
+    await db.insert(agentProcessedBatches).values({ batchId, deviceId, eventCount });
+  }
+
+  async createAgentActivityEvents(events: Array<{
+    deviceId: string;
+    userId: string;
+    timeEntryId: string | null;
+    batchId: string;
+    eventType: string;
+    timestamp: Date;
+    data?: Record<string, unknown>;
+  }>): Promise<void> {
+    if (events.length === 0) return;
+    await db.insert(agentActivityEvents).values(events);
   }
 }
 

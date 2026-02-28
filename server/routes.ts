@@ -6,6 +6,7 @@ import { setupAuth, isAuthenticated, getUserId, hashPassword, verifyPassword, re
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
+import { registerAgentRoutes } from "./agentRoutes";
 import mammoth from "mammoth";
 import { 
   insertProjectSchema, 
@@ -75,6 +76,9 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   await setupAuth(app);
+
+  // Desktop Agent routes (pairing, auth, ingestion)
+  registerAgentRoutes(app);
 
   // Auth user endpoint - returns current user info or null if not authenticated
   app.get("/api/auth/user", async (req: Request, res) => {
