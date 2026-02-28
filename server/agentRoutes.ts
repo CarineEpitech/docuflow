@@ -10,7 +10,7 @@ import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import { storage } from "./storage";
 import { isAuthenticated, getUserId } from "./auth";
-import { logInfo, logError } from "./logger";
+import { logInfo, logError, logTimeEvent } from "./logger";
 
 // ─── Constants ───
 
@@ -437,6 +437,199 @@ export function registerAgentRoutes(app: Express): void {
     } catch (error) {
       logError("agent.screenshots.confirm.failed", error);
       res.status(500).json({ message: "Failed to confirm screenshot" });
+    }
+  });
+
+  // ═══════════════════════════════════════
+  // TIMER CONTROL (Agent-authenticated)
+  // ═══════════════════════════════════════
+
+  /** Helper: check device is valid and not revoked */
+  async function requireActiveDevice(req: AgentAuthRequest, res: Response): Promise<boolean> {
+    const deviceId = req.body?.deviceId || req.agentDeviceId;
+    if (!deviceId) {
+      res.status(400).json({ message: "deviceId required" });
+      return false;
+    }
+    const device = await storage.getDevice(deviceId);
+    if (!device) {
+      res.status(404).json({ message: "Device not found" });
+      return false;
+    }
+    if (device.revokedAt) {
+      res.status(403).json({ message: "Device has been revoked" });
+      return false;
+    }
+    return true;
+  }
+
+  /** Agent: get active time entry */
+  app.get("/api/agent/timer/active", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
+    try {
+      const userId = req.agentUserId!;
+      const entry = await storage.getActiveTimeEntry(userId);
+      res.json(entry || null);
+    } catch (error) {
+      logError("agent.timer.active.failed", error);
+      res.status(500).json({ message: "Failed to fetch active entry" });
+    }
+  });
+
+  /** Agent: list CRM projects (for timer start dropdown) */
+  app.get("/api/agent/projects", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
+    try {
+      const userId = req.agentUserId!;
+      const result = await storage.getCrmProjects(userId, { pageSize: 100 });
+      // Return simplified list for agent UI
+      const projects = result.data.map((p: any) => ({
+        id: p.id,
+        name: p.project?.name || p.name || "Untitled",
+        status: p.status,
+      }));
+      res.json({ data: projects });
+    } catch (error) {
+      logError("agent.projects.list.failed", error);
+      res.status(500).json({ message: "Failed to list projects" });
+    }
+  });
+
+  /** Agent: start timer */
+  app.post("/api/agent/timer/start", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
+    try {
+      if (!(await requireActiveDevice(req, res))) return;
+
+      const userId = req.agentUserId!;
+      const { crmProjectId, description, deviceId } = req.body;
+
+      if (!crmProjectId) {
+        return res.status(400).json({ message: "crmProjectId is required" });
+      }
+
+      // Auto-stop any existing active entry
+      const activeEntry = await storage.getActiveTimeEntry(userId);
+      if (activeEntry) {
+        const now = new Date();
+        let finalDuration = activeEntry.duration || 0;
+        if (activeEntry.status === "running" && activeEntry.lastActivityAt) {
+          const elapsedSeconds = Math.floor((now.getTime() - new Date(activeEntry.lastActivityAt).getTime()) / 1000);
+          finalDuration += elapsedSeconds;
+        }
+        await storage.updateTimeEntry(activeEntry.id, {
+          status: "stopped",
+          endTime: now,
+          duration: finalDuration,
+        });
+      }
+
+      const entry = await storage.createTimeEntry({
+        userId,
+        crmProjectId,
+        description: description || null,
+        startTime: new Date(),
+        status: "running",
+        lastActivityAt: new Date(),
+        duration: 0,
+        idleTime: 0,
+      });
+
+      logTimeEvent("start", entry.id, userId, { crmProjectId, deviceId, clientType: "desktop" });
+      logInfo("agent.timer.start", { userId, deviceId, entryId: entry.id, crmProjectId });
+      res.json(entry);
+    } catch (error) {
+      logError("agent.timer.start.failed", error);
+      res.status(500).json({ message: "Failed to start timer" });
+    }
+  });
+
+  /** Agent: pause timer */
+  app.post("/api/agent/timer/:id/pause", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
+    try {
+      if (!(await requireActiveDevice(req, res))) return;
+
+      const userId = req.agentUserId!;
+      const entry = await storage.getTimeEntry(req.params.id);
+
+      if (!entry) return res.status(404).json({ message: "Time entry not found" });
+      if (entry.userId !== userId) return res.status(403).json({ message: "Not authorized" });
+      if (entry.status !== "running") return res.status(400).json({ message: "Entry is not running" });
+
+      const now = new Date();
+      const lastActivity = entry.lastActivityAt || entry.startTime;
+      const elapsedSeconds = Math.floor((now.getTime() - new Date(lastActivity).getTime()) / 1000);
+
+      const updated = await storage.updateTimeEntry(entry.id, {
+        status: "paused",
+        duration: (entry.duration || 0) + elapsedSeconds,
+        lastActivityAt: now,
+      });
+
+      logTimeEvent("pause", entry.id, userId);
+      logInfo("agent.timer.pause", { userId, deviceId: req.agentDeviceId, entryId: entry.id });
+      res.json(updated);
+    } catch (error) {
+      logError("agent.timer.pause.failed", error);
+      res.status(500).json({ message: "Failed to pause timer" });
+    }
+  });
+
+  /** Agent: resume timer */
+  app.post("/api/agent/timer/:id/resume", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
+    try {
+      if (!(await requireActiveDevice(req, res))) return;
+
+      const userId = req.agentUserId!;
+      const entry = await storage.getTimeEntry(req.params.id);
+
+      if (!entry) return res.status(404).json({ message: "Time entry not found" });
+      if (entry.userId !== userId) return res.status(403).json({ message: "Not authorized" });
+      if (entry.status !== "paused") return res.status(400).json({ message: "Entry is not paused" });
+
+      const now = new Date();
+      const updated = await storage.updateTimeEntry(entry.id, {
+        status: "running",
+        lastActivityAt: now,
+      });
+
+      logTimeEvent("resume", entry.id, userId);
+      logInfo("agent.timer.resume", { userId, deviceId: req.agentDeviceId, entryId: entry.id });
+      res.json(updated);
+    } catch (error) {
+      logError("agent.timer.resume.failed", error);
+      res.status(500).json({ message: "Failed to resume timer" });
+    }
+  });
+
+  /** Agent: stop timer */
+  app.post("/api/agent/timer/:id/stop", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
+    try {
+      if (!(await requireActiveDevice(req, res))) return;
+
+      const userId = req.agentUserId!;
+      const entry = await storage.getTimeEntry(req.params.id);
+
+      if (!entry) return res.status(404).json({ message: "Time entry not found" });
+      if (entry.userId !== userId) return res.status(403).json({ message: "Not authorized" });
+      if (entry.status === "stopped") return res.status(400).json({ message: "Entry is already stopped" });
+
+      const now = new Date();
+      let finalDuration = entry.duration || 0;
+      if (entry.status === "running" && entry.lastActivityAt) {
+        const elapsedSeconds = Math.floor((now.getTime() - new Date(entry.lastActivityAt).getTime()) / 1000);
+        finalDuration += elapsedSeconds;
+      }
+
+      const updated = await storage.updateTimeEntry(entry.id, {
+        status: "stopped",
+        endTime: now,
+        duration: finalDuration,
+      });
+
+      logTimeEvent("stop", entry.id, userId, { finalDuration });
+      logInfo("agent.timer.stop", { userId, deviceId: req.agentDeviceId, entryId: entry.id, finalDuration });
+      res.json(updated);
+    } catch (error) {
+      logError("agent.timer.stop.failed", error);
+      res.status(500).json({ message: "Failed to stop timer" });
     }
   });
 }
