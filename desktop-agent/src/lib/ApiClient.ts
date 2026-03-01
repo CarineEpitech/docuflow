@@ -174,7 +174,8 @@ export class ApiClient {
       body: imageBuffer,
     });
     if (!res.ok) {
-      throw new Error(`Screenshot upload failed: ${res.status} ${res.statusText}`);
+      const body = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(`Screenshot upload failed: ${res.status} — ${body.message ?? res.statusText}`);
     }
   }
 

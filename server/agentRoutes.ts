@@ -547,7 +547,7 @@ export function registerAgentRoutes(app: Express): void {
         res.json({ ok: true });
       } catch (error: any) {
         logError("agent.screenshots.upload.failed", error);
-        res.status(500).json({ message: "Upload failed" });
+        res.status(500).json({ message: `Upload failed: ${error.message}` });
       }
     }
   );
