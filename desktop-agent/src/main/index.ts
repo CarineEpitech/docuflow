@@ -4,6 +4,11 @@
  * Phase 3 MVP — Pairing + Timer control + Workers.
  */
 
+// Handle Windows Squirrel installer lifecycle events.
+// Must execute before any other Electron API calls.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+if (require("electron-squirrel-startup")) process.exit(0);
+
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 

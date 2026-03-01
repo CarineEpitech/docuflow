@@ -13,11 +13,14 @@ const config: ForgeConfig = {
     name: "DocuFlow Agent",
     executableName: "docuflow-agent",
     asar: true,
+    appBundleId: "com.docuflow.agent",
   },
   makers: [
     {
       name: "@electron-forge/maker-squirrel",
       config: {
+        name: "DocuFlowAgent",
+        setupExe: "DocuFlowAgentSetup.exe",
         authors: "DocuFlow",
         description: "DocuFlow Desktop Agent — time tracking and activity monitoring",
       },

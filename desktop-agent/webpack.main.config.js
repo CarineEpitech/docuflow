@@ -3,6 +3,7 @@ module.exports = {
   // Native addons and Electron modules can't be bundled by webpack
   externals: {
     'better-sqlite3': 'commonjs better-sqlite3',
+    'electron-squirrel-startup': 'commonjs electron-squirrel-startup',
     'electron-store': 'commonjs electron-store',
   },
   module: {
