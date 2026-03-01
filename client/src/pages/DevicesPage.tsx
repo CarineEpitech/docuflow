@@ -39,7 +39,12 @@ import {
   ShieldX,
   Copy,
   CheckCircle,
+  Download,
 } from "lucide-react";
+
+/** Placeholder — replace with actual GitHub Releases URL after first publish */
+const DOWNLOAD_URL_WINDOWS = "PLACEHOLDER_GITHUB_RELEASE_URL";
+const AGENT_VERSION = "v0.1.0";
 
 interface Device {
   id: string;
@@ -171,10 +176,30 @@ export default function DevicesPage() {
             Manage Desktop Agent connections
           </p>
         </div>
-        <Button onClick={handleStartPairing} disabled={pairingMutation.isPending}>
-          <Plus className="h-4 w-4 mr-2" />
-          {pairingMutation.isPending ? "Generating..." : "Connect Device"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => window.open(DOWNLOAD_URL_WINDOWS, "_blank", "noopener,noreferrer")}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Windows Agent
+          </Button>
+          <Button onClick={handleStartPairing} disabled={pairingMutation.isPending}>
+            <Plus className="h-4 w-4 mr-2" />
+            {pairingMutation.isPending ? "Generating..." : "Connect Device"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Download help note */}
+      <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
+        <Monitor className="h-4 w-4 shrink-0" />
+        <span>
+          Install the app, open it, then enter the pairing code from this page.
+        </span>
+        <Badge variant="secondary" className="text-xs ml-auto shrink-0">
+          {AGENT_VERSION}
+        </Badge>
       </div>
 
       {/* Stats */}
