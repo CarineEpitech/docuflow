@@ -516,8 +516,10 @@ export function registerAgentRoutes(app: Express): void {
           return res.status(503).json({ message: "Object storage not configured" });
         }
 
-        const storageKey = `${privateDir}/agent-screenshots/${id}.png`;
-        const { bucketName, objectName } = parseObjectPath(storageKey);
+        // Full GCS path for the actual upload
+        const objectSubPath = `agent-screenshots/${id}.png`;
+        const fullObjectPath = `${privateDir}/${objectSubPath}`;
+        const { bucketName, objectName } = parseObjectPath(fullObjectPath);
 
         const signedPutUrl = await signObjectURL({
           bucketName,
@@ -535,7 +537,8 @@ export function registerAgentRoutes(app: Express): void {
           throw new Error(`Object storage upload failed: ${uploadRes.status}`);
         }
 
-        // Update DB record with final storage key
+        // DB storageKey uses /objects/ prefix so getObjectEntityFile() can resolve it
+        const storageKey = `/objects/${objectSubPath}`;
         await storage.updateTimeEntryScreenshot(id, { storageKey });
 
         logInfo("agent.screenshots.upload", {
