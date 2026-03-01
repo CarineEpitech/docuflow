@@ -12,7 +12,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { isAuthenticated, getUserId } from "./auth";
 import { logInfo, logError, logTimeEvent } from "./logger";
-import { objectStorageClient } from "./objectStorage";
+import { parseObjectPath, signObjectURL } from "./objectStorage";
 
 // ─── Constants ───
 
@@ -510,23 +510,30 @@ export function registerAgentRoutes(app: Express): void {
           return res.status(403).json({ message: "Forbidden" });
         }
 
-        // Upload to GCS
+        // Upload to Object Storage via signed URL (Replit sidecar)
         const privateDir = process.env.PRIVATE_OBJECT_DIR;
         if (!privateDir) {
           return res.status(503).json({ message: "Object storage not configured" });
         }
 
         const storageKey = `${privateDir}/agent-screenshots/${id}.png`;
-        // Parse bucket/object from gs:// path or plain path
-        const parts = storageKey.replace(/^gs:\/\//, "").split("/");
-        const bucketName = parts[0];
-        const objectName = parts.slice(1).join("/");
+        const { bucketName, objectName } = parseObjectPath(storageKey);
 
-        const bucket = objectStorageClient.bucket(bucketName);
-        await bucket.file(objectName).save(imageBuffer, {
-          contentType: "image/png",
-          metadata: { screenshotId: id, userId: req.agentUserId! },
+        const signedPutUrl = await signObjectURL({
+          bucketName,
+          objectName,
+          method: "PUT",
+          ttlSec: 300,
         });
+
+        const uploadRes = await fetch(signedPutUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "image/png" },
+          body: imageBuffer,
+        });
+        if (!uploadRes.ok) {
+          throw new Error(`Object storage upload failed: ${uploadRes.status}`);
+        }
 
         // Update DB record with final storage key
         await storage.updateTimeEntryScreenshot(id, { storageKey });
