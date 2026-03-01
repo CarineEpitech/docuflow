@@ -62,10 +62,18 @@ export class ApiClient {
     });
 
     if (!res.ok) {
+      const ct = res.headers.get("content-type") ?? "";
+      if (!ct.includes("application/json")) {
+        throw new Error(`Server returned HTTP ${res.status} (${res.statusText}). Check the Server URL.`);
+      }
       const data = await res.json().catch(() => ({ message: res.statusText }));
       throw new Error(data.message || "Pairing failed");
     }
 
+    const ct = res.headers.get("content-type") ?? "";
+    if (!ct.includes("application/json")) {
+      throw new Error("Server returned HTML instead of JSON — is the Server URL correct and the server running?");
+    }
     const result: PairingResult = await res.json();
     this.accessToken = result.accessToken;
     this.tokenExpiresAt = new Date(result.expiresAt).getTime();

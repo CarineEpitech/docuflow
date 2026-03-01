@@ -4,6 +4,9 @@
  * Phase 3 MVP — Pairing + Timer control + Workers.
  */
 
+declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
+declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
+
 import { app, BrowserWindow, Tray, Menu, ipcMain } from "electron";
 import path from "path";
 import { AgentStore } from "../lib/AgentStore";
@@ -39,13 +42,13 @@ function createMainWindow(): BrowserWindow {
     resizable: false,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "../renderer/preload.js"),
+      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  win.loadFile(path.join(__dirname, "../renderer/index.html"));
+  win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
   win.once("ready-to-show", () => win.show());
 
   win.on("close", (e) => {
@@ -129,7 +132,7 @@ ipcMain.handle("agent:get-state", () => {
 
 ipcMain.handle("agent:pair", async (_event, { serverUrl, pairingCode, deviceName }) => {
   try {
-    store.setServerUrl(serverUrl);
+    store.setServerUrl(serverUrl.replace(/\/+$/, ""));
     store.setClientVersion(app.getVersion());
     const result = await apiClient.completePairing(pairingCode, {
       deviceName,
@@ -254,8 +257,8 @@ app.whenReady().then(() => {
   }
 });
 
-app.on("window-all-closed", (e: Event) => {
-  e.preventDefault();
+app.on("window-all-closed", () => {
+  // Keep app running in tray — window hides on close, not quits
 });
 
 app.on("activate", () => {
