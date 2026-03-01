@@ -288,6 +288,7 @@ export interface IStorage {
     startDate?: Date;
     endDate?: Date;
   }): Promise<TimeEntryScreenshot[]>;
+  updateTimeEntryScreenshot(id: string, data: { storageKey: string }): Promise<TimeEntryScreenshot | undefined>;
   deleteTimeEntryScreenshot(id: string): Promise<void>;
 
   // ─── Desktop Agent ───
@@ -2381,6 +2382,15 @@ export class DatabaseStorage implements IStorage {
       .from(timeEntryScreenshots)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(timeEntryScreenshots.capturedAt));
+  }
+
+  async updateTimeEntryScreenshot(id: string, data: { storageKey: string }): Promise<TimeEntryScreenshot | undefined> {
+    const [result] = await db
+      .update(timeEntryScreenshots)
+      .set({ storageKey: data.storageKey })
+      .where(eq(timeEntryScreenshots.id, id))
+      .returning();
+    return result;
   }
 
   async deleteTimeEntryScreenshot(id: string): Promise<void> {

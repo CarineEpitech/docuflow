@@ -49,6 +49,16 @@ const authLimiter = rateLimit({
 app.use("/api/login", authLimiter);
 app.use("/api/register", authLimiter);
 
+// Screenshot upload endpoints: tighter limit (10 uploads/min per IP)
+const agentScreenshotLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { message: "Screenshot upload rate limit exceeded" },
+});
+app.use("/api/agent/screenshots/", agentScreenshotLimiter);
+
 // ─── Health check (before auth, unauthenticated) ───
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });

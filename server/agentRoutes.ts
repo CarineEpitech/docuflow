@@ -5,12 +5,14 @@
  * Phase 2 D2
  */
 
+import express from "express";
 import type { Express, Request, Response, NextFunction } from "express";
-import { randomBytes, createHash } from "crypto";
+import { randomBytes, createHash, createHmac } from "crypto";
 import { z } from "zod";
 import { storage } from "./storage";
 import { isAuthenticated, getUserId } from "./auth";
 import { logInfo, logError, logTimeEvent } from "./logger";
+import { objectStorageClient } from "./objectStorage";
 
 // ─── Constants ───
 
@@ -40,15 +42,63 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-// Simple in-memory access token store (short-lived, 1h)
-// In production, use JWT or Redis. This is a V1 placeholder.
-const accessTokenStore = new Map<string, { deviceId: string; userId: string; expiresAt: number }>();
+// ─── JWT (HMAC-SHA256, no external dependency) ───
+
+const JWT_SECRET = process.env.JWT_SECRET ?? generateToken(32); // fallback: ephemeral random key
+
+interface JwtPayload {
+  sub: string;  // deviceId
+  uid: string;  // userId
+  exp: number;  // unix seconds
+  iat: number;
+}
+
+function base64urlEncode(buf: Buffer | string): string {
+  const b = typeof buf === "string" ? Buffer.from(buf) : buf;
+  return b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function base64urlDecode(str: string): Buffer {
+  const padded = str.replace(/-/g, "+").replace(/_/g, "/");
+  return Buffer.from(padded, "base64");
+}
+
+function signJwt(payload: JwtPayload): string {
+  const header = base64urlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body = base64urlEncode(JSON.stringify(payload));
+  const data = `${header}.${body}`;
+  const sig = createHmac("sha256", JWT_SECRET).update(data).digest();
+  return `${data}.${base64urlEncode(sig)}`;
+}
+
+function verifyJwt(token: string): JwtPayload | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const data = `${parts[0]}.${parts[1]}`;
+  const expected = base64urlEncode(createHmac("sha256", JWT_SECRET).update(data).digest());
+  // Constant-time comparison
+  if (expected.length !== parts[2].length) return null;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ parts[2].charCodeAt(i);
+  }
+  if (diff !== 0) return null;
+  try {
+    return JSON.parse(base64urlDecode(parts[1]).toString()) as JwtPayload;
+  } catch {
+    return null;
+  }
+}
 
 function createAccessToken(deviceId: string, userId: string): { accessToken: string; expiresAt: Date } {
-  const accessToken = generateToken(ACCESS_TOKEN_LENGTH);
   const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MS);
-  accessTokenStore.set(accessToken, { deviceId, userId, expiresAt: expiresAt.getTime() });
-  return { accessToken, expiresAt };
+  const payload: JwtPayload = {
+    sub: deviceId,
+    uid: userId,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(expiresAt.getTime() / 1000),
+  };
+  return { accessToken: signJwt(payload), expiresAt };
 }
 
 // ─── Agent auth middleware ───
@@ -66,33 +116,22 @@ function isAgentAuthenticated(req: AgentAuthRequest, res: Response, next: NextFu
   }
 
   const token = authHeader.slice(7);
-  const entry = accessTokenStore.get(token);
+  const payload = verifyJwt(token);
 
-  if (!entry) {
+  if (!payload) {
     res.status(401).json({ message: "Invalid access token" });
     return;
   }
 
-  if (Date.now() > entry.expiresAt) {
-    accessTokenStore.delete(token);
+  if (Math.floor(Date.now() / 1000) > payload.exp) {
     res.status(401).json({ message: "Access token expired" });
     return;
   }
 
-  req.agentDeviceId = entry.deviceId;
-  req.agentUserId = entry.userId;
+  req.agentDeviceId = payload.sub;
+  req.agentUserId = payload.uid;
   next();
 }
-
-// Cleanup expired tokens periodically (every 5 min)
-setInterval(() => {
-  const now = Date.now();
-  accessTokenStore.forEach((entry, token) => {
-    if (now > entry.expiresAt) {
-      accessTokenStore.delete(token);
-    }
-  });
-}, 5 * 60 * 1000);
 
 // ─── Validation schemas ───
 
@@ -389,22 +428,27 @@ export function registerAgentRoutes(app: Express): void {
     try {
       const body = presignSchema.parse(req.body);
 
+      // Fetch time entry to get crmProjectId
+      const timeEntry = await storage.getTimeEntry(body.timeEntryId);
+      if (!timeEntry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+
       // Create a screenshot record with pending status
       const screenshot = await storage.createTimeEntryScreenshot({
         timeEntryId: body.timeEntryId,
         userId: req.agentUserId!,
-        crmProjectId: "", // Will be filled from time entry
-        storageKey: `pending-${Date.now()}`, // Placeholder until confirmed
+        crmProjectId: timeEntry.crmProjectId,
+        storageKey: `pending-${Date.now()}`, // Replaced on upload
         capturedAt: new Date(body.capturedAt),
       });
 
-      // Get signed upload URL
-      // [PLACEHOLDER]: Use ObjectStorageService for proper signed URL
-      // For now, return a placeholder
-      const uploadURL = `/api/time-tracking/screenshots/upload/${screenshot.id}`;
+      // Upload URL points to our server endpoint (server-side relay to GCS)
+      const uploadURL = `/api/agent/screenshots/upload/${screenshot.id}`;
 
       logInfo("agent.screenshots.presign", {
         screenshotId: screenshot.id,
+        timeEntryId: body.timeEntryId,
         deviceId: body.deviceId,
         clientType: body.clientType,
       });
@@ -423,14 +467,102 @@ export function registerAgentRoutes(app: Express): void {
     }
   });
 
-  /** Agent: confirm screenshot upload */
+  /** Agent: upload screenshot binary (server-side relay to GCS) */
+  app.put(
+    "/api/agent/screenshots/upload/:id",
+    isAgentAuthenticated as any,
+    express.raw({ type: ["image/png", "application/octet-stream"], limit: "6mb" }),
+    async (req: AgentAuthRequest, res) => {
+      try {
+        const { id } = req.params;
+        const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+        // Validate Content-Type
+        const contentType = req.headers["content-type"] || "";
+        if (!contentType.startsWith("image/png") && !contentType.startsWith("application/octet-stream")) {
+          return res.status(415).json({ message: "Content-Type must be image/png" });
+        }
+
+        const imageBuffer: Buffer = req.body;
+        if (!imageBuffer || imageBuffer.length === 0) {
+          return res.status(400).json({ message: "Empty body" });
+        }
+        if (imageBuffer.length > MAX_SIZE) {
+          return res.status(413).json({ message: `Screenshot exceeds 5 MB limit (${(imageBuffer.length / 1024 / 1024).toFixed(1)} MB)` });
+        }
+
+        // Verify PNG magic bytes (89 50 4E 47)
+        if (
+          imageBuffer[0] !== 0x89 ||
+          imageBuffer[1] !== 0x50 ||
+          imageBuffer[2] !== 0x4e ||
+          imageBuffer[3] !== 0x47
+        ) {
+          return res.status(415).json({ message: "Not a valid PNG file" });
+        }
+
+        // Verify screenshot record exists and belongs to this user
+        const screenshot = await storage.getTimeEntryScreenshotById(id);
+        if (!screenshot) {
+          return res.status(404).json({ message: "Screenshot record not found" });
+        }
+        if (screenshot.userId !== req.agentUserId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+
+        // Upload to GCS
+        const privateDir = process.env.PRIVATE_OBJECT_DIR;
+        if (!privateDir) {
+          return res.status(503).json({ message: "Object storage not configured" });
+        }
+
+        const storageKey = `${privateDir}/agent-screenshots/${id}.png`;
+        // Parse bucket/object from gs:// path or plain path
+        const parts = storageKey.replace(/^gs:\/\//, "").split("/");
+        const bucketName = parts[0];
+        const objectName = parts.slice(1).join("/");
+
+        const bucket = objectStorageClient.bucket(bucketName);
+        await bucket.file(objectName).save(imageBuffer, {
+          contentType: "image/png",
+          metadata: { screenshotId: id, userId: req.agentUserId! },
+        });
+
+        // Update DB record with final storage key
+        await storage.updateTimeEntryScreenshot(id, { storageKey });
+
+        logInfo("agent.screenshots.upload", {
+          screenshotId: id,
+          sizeBytes: imageBuffer.length,
+          userId: req.agentUserId,
+        });
+
+        res.json({ ok: true });
+      } catch (error: any) {
+        logError("agent.screenshots.upload.failed", error);
+        res.status(500).json({ message: "Upload failed" });
+      }
+    }
+  );
+
+  /** Agent: confirm screenshot upload complete */
   app.post("/api/agent/screenshots/confirm", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
     try {
       const body = confirmSchema.parse(req.body);
 
+      // Verify the screenshot was actually uploaded (storageKey no longer starts with "pending-")
+      const screenshot = await storage.getTimeEntryScreenshotById(body.screenshotId);
+      if (!screenshot) {
+        return res.status(404).json({ message: "Screenshot not found" });
+      }
+      if (screenshot.storageKey.startsWith("pending-")) {
+        return res.status(409).json({ message: "Screenshot upload not yet received" });
+      }
+
       logInfo("agent.screenshots.confirm", {
         screenshotId: body.screenshotId,
         deviceId: body.deviceId,
+        userId: req.agentUserId,
       });
 
       res.json({ ok: true });
