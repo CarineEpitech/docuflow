@@ -152,7 +152,7 @@ export class ApiClient {
     });
   }
 
-  /** Upload raw image binary to the signed upload URL (PUT, no auth header). */
+  /** Upload raw image binary to the upload endpoint (PUT, with auth for server-side uploads). */
   async uploadScreenshot(uploadURL: string, imageBuffer: Buffer): Promise<void> {
     const serverUrl = this.store.getServerUrl() ?? "";
     // If the URL is relative (server-side upload endpoint), make it absolute
@@ -160,9 +160,17 @@ export class ApiClient {
       ? uploadURL
       : `${serverUrl}${uploadURL}`;
 
+    // Server-side upload endpoint requires Bearer token
+    const isServerUpload = !uploadURL.startsWith("http") || uploadURL.startsWith(serverUrl);
+    const headers: Record<string, string> = { "Content-Type": "image/png" };
+    if (isServerUpload) {
+      await this.ensureAccessToken();
+      headers["Authorization"] = `Bearer ${this.accessToken}`;
+    }
+
     const res = await fetch(fullURL, {
       method: "PUT",
-      headers: { "Content-Type": "image/png" },
+      headers,
       body: imageBuffer,
     });
     if (!res.ok) {
