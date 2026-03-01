@@ -20,8 +20,10 @@ import os from "os";
 import { SqliteQueue } from "../lib/SqliteQueue";
 import { AgentStore } from "../lib/AgentStore";
 
-const CAPTURE_INTERVAL_BASE_MS = 3 * 60 * 1000; // 3 minutes base
-const CAPTURE_JITTER_MS = 60 * 1000;            // ±1 minute jitter
+const DEFAULT_INTERVAL_S = 180; // 3 minutes
+const CAPTURE_INTERVAL_BASE_MS =
+  (parseInt(process.env.SCREENSHOT_INTERVAL_SECONDS ?? "", 10) || DEFAULT_INTERVAL_S) * 1000;
+const CAPTURE_JITTER_MS = Math.round(CAPTURE_INTERVAL_BASE_MS * 0.1); // ±10%
 const TEMP_DIR = path.join(os.tmpdir(), "docuflow-screenshots");
 const MAX_PNG_SIZE_BYTES = 5 * 1024 * 1024;      // 5 MB hard limit
 
@@ -46,7 +48,7 @@ export class ScreenCaptureWorker {
     // Ensure temp dir exists
     fs.mkdirSync(TEMP_DIR, { recursive: true });
     this.scheduleNext();
-    console.log(`[ScreenCaptureWorker] Started (interval ~${CAPTURE_INTERVAL_BASE_MS / 60000}min)`);
+    console.log(`[ScreenCaptureWorker] Started (interval ~${CAPTURE_INTERVAL_BASE_MS / 1000}s, dir: ${TEMP_DIR})`);
   }
 
   stop(): void {
@@ -95,10 +97,13 @@ export class ScreenCaptureWorker {
         return;
       }
 
+      console.log("[ScreenCapture] Captured screenshot");
+
       // Save to temp file
       const filename = `screenshot-${Date.now()}.png`;
       const filePath = path.join(TEMP_DIR, filename);
       fs.writeFileSync(filePath, png);
+      console.log(`[ScreenCapture] Saved to ${filePath} (${(png.length / 1024).toFixed(0)} KB)`);
 
       // Enqueue for upload
       this.queue.enqueueScreenshot(filePath, {
@@ -107,11 +112,8 @@ export class ScreenCaptureWorker {
         deviceId: this.store.getDeviceId(),
         clientVersion: this.store.getClientVersion(),
       });
-
       this.totalCaptured++;
-      console.log(
-        `[ScreenCaptureWorker] Captured ${filename} (${(png.length / 1024).toFixed(0)} KB, total: ${this.totalCaptured})`
-      );
+      console.log(`[ScreenCapture] Enqueued upload (total: ${this.totalCaptured})`);
     } catch (error: any) {
       console.error("[ScreenCaptureWorker] Capture failed:", error.message);
     }

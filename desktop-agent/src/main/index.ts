@@ -25,8 +25,8 @@ const store = new AgentStore();
 const queue = new SqliteQueue(app.getPath("userData"));
 const apiClient = new ApiClient(store);
 
-// Feature flag: set SCREENSHOTS_ENABLED=true env var to enable
-const SCREENSHOTS_ENABLED = process.env.SCREENSHOTS_ENABLED === "true";
+// Feature flag: enabled by default in dev; set SCREENSHOTS_ENABLED=false to disable
+const SCREENSHOTS_ENABLED = process.env.SCREENSHOTS_ENABLED !== "false";
 
 let heartbeatWorker: HeartbeatWorker | null = null;
 let activityWorker: ActivityWorker | null = null;
