@@ -92,7 +92,9 @@ export class SqliteQueue {
     const batchId = randomUUID();
     const rows = this.db
       .prepare(
-        "SELECT * FROM pending_events WHERE synced_at IS NULL AND batch_id IS NULL LIMIT ?"
+        `SELECT id, batch_id as batchId, event_type as eventType,
+                timestamp, data, created_at as createdAt, synced_at as syncedAt
+         FROM pending_events WHERE synced_at IS NULL AND batch_id IS NULL LIMIT ?`
       )
       .all(limit) as QueuedEvent[];
 

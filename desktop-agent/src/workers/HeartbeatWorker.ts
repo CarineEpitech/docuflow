@@ -49,8 +49,6 @@ export class HeartbeatWorker {
         deviceId,
         timeEntryId: this.store.getActiveEntryId(),
         timestamp: new Date().toISOString(),
-        activeApp: null,
-        activeWindow: null,
         clientType: "electron",
         clientVersion: this.store.getClientVersion(),
       });
