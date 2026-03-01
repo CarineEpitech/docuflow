@@ -42,7 +42,7 @@ import {
   Download,
 } from "lucide-react";
 
-const DOWNLOAD_URL_WINDOWS = "https://github.com/CarineEpitech/docuflow/releases/download/desktop-agent-v0.1.0/DocuFlow.Agent-0.1.0.Setup.exe";
+const DOWNLOAD_URL_WINDOWS = "https://github.com/CarineEpitech/docuflow/releases/download/desktop-agent-v0.1.0/DocuFlowAgentSetup.exe";
 const AGENT_VERSION = "v0.1.0";
 
 interface Device {
