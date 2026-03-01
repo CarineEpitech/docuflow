@@ -13,7 +13,7 @@ const config: ForgeConfig = {
     name: "DocuFlow Agent",
     executableName: "docuflow-agent",
     asar: {
-      unpack: "**/{better-sqlite3,bindings,file-uri-to-path}/**",
+      unpack: "**/*.node",
     },
     appBundleId: "com.docuflow.agent",
   },
