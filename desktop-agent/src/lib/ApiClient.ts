@@ -129,6 +129,49 @@ export class ApiClient {
     });
   }
 
+  // ─── Screenshots ───
+
+  async presignScreenshot(data: {
+    deviceId: string;
+    timeEntryId: string;
+    capturedAt: string;
+    clientType: string;
+    clientVersion: string;
+  }): Promise<{ screenshotId: string; uploadURL: string; expiresAt: string }> {
+    return this.authenticatedRequest("/api/agent/screenshots/presign", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Upload raw image binary to the signed upload URL (PUT, no auth header). */
+  async uploadScreenshot(uploadURL: string, imageBuffer: Buffer): Promise<void> {
+    const serverUrl = this.store.getServerUrl() ?? "";
+    // If the URL is relative (server-side upload endpoint), make it absolute
+    const fullURL = uploadURL.startsWith("http")
+      ? uploadURL
+      : `${serverUrl}${uploadURL}`;
+
+    const res = await fetch(fullURL, {
+      method: "PUT",
+      headers: { "Content-Type": "image/png" },
+      body: imageBuffer,
+    });
+    if (!res.ok) {
+      throw new Error(`Screenshot upload failed: ${res.status} ${res.statusText}`);
+    }
+  }
+
+  async confirmScreenshot(data: {
+    screenshotId: string;
+    deviceId: string;
+  }): Promise<{ ok: boolean }> {
+    return this.authenticatedRequest("/api/agent/screenshots/confirm", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   // ─── Heartbeat & Events ───
 
   async sendHeartbeat(data: Record<string, unknown>): Promise<{ ok: boolean; serverTime: string }> {

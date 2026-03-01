@@ -12,17 +12,23 @@ import { ApiClient } from "../lib/ApiClient";
 import { HeartbeatWorker } from "../workers/HeartbeatWorker";
 import { ActivityWorker } from "../workers/ActivityWorker";
 import { SyncWorker } from "../workers/SyncWorker";
+import { ScreenCaptureWorker } from "../workers/ScreenCaptureWorker";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 const store = new AgentStore();
-const queue = new SqliteQueue();
+// Pass userData path so SQLite DB survives restarts
+const queue = new SqliteQueue(app.getPath("userData"));
 const apiClient = new ApiClient(store);
+
+// Feature flag: set SCREENSHOTS_ENABLED=true env var to enable
+const SCREENSHOTS_ENABLED = process.env.SCREENSHOTS_ENABLED === "true";
 
 let heartbeatWorker: HeartbeatWorker | null = null;
 let activityWorker: ActivityWorker | null = null;
 let syncWorker: SyncWorker | null = null;
+let screenshotWorker: ScreenCaptureWorker | null = null;
 
 // ─── Window ───
 
@@ -82,16 +88,21 @@ function startWorkers(): void {
   syncWorker = new SyncWorker(apiClient, queue, store);
   syncWorker.start();
 
-  console.log("[Main] Workers started");
+  screenshotWorker = new ScreenCaptureWorker(queue, store, SCREENSHOTS_ENABLED);
+  screenshotWorker.start();
+
+  console.log(`[Main] Workers started (screenshots: ${SCREENSHOTS_ENABLED})`);
 }
 
 function stopWorkers(): void {
   heartbeatWorker?.stop();
   activityWorker?.stop();
   syncWorker?.stop();
+  screenshotWorker?.stop();
   heartbeatWorker = null;
   activityWorker = null;
   syncWorker = null;
+  screenshotWorker = null;
   console.log("[Main] Workers stopped");
 }
 

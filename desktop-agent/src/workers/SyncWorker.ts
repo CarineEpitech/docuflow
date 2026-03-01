@@ -1,29 +1,35 @@
 /**
- * Sync worker — drains the event queue and sends batches to the server.
+ * Sync worker — drains activity events and screenshot uploads to the server.
  *
- * Offline-first: events accumulate locally and sync when connectivity returns.
- * Exponential backoff on failure (5s -> 10s -> 20s -> ... -> 5min max).
- * Batch sync every 30s (or immediately if batch is full).
+ * Two drain loops running in the same cycle:
+ *  1. Activity events  → POST /api/agent/events/batch
+ *  2. Screenshots      → presign → PUT upload → confirm
  *
- * Phase 3 MVP
+ * Exponential backoff: 5s → 10s → 20s → ... → 5 min max.
+ * Offline-first: SQLite queue survives restarts (Phase 4.2).
+ *
+ * Phase 4.2
  */
 
 import { ApiClient } from "../lib/ApiClient";
 import { SqliteQueue } from "../lib/SqliteQueue";
 import { AgentStore } from "../lib/AgentStore";
+import fs from "fs";
 
-const SYNC_INTERVAL_MS = 30_000; // Sync every 30s
-const MAX_BACKOFF_MS = 5 * 60_000; // 5 minutes
+const SYNC_INTERVAL_MS = 30_000;
+const MAX_BACKOFF_MS = 5 * 60_000;
 const BASE_BACKOFF_MS = 5_000;
 const BATCH_SIZE = 50;
+const MAX_SCREENSHOT_ATTEMPTS = 5;
 
 export class SyncWorker {
   private apiClient: ApiClient;
   private queue: SqliteQueue;
   private store: AgentStore;
   private timeout: ReturnType<typeof setTimeout> | null = null;
-  private consecutiveFailures = 0;
-  private totalSynced = 0;
+  private eventFailures = 0;
+  private totalEventsSynced = 0;
+  private totalScreenshotsSynced = 0;
 
   constructor(apiClient: ApiClient, queue: SqliteQueue, store: AgentStore) {
     this.apiClient = apiClient;
@@ -32,9 +38,8 @@ export class SyncWorker {
   }
 
   start(): void {
-    // First sync after 5s to allow initial events to accumulate
-    this.scheduleNext(5000);
-    console.log("[SyncWorker] Started (30s interval)");
+    this.scheduleNext(5_000);
+    console.log("[SyncWorker] Started (30s interval, SQLite-backed)");
   }
 
   stop(): void {
@@ -42,7 +47,9 @@ export class SyncWorker {
       clearTimeout(this.timeout);
       this.timeout = null;
     }
-    console.log(`[SyncWorker] Stopped (total synced: ${this.totalSynced})`);
+    console.log(
+      `[SyncWorker] Stopped (events: ${this.totalEventsSynced}, screenshots: ${this.totalScreenshotsSynced})`
+    );
   }
 
   private scheduleNext(delayMs: number): void {
@@ -50,32 +57,33 @@ export class SyncWorker {
   }
 
   private async syncOnce(): Promise<void> {
+    await this.drainEvents();
+    await this.drainScreenshots();
+    this.scheduleNext(SYNC_INTERVAL_MS);
+  }
+
+  // ─── Activity events ───
+
+  private async drainEvents(): Promise<void> {
+    const pending = this.queue.pendingCount();
+    if (pending === 0) return;
+
+    const { batchId, events } = this.queue.getNextBatch(BATCH_SIZE);
+    if (events.length === 0) return;
+
+    const deviceId = this.store.getDeviceId();
+    if (!deviceId) {
+      this.queue.releaseBatch(batchId);
+      return;
+    }
+
     try {
-      const pending = this.queue.pendingCount();
-      if (pending === 0) {
-        this.scheduleNext(SYNC_INTERVAL_MS);
-        return;
-      }
-
-      const { batchId, events } = this.queue.getNextBatch(BATCH_SIZE);
-      if (events.length === 0) {
-        this.scheduleNext(SYNC_INTERVAL_MS);
-        return;
-      }
-
-      const deviceId = this.store.getDeviceId();
-      if (!deviceId) {
-        this.queue.releaseBatch(batchId);
-        this.scheduleNext(SYNC_INTERVAL_MS);
-        return;
-      }
-
       const result = await this.apiClient.sendEventsBatch({
         deviceId,
         batchId,
         clientType: "electron",
         clientVersion: this.store.getClientVersion(),
-        events: events.map(e => ({
+        events: events.map((e) => ({
           type: e.eventType,
           timestamp: e.timestamp,
           data: JSON.parse(e.data || "{}"),
@@ -84,28 +92,85 @@ export class SyncWorker {
 
       if (result.ok) {
         this.queue.markBatchSynced(batchId);
-        this.consecutiveFailures = 0;
-        this.totalSynced += result.accepted || events.length;
-        console.log(`[SyncWorker] Batch synced: ${events.length} events (total: ${this.totalSynced})`);
-
-        // If more pending, sync again quickly
-        const remaining = this.queue.pendingCount();
-        this.scheduleNext(remaining > 0 ? 1000 : SYNC_INTERVAL_MS);
+        this.eventFailures = 0;
+        this.totalEventsSynced += result.accepted || events.length;
+        console.log(
+          `[SyncWorker] Events: ${events.length} synced (total: ${this.totalEventsSynced})`
+        );
       } else {
-        // Server rejected but didn't error — release batch
         this.queue.releaseBatch(batchId);
-        this.scheduleNext(SYNC_INTERVAL_MS);
       }
     } catch (error: any) {
-      this.consecutiveFailures++;
+      this.queue.releaseBatch(batchId);
+      this.eventFailures++;
+      console.error(`[SyncWorker] Event sync failed: ${error.message}`);
+    }
+  }
+
+  // ─── Screenshots ───
+
+  private async drainScreenshots(): Promise<void> {
+    const pending = this.queue.getNextPendingScreenshot();
+    if (!pending) return;
+
+    if (pending.attemptCount >= MAX_SCREENSHOT_ATTEMPTS) {
+      console.warn(`[SyncWorker] Screenshot ${pending.id.slice(0, 8)} exceeded max attempts, dropping`);
+      this.queue.markScreenshotSent(pending.id); // Remove from queue
+      this.cleanupFile(pending.filePath);
+      return;
+    }
+
+    try {
+      const meta = JSON.parse(pending.metaJson) as {
+        timeEntryId: string;
+        capturedAt: string;
+        deviceId?: string;
+        clientVersion?: string;
+      };
+
+      const deviceId = meta.deviceId ?? this.store.getDeviceId();
+      if (!deviceId) return;
+
+      // Step 1: Presign
+      const presignResult = await this.apiClient.presignScreenshot({
+        deviceId,
+        timeEntryId: meta.timeEntryId,
+        capturedAt: meta.capturedAt,
+        clientType: "electron",
+        clientVersion: meta.clientVersion ?? this.store.getClientVersion(),
+      });
+
+      // Step 2: Upload binary
+      const imageBuffer = fs.readFileSync(pending.filePath);
+      await this.apiClient.uploadScreenshot(presignResult.uploadURL, imageBuffer);
+
+      // Step 3: Confirm
+      await this.apiClient.confirmScreenshot({
+        screenshotId: presignResult.screenshotId,
+        deviceId,
+      });
+
+      this.queue.markScreenshotSent(pending.id);
+      this.cleanupFile(pending.filePath);
+      this.totalScreenshotsSynced++;
+      console.log(
+        `[SyncWorker] Screenshot ${pending.id.slice(0, 8)} uploaded (total: ${this.totalScreenshotsSynced})`
+      );
+    } catch (error: any) {
       const backoff = Math.min(
-        BASE_BACKOFF_MS * Math.pow(2, this.consecutiveFailures - 1),
+        BASE_BACKOFF_MS * Math.pow(2, pending.attemptCount),
         MAX_BACKOFF_MS
       );
-      console.error(`[SyncWorker] Failed (attempt ${this.consecutiveFailures}), retry in ${backoff / 1000}s: ${error.message}`);
+      this.queue.failScreenshot(pending.id, backoff);
+      console.error(`[SyncWorker] Screenshot upload failed (attempt ${pending.attemptCount + 1}): ${error.message}`);
+    }
+  }
 
-      // Release the batch so it can be retried
-      this.scheduleNext(backoff);
+  private cleanupFile(filePath: string): void {
+    try {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch {
+      // Non-fatal
     }
   }
 }
