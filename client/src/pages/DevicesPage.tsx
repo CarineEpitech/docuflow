@@ -42,8 +42,7 @@ import {
   Download,
 } from "lucide-react";
 
-/** Placeholder — replace with actual GitHub Releases URL after first publish */
-const DOWNLOAD_URL_WINDOWS = "PLACEHOLDER_GITHUB_RELEASE_URL";
+const DOWNLOAD_URL_WINDOWS = "https://github.com/CarineEpitech/docuflow/releases/download/desktop-agent-v0.1.0/DocuFlow.Agent-0.1.0.Setup.exe";
 const AGENT_VERSION = "v0.1.0";
 
 interface Device {
