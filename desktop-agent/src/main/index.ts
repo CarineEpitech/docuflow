@@ -81,9 +81,24 @@ function createMainWindow(): BrowserWindow {
 
 // ─── Tray ───
 
+function getTrayIconPath(): string {
+  // In production (packaged), __dirname points inside .webpack/main
+  // which is inside app.asar. Assets need to be resolved relative to the app root.
+  if (app.isPackaged) {
+    // Packaged: resources/app.asar/.webpack/main → go up to resources/
+    return path.join(process.resourcesPath, "assets", "tray-icon.png");
+  }
+  // Dev: .webpack/main → ../../assets/
+  return path.join(__dirname, "../../assets/tray-icon.png");
+}
+
 function createTray(): void {
-  // [PLACEHOLDER]: Use proper icon asset
-  tray = new Tray(path.join(__dirname, "../../assets/tray-icon.png"));
+  try {
+    tray = new Tray(getTrayIconPath());
+  } catch (err) {
+    console.warn("[Main] Tray icon not found, skipping tray:", (err as Error).message);
+    return;
+  }
 
   const contextMenu = Menu.buildFromTemplate([
     { label: "Show Agent", click: () => mainWindow?.show() },

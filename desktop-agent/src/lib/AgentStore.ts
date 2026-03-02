@@ -1,46 +1,83 @@
 /**
  * Persistent store for agent configuration, pairing state, and runtime state.
  *
- * Phase 3 MVP — in-memory (persists for session lifetime).
- * [PLACEHOLDER]: Replace with electron-store for real disk persistence.
+ * Pairing data (serverUrl, deviceId, deviceToken, deviceName) is persisted
+ * to a JSON file in app.getPath("userData"). Survives restarts.
+ *
+ * Timer runtime state stays in memory — rebuilt from server on startup.
+ *
+ * Phase 4.5 — replaced in-memory-only store and dropped electron-store dependency
+ * (electron-store v8+ is ESM-only, incompatible with webpack commonjs externals).
+ * Uses only Node.js builtins (fs, path) — zero packaging risk.
  */
 
-interface StoreData {
+import { app } from "electron";
+import fs from "fs";
+import path from "path";
+
+interface PersistedData {
   serverUrl: string | null;
   deviceId: string | null;
   deviceToken: string | null;
   deviceName: string | null;
-  clientVersion: string;
 }
 
-// Runtime state (not persisted)
+// Runtime state (not persisted — rebuilt from server on startup)
 interface RuntimeState {
   activeEntryId: string | null;
   activeProjectName: string | null;
   timerStatus: "stopped" | "running" | "paused";
   timerDuration: number; // accumulated seconds from server
   timerLastActivityAt: number | null; // timestamp ms for local elapsed calc
+  clientVersion: string;
 }
 
+const CONFIG_FILENAME = "agent-config.json";
+
 export class AgentStore {
-  private data: StoreData;
+  private data: PersistedData;
   private runtime: RuntimeState;
+  private configPath: string;
 
   constructor() {
-    this.data = {
-      serverUrl: null,
-      deviceId: null,
-      deviceToken: null,
-      deviceName: null,
-      clientVersion: "0.1.0",
-    };
+    this.configPath = path.join(app.getPath("userData"), CONFIG_FILENAME);
+    this.data = this.loadFromDisk();
     this.runtime = {
       activeEntryId: null,
       activeProjectName: null,
       timerStatus: "stopped",
       timerDuration: 0,
       timerLastActivityAt: null,
+      clientVersion: "0.1.0",
     };
+  }
+
+  // ─── Disk persistence ───
+
+  private loadFromDisk(): PersistedData {
+    const empty: PersistedData = {
+      serverUrl: null,
+      deviceId: null,
+      deviceToken: null,
+      deviceName: null,
+    };
+    try {
+      if (!fs.existsSync(this.configPath)) return empty;
+      const raw = fs.readFileSync(this.configPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      return { ...empty, ...parsed };
+    } catch (err) {
+      console.warn("[AgentStore] Failed to load config, using defaults:", (err as Error).message);
+      return empty;
+    }
+  }
+
+  private saveToDisk(): void {
+    try {
+      fs.writeFileSync(this.configPath, JSON.stringify(this.data, null, 2), "utf-8");
+    } catch (err) {
+      console.error("[AgentStore] Failed to save config:", (err as Error).message);
+    }
   }
 
   // ─── Pairing ───
@@ -50,25 +87,30 @@ export class AgentStore {
   }
 
   getServerUrl(): string | null { return this.data.serverUrl; }
-  setServerUrl(url: string): void { this.data.serverUrl = url; }
+  setServerUrl(url: string): void {
+    this.data.serverUrl = url;
+    this.saveToDisk();
+  }
 
   getDeviceId(): string | null { return this.data.deviceId; }
   getDeviceToken(): string | null { return this.data.deviceToken; }
   getDeviceName(): string | null { return this.data.deviceName; }
-  getClientVersion(): string { return this.data.clientVersion; }
+  getClientVersion(): string { return this.runtime.clientVersion; }
 
-  setClientVersion(v: string): void { this.data.clientVersion = v; }
+  setClientVersion(v: string): void { this.runtime.clientVersion = v; }
 
   setPairing(deviceId: string, deviceToken: string, deviceName: string): void {
     this.data.deviceId = deviceId;
     this.data.deviceToken = deviceToken;
     this.data.deviceName = deviceName;
+    this.saveToDisk();
   }
 
   clearPairing(): void {
     this.data.deviceId = null;
     this.data.deviceToken = null;
     this.data.deviceName = null;
+    this.saveToDisk();
     this.clearTimer();
   }
 

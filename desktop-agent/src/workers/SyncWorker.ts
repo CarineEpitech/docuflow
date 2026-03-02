@@ -15,6 +15,7 @@ import { ApiClient } from "../lib/ApiClient";
 import { SqliteQueue } from "../lib/SqliteQueue";
 import { AgentStore } from "../lib/AgentStore";
 import fs from "fs";
+import path from "path";
 
 const SYNC_INTERVAL_MS = 30_000;
 const MAX_BACKOFF_MS = 5 * 60_000;
@@ -140,8 +141,8 @@ export class SyncWorker {
         clientVersion: meta.clientVersion ?? this.store.getClientVersion(),
       });
 
-      // Step 2: Upload binary
-      const imageBuffer = fs.readFileSync(pending.filePath);
+      // Step 2: Upload binary (async to avoid blocking event loop)
+      const imageBuffer = await fs.promises.readFile(pending.filePath);
       await this.apiClient.uploadScreenshot(presignResult.uploadURL, imageBuffer);
 
       // Step 3: Confirm
@@ -167,10 +168,8 @@ export class SyncWorker {
   }
 
   private cleanupFile(filePath: string): void {
-    try {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    } catch {
-      // Non-fatal
-    }
+    fs.promises.unlink(filePath).catch((err) => {
+      console.warn(`[SyncWorker] Cleanup failed for ${path.basename(filePath)}: ${err.message}`);
+    });
   }
 }

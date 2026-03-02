@@ -12,8 +12,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
-    "electron-store": "^8.1.0"
+    "better-sqlite3": "^11.10.0"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.0.0",

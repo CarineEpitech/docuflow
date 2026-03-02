@@ -13,18 +13,19 @@
  * Phase 4.3
  */
 
-import { desktopCapturer, nativeImage } from "electron";
+import { app, desktopCapturer, nativeImage } from "electron";
 import fs from "fs";
 import path from "path";
-import os from "os";
 import { SqliteQueue } from "../lib/SqliteQueue";
 import { AgentStore } from "../lib/AgentStore";
 
 const DEFAULT_INTERVAL_S = 180; // 3 minutes
-const CAPTURE_INTERVAL_BASE_MS =
-  (parseInt(process.env.SCREENSHOT_INTERVAL_SECONDS ?? "", 10) || DEFAULT_INTERVAL_S) * 1000;
+const CAPTURE_INTERVAL_BASE_MS = (() => {
+  const parsed = parseInt(process.env.SCREENSHOT_INTERVAL_SECONDS ?? "", 10);
+  const seconds = Number.isFinite(parsed) && parsed >= 30 ? Math.min(parsed, 3600) : DEFAULT_INTERVAL_S;
+  return seconds * 1000;
+})();
 const CAPTURE_JITTER_MS = Math.round(CAPTURE_INTERVAL_BASE_MS * 0.1); // ±10%
-const TEMP_DIR = path.join(os.tmpdir(), "docuflow-screenshots");
 const MAX_PNG_SIZE_BYTES = 5 * 1024 * 1024;      // 5 MB hard limit
 
 export class ScreenCaptureWorker {
@@ -33,11 +34,14 @@ export class ScreenCaptureWorker {
   private timeout: ReturnType<typeof setTimeout> | null = null;
   private enabled: boolean;
   private totalCaptured = 0;
+  private screenshotDir: string;
 
   constructor(queue: SqliteQueue, store: AgentStore, enabled = false) {
     this.queue = queue;
     this.store = store;
     this.enabled = enabled;
+    // Use app userData dir (not os.tmpdir) — survives reboots, app-private, not world-readable
+    this.screenshotDir = path.join(app.getPath("userData"), "screenshots");
   }
 
   start(): void {
@@ -45,10 +49,9 @@ export class ScreenCaptureWorker {
       console.log("[ScreenCaptureWorker] Disabled (screenshotsEnabled=false)");
       return;
     }
-    // Ensure temp dir exists
-    fs.mkdirSync(TEMP_DIR, { recursive: true });
+    fs.mkdirSync(this.screenshotDir, { recursive: true });
     this.scheduleNext();
-    console.log(`[ScreenCaptureWorker] Started (interval ~${CAPTURE_INTERVAL_BASE_MS / 1000}s, dir: ${TEMP_DIR})`);
+    console.log(`[ScreenCaptureWorker] Started (interval ~${CAPTURE_INTERVAL_BASE_MS / 1000}s, dir: ${this.screenshotDir})`);
   }
 
   stop(): void {
@@ -99,10 +102,10 @@ export class ScreenCaptureWorker {
 
       console.log("[ScreenCapture] Captured screenshot");
 
-      // Save to temp file
+      // Save to local file (userData dir — app-private, persists across reboots)
       const filename = `screenshot-${Date.now()}.png`;
-      const filePath = path.join(TEMP_DIR, filename);
-      fs.writeFileSync(filePath, png);
+      const filePath = path.join(this.screenshotDir, filename);
+      await fs.promises.writeFile(filePath, png);
       console.log(`[ScreenCapture] Saved to ${filePath} (${(png.length / 1024).toFixed(0)} KB)`);
 
       // Enqueue for upload

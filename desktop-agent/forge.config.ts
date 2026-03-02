@@ -16,6 +16,8 @@ const config: ForgeConfig = {
       unpack: "**/*.node",
     },
     appBundleId: "com.docuflow.agent",
+    // Copy assets alongside app.asar so they're accessible at process.resourcesPath/assets/
+    extraResource: ["./assets"],
   },
   makers: [
     {
