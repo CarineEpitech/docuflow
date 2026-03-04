@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-- Windows 10/11 (Squirrel.Windows only builds on Windows)
+- Windows 10/11
 - Node.js 18+
 - npm 9+
 
@@ -16,8 +16,9 @@ npm install
 npm run build
 ```
 
-`npm run build` runs `electron-forge make`, which packages the app and creates
-a Squirrel.Windows installer.
+`npm run build` runs `electron-forge make`, which produces:
+- A **WiX MSI installer** (primary)
+- A **ZIP portable** (fallback)
 
 ---
 
@@ -27,88 +28,110 @@ After a successful build on Windows:
 
 | File | Path | Purpose |
 |------|------|---------|
-| **Setup.exe** | `out/make/squirrel.windows/x64/DocuFlowAgentSetup.exe` | Installer for end users |
-| **Nupkg** | `out/make/squirrel.windows/x64/DocuFlowAgent-0.1.0-full.nupkg` | Squirrel update package |
-| **RELEASES** | `out/make/squirrel.windows/x64/RELEASES` | Squirrel release manifest |
-| **Portable** | `out/DocuFlow Agent-win32-x64/docuflow-agent.exe` | Unpackaged app directory |
+| **MSI installer** | `out/make/wix/x64/DocuFlow Agent-0.1.0-x64.msi` | Installer for end users — recommended |
+| **ZIP portable** | `out/make/zip/win32/x64/DocuFlow Agent-win32-x64-0.1.0.zip` | Portable fallback, no install needed |
 
-> For distribution, only `DocuFlowAgentSetup.exe` is needed.
+> For distribution, share `DocuFlow Agent-0.1.0-x64.msi`.
 
 ---
 
-## Publishing to GitHub Releases
+## User Install Instructions
 
-1. Create a new release on GitHub:
-   `https://github.com/<org>/docuflow/releases/new`
+### MSI (recommended)
 
-2. Tag: `desktop-agent-v0.1.0`
+1. Download `DocuFlow Agent-0.1.0-x64.msi`
+2. If SmartScreen blocks it: click **More info** → **Run anyway**
+3. Follow the install wizard — no admin rights needed (installs per-user)
+4. Start Menu → **DocuFlow** → **DocuFlow Agent**
+5. App also visible in **Settings → Apps → Installed apps** as **DocuFlow Desktop Agent**
 
-3. Title: `Desktop Agent v0.1.0`
+### ZIP (portable fallback)
 
-4. Upload `DocuFlowAgentSetup.exe` as a release asset.
+Use this if the MSI is blocked by antivirus or IT policy.
 
-5. Copy the direct download URL for the `.exe` asset:
-   ```
-   https://github.com/<org>/docuflow/releases/download/desktop-agent-v0.1.0/DocuFlowAgentSetup.exe
-   ```
+1. Extract the ZIP anywhere (e.g. `C:\Users\you\DocuFlowAgent\`)
+2. Right-click the folder → **Properties** → check **Unblock** if present → OK
+3. Run `docuflow-agent.exe`
 
-### Using `gh` CLI (alternative)
+---
 
-```bash
-gh release create desktop-agent-v0.1.0 \
-  desktop-agent/out/make/squirrel.windows/x64/DocuFlowAgentSetup.exe \
-  --title "Desktop Agent v0.1.0" \
-  --notes "Initial MVP release — Windows installer."
-```
+## First Launch / Pairing
+
+1. Open the desktop agent
+2. Enter your server URL (e.g. `https://app.docuflow.io`)
+3. In the web app: go to **Devices** → **Connect Device** to get a pairing code
+4. Enter the pairing code in the agent → **Pair**
+5. The device appears in the web app's device list
 
 ---
 
 ## Updating the Download URL in the Web App
 
-After publishing, update the placeholder URL:
+After publishing a release, update the placeholder in:
 
 **File:** `client/src/pages/DevicesPage.tsx`
 
-Find:
 ```typescript
+// Change this:
 const DOWNLOAD_URL_WINDOWS = "PLACEHOLDER_GITHUB_RELEASE_URL";
-```
 
-Replace with the actual GitHub Releases asset URL:
-```typescript
-const DOWNLOAD_URL_WINDOWS = "https://github.com/<org>/docuflow/releases/download/desktop-agent-v0.1.0/DocuFlowAgentSetup.exe";
+// To the actual asset URL:
+const DOWNLOAD_URL_WINDOWS = "https://github.com/<org>/docuflow/releases/download/desktop-agent-v0.1.0/DocuFlow%20Agent-0.1.0-x64.msi";
 ```
 
 ---
 
-## MVP Limitations
+## Troubleshooting
 
-- **No code signing**: Windows SmartScreen may warn on first launch.
-  Users click "More info" then "Run anyway."
-- **No auto-update**: Users must manually download new versions.
-- **Windows only**: macOS .dmg and Linux .deb makers are configured
-  but not included in the download flow yet.
+### "Windows cannot access the specified device"
+The file is blocked because it was downloaded from the internet.
+1. Right-click the MSI → **Properties**
+2. At the bottom, check **Unblock** → **OK**
+3. Run again
+
+### Antivirus blocking the installer
+Unsigned Electron apps are sometimes flagged by Avast/Defender.
+- Temporarily disable real-time protection for 10 minutes
+- Run the installer
+- Re-enable protection
+
+### ffmpeg.dll not found
+This means a previous corrupted installation left broken files.
+1. **Settings → Apps** → uninstall **DocuFlow Desktop Agent**
+2. Delete `C:\Users\<you>\AppData\Local\DocuFlow Agent\` if it still exists
+3. Reinstall from the MSI
+
+### App not starting after install
+Delete leftover AppData folders, then reinstall:
+```
+C:\Users\<you>\AppData\Local\DocuFlow Agent\
+C:\Users\<you>\AppData\Roaming\DocuFlow Agent\
+```
 
 ---
 
-## User Flow
+## Publishing to GitHub Releases
 
-1. User visits the **Devices** page in the web app
-2. Clicks **"Download Windows Agent"** button
-3. Downloads and runs `DocuFlowAgentSetup.exe`
-4. App installs to `%LOCALAPPDATA%\DocuFlowAgent\` and launches
-5. User clicks **"Connect Device"** on the web page to get a pairing code
-6. Enters the pairing code in the Desktop Agent
-7. Device appears in the web app's device list
+```bash
+gh release create desktop-agent-v0.1.0 \
+  "desktop-agent/out/make/wix/x64/DocuFlow Agent-0.1.0-x64.msi" \
+  --title "Desktop Agent v0.1.0" \
+  --notes "Windows MSI installer — installs per-user, no Squirrel."
+```
 
 ---
 
 ## Version Bumping
 
-When releasing a new version:
-
 1. Update `version` in `desktop-agent/package.json`
-2. Update `AGENT_VERSION` in `client/src/pages/DevicesPage.tsx`
-3. Rebuild: `cd desktop-agent && npm run build`
-4. Publish new GitHub Release with updated tag
-5. Update `DOWNLOAD_URL_WINDOWS` with the new release URL
+2. Rebuild: `cd desktop-agent && npm run build`
+3. Publish new GitHub Release
+4. Update `DOWNLOAD_URL_WINDOWS` in `client/src/pages/DevicesPage.tsx`
+
+---
+
+## MVP Limitations
+
+- **No code signing**: SmartScreen warns on first launch — users click "More info" → "Run anyway"
+- **No auto-update**: Users must manually download new versions
+- **Windows only**: macOS `.dmg` and Linux `.deb` makers are configured but not in the download flow yet

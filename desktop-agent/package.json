@@ -7,16 +7,17 @@
   "scripts": {
     "predev": "node scripts/kill-port.js 9000",
     "dev": "electron-forge start",
-    "build": "electron-forge make",
+    "build": "node scripts/build-msi.js",
+    "build:msi": "node scripts/build-msi.js",
+    "setup:wix": "node scripts/setup-wix.js",
     "package": "electron-forge package",
     "lint": "tsc --noEmit"
   },
-  "dependencies": {},
   "devDependencies": {
     "@electron-forge/cli": "^7.0.0",
     "@electron-forge/maker-deb": "^7.0.0",
     "@electron-forge/maker-dmg": "^7.0.0",
-    "@electron-forge/maker-squirrel": "^7.0.0",
+    "@electron-forge/maker-wix": "^7.11.1",
     "@electron-forge/maker-zip": "^7.0.0",
     "@electron-forge/plugin-webpack": "^7.11.1",
     "electron": "^33.0.0",
