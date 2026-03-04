@@ -18,18 +18,20 @@ const config: ForgeConfig = {
     extraResource: ["./assets"],
   },
   makers: [
-    {
-      name: "@electron-forge/maker-squirrel",
-      config: {
-        name: "DocuFlowAgent",
-        setupExe: "DocuFlowAgentSetup.exe",
-        authors: "DocuFlow",
-        description: "DocuFlow Desktop Agent — time tracking and activity monitoring",
-      },
-    },
-    { name: "@electron-forge/maker-zip", platforms: ["darwin"] },
+    // ZIP for Windows + macOS — no installer, no antivirus issues, no code signing needed
+    { name: "@electron-forge/maker-zip", platforms: ["win32", "darwin"] },
     { name: "@electron-forge/maker-deb", config: {} },
     { name: "@electron-forge/maker-dmg", config: {} },
+    // Squirrel disabled until code signing is set up (Avast blocks unsigned Update.exe)
+    // {
+    //   name: "@electron-forge/maker-squirrel",
+    //   config: {
+    //     name: "DocuFlowAgent",
+    //     setupExe: "DocuFlowAgentSetup.exe",
+    //     authors: "DocuFlow",
+    //     description: "DocuFlow Desktop Agent — time tracking and activity monitoring",
+    //   },
+    // },
   ],
   plugins: [
     new WebpackPlugin({
