@@ -42,7 +42,7 @@ import {
   Download,
 } from "lucide-react";
 
-const DOWNLOAD_URL_WINDOWS = "PLACEHOLDER_GITHUB_RELEASE_MSI_URL";
+const DOWNLOAD_URL_WINDOWS = "https://github.com/CarineEpitech/docuflow/releases/download/desktop-agent-v0.1.1/DocuFlowAgentSetup-0.1.1.msi";
 const DOWNLOAD_URL_WINDOWS_ZIP = "PLACEHOLDER_GITHUB_RELEASE_ZIP_URL";
 const AGENT_VERSION = "v0.1.1";
 
