@@ -15,11 +15,19 @@ if (process.platform === "win32") {
   const squirrelCmd = process.argv[1];
   if (squirrelCmd === "--squirrel-install" || squirrelCmd === "--squirrel-updated") {
     const updateExe = path.resolve(path.dirname(process.execPath), "..", "Update.exe");
-    spawn(updateExe, ["--createShortcut=" + path.basename(process.execPath)], { detached: true });
+    const child = spawn(updateExe, ["--createShortcut=" + path.basename(process.execPath)], { detached: true });
+    child.on("error", (err) => {
+      console.error("[Squirrel] Failed to spawn Update.exe (install):", err.message);
+      app.quit();
+    });
     app.quit();
   } else if (squirrelCmd === "--squirrel-uninstall") {
     const updateExe = path.resolve(path.dirname(process.execPath), "..", "Update.exe");
-    spawn(updateExe, ["--removeShortcut=" + path.basename(process.execPath)], { detached: true });
+    const child = spawn(updateExe, ["--removeShortcut=" + path.basename(process.execPath)], { detached: true });
+    child.on("error", (err) => {
+      console.error("[Squirrel] Failed to spawn Update.exe (uninstall):", err.message);
+      app.quit();
+    });
     app.quit();
   } else if (squirrelCmd === "--squirrel-obsolete") {
     app.quit();
