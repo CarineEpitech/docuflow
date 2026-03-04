@@ -27,4 +27,19 @@ const env = {
 const args = ["electron-forge", "make", "--targets", "@electron-forge/maker-wix"];
 const child = spawn("npx", args, { env, stdio: "inherit", shell: true });
 
-child.on("exit", (code) => process.exit(code ?? 0));
+child.on("exit", (code) => {
+  if (code !== 0) return process.exit(code ?? 1);
+
+  // Rename output to a stable filename without spaces
+  const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../package.json"), "utf8"));
+  const msiDir = path.resolve(__dirname, "../out/make/wix/x64");
+  const src = path.join(msiDir, `DocuFlow Agent.msi`);
+  const dest = path.join(msiDir, `DocuFlowAgentSetup-${pkg.version}.msi`);
+
+  if (fs.existsSync(src)) {
+    fs.copyFileSync(src, dest);
+    console.log(`\nMSI ready: out/make/wix/x64/DocuFlowAgentSetup-${pkg.version}.msi`);
+  }
+
+  process.exit(0);
+});
