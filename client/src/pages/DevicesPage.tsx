@@ -42,8 +42,9 @@ import {
   Download,
 } from "lucide-react";
 
-const DOWNLOAD_URL_WINDOWS = "https://github.com/CarineEpitech/docuflow/releases/download/desktop-agent-v0.1.0/docuflow-agent-win32-x64.zip";
-const AGENT_VERSION = "v0.1.0";
+const DOWNLOAD_URL_WINDOWS = "PLACEHOLDER_GITHUB_RELEASE_MSI_URL";
+const DOWNLOAD_URL_WINDOWS_ZIP = "PLACEHOLDER_GITHUB_RELEASE_ZIP_URL";
+const AGENT_VERSION = "v0.1.1";
 
 interface Device {
   id: string;
@@ -84,7 +85,7 @@ function DeviceStatusBadge({ device }: { device: Device }) {
 
 export default function DevicesPage() {
   const { toast } = useToast();
-  const [showPairingDialog, setShowPairingDialog] = useState(false);
+  const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [pairingExpiresAt, setPairingExpiresAt] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -108,7 +109,6 @@ export default function DevicesPage() {
     onSuccess: (data: { pairingCode: string; expiresAt: string }) => {
       setPairingCode(data.pairingCode);
       setPairingExpiresAt(data.expiresAt);
-      setShowPairingDialog(true);
     },
     onError: () => {
       toast({ title: "Failed to generate pairing code", variant: "destructive" });
@@ -130,25 +130,24 @@ export default function DevicesPage() {
     },
   });
 
-  // Auto-close pairing dialog and refresh devices when code expires
+  // Reset pairing code when it expires
   useEffect(() => {
     if (!pairingExpiresAt) return;
     const timeout = setTimeout(() => {
-      setShowPairingDialog(false);
       setPairingCode(null);
       setPairingExpiresAt(null);
     }, new Date(pairingExpiresAt).getTime() - Date.now());
     return () => clearTimeout(timeout);
   }, [pairingExpiresAt]);
 
-  // Poll devices faster while pairing dialog is open
+  // Poll devices faster while connect dialog is open (pairing in progress)
   useEffect(() => {
-    if (!showPairingDialog) return;
+    if (!showConnectDialog) return;
     const interval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ["/api/agent/devices"] });
     }, 3000);
     return () => clearInterval(interval);
-  }, [showPairingDialog]);
+  }, [showConnectDialog]);
 
   const handleCopyCode = () => {
     if (pairingCode) {
@@ -158,7 +157,14 @@ export default function DevicesPage() {
     }
   };
 
-  const handleStartPairing = () => {
+  const handleOpenConnect = () => {
+    setPairingCode(null);
+    setPairingExpiresAt(null);
+    setCodeCopied(false);
+    setShowConnectDialog(true);
+  };
+
+  const handleGetPairingCode = () => {
     setCodeCopied(false);
     pairingMutation.mutate();
   };
@@ -175,26 +181,17 @@ export default function DevicesPage() {
             Manage Desktop Agent connections
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => window.open(DOWNLOAD_URL_WINDOWS, "_blank", "noopener,noreferrer")}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Download Windows Agent
-          </Button>
-          <Button onClick={handleStartPairing} disabled={pairingMutation.isPending}>
-            <Plus className="h-4 w-4 mr-2" />
-            {pairingMutation.isPending ? "Generating..." : "Connect Device"}
-          </Button>
-        </div>
+        <Button onClick={handleOpenConnect}>
+          <Plus className="h-4 w-4 mr-2" />
+          Connect Device
+        </Button>
       </div>
 
-      {/* Download help note */}
+      {/* Help note */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
         <Monitor className="h-4 w-4 shrink-0" />
         <span>
-          Install the app, open it, then enter the pairing code from this page.
+          Click <strong>Connect Device</strong> to download the Windows agent or get a pairing code.
         </span>
         <Badge variant="secondary" className="text-xs ml-auto shrink-0">
           {AGENT_VERSION}
@@ -317,9 +314,9 @@ export default function DevicesPage() {
         </CardContent>
       </Card>
 
-      {/* Pairing Code Dialog */}
-      <Dialog open={showPairingDialog} onOpenChange={(open) => {
-        setShowPairingDialog(open);
+      {/* Connect Device Dialog */}
+      <Dialog open={showConnectDialog} onOpenChange={(open) => {
+        setShowConnectDialog(open);
         if (!open) {
           setPairingCode(null);
           setPairingExpiresAt(null);
@@ -329,32 +326,75 @@ export default function DevicesPage() {
           <DialogHeader>
             <DialogTitle>Connect Desktop Agent</DialogTitle>
             <DialogDescription>
-              Enter this code in your Desktop Agent app to pair it with your account.
+              Download the agent on your Windows machine, then pair it with your account.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center py-6">
-            <div className="font-mono text-4xl tracking-[0.3em] font-bold select-all">
-              {pairingCode ?? "------"}
+
+          <div className="space-y-5 py-2">
+            {/* Step 1 — Download */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Step 1 — Download the agent</p>
+              <Button
+                className="w-full"
+                onClick={() => window.open(DOWNLOAD_URL_WINDOWS, "_blank", "noopener,noreferrer")}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Windows Agent (MSI)
+              </Button>
+              <a
+                href={DOWNLOAD_URL_WINDOWS_ZIP}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-center text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                Download ZIP (portable fallback)
+              </a>
+              <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+                Windows may show a security prompt because this installer is unsigned (MVP).
+                Click <strong>More info</strong> → <strong>Run anyway</strong>.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">
-              Code expires in 10 minutes
-            </p>
-          </div>
-          <DialogFooter className="sm:justify-center">
-            <Button variant="outline" onClick={handleCopyCode} className="gap-2">
-              {codeCopied ? (
-                <>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Copied!
-                </>
+
+            <div className="border-t" />
+
+            {/* Step 2 — Pair */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Step 2 — Pair your device</p>
+              {pairingCode ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="font-mono text-4xl tracking-[0.3em] font-bold select-all">
+                    {pairingCode}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter this code in the Desktop Agent app. Expires in 10 minutes.
+                  </p>
+                  <Button variant="outline" onClick={handleCopyCode} className="gap-2 w-full">
+                    {codeCopied ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" />
+                        Copy Code
+                      </>
+                    )}
+                  </Button>
+                </div>
               ) : (
-                <>
-                  <Copy className="h-4 w-4" />
-                  Copy Code
-                </>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGetPairingCode}
+                  disabled={pairingMutation.isPending}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {pairingMutation.isPending ? "Generating..." : "Get pairing code"}
+                </Button>
               )}
-            </Button>
-          </DialogFooter>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
