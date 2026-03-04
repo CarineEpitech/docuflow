@@ -12,9 +12,7 @@ const config: ForgeConfig = {
   packagerConfig: {
     name: "DocuFlow Agent",
     executableName: "docuflow-agent",
-    asar: {
-      unpack: "**/*.node",
-    },
+    asar: true,
     appBundleId: "com.docuflow.agent",
     // Copy assets alongside app.asar so they're accessible at process.resourcesPath/assets/
     extraResource: ["./assets"],
@@ -50,7 +48,6 @@ const config: ForgeConfig = {
         ],
       },
     }),
-    { name: "@electron-forge/plugin-auto-unpack-natives", config: {} },
   ],
 };
 

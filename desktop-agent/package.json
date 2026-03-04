@@ -11,18 +11,14 @@
     "package": "electron-forge package",
     "lint": "tsc --noEmit"
   },
-  "dependencies": {
-    "better-sqlite3": "^11.10.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@electron-forge/cli": "^7.0.0",
     "@electron-forge/maker-deb": "^7.0.0",
     "@electron-forge/maker-dmg": "^7.0.0",
     "@electron-forge/maker-squirrel": "^7.0.0",
     "@electron-forge/maker-zip": "^7.0.0",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.0.0",
     "@electron-forge/plugin-webpack": "^7.11.1",
-    "@types/better-sqlite3": "^7.6.8",
     "electron": "^33.0.0",
     "ts-loader": "^9.5.4",
     "typescript": "^5.0.0"

@@ -1,17 +1,17 @@
 /**
- * Persistent SQLite queue for activity event batches and screenshot uploads.
+ * Persistent JSON-file queue for activity event batches and screenshot uploads.
  *
- * Uses better-sqlite3 (synchronous API, safe for Electron main process).
- * Survives agent restarts — data is durably stored on disk.
+ * Replaces the original better-sqlite3 implementation to eliminate native
+ * module packaging issues in Electron Forge + webpack + asar builds.
  *
- * Tables:
- *  - pending_events:      raw activity events (enqueued by workers, batched for sync)
- *  - pending_screenshots: screenshot files queued for upload
+ * Data is stored as JSON in `agent-queue.json` inside the userData directory.
+ * Writes use atomic rename (write → temp file, rename → target) to prevent
+ * corruption on crash.
  *
- * Phase 4.2
+ * Phase 4.2 (revised)
  */
 
-import Database from "better-sqlite3";
+import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 
@@ -34,45 +34,72 @@ export interface PendingScreenshot {
   createdAt: number; // epoch ms
 }
 
+interface QueueData {
+  nextEventId: number;
+  events: QueuedEvent[];
+  screenshots: PendingScreenshot[];
+}
+
+function emptyData(): QueueData {
+  return { nextEventId: 1, events: [], screenshots: [] };
+}
+
 export class SqliteQueue {
-  private db: Database.Database;
+  private data: QueueData;
+  private filePath: string;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(userDataPath: string) {
-    const dbPath = path.join(userDataPath, "agent-queue.db");
-    this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = WAL");
-    this.migrate();
-    console.log(`[SqliteQueue] Opened at ${dbPath}`);
+    this.filePath = path.join(userDataPath, "agent-queue.json");
+    this.data = this.loadFromDisk();
+    console.log(`[Queue] Opened at ${this.filePath}`);
   }
 
-  // ─── Schema ───
+  // ─── Disk I/O ───
 
-  private migrate(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS pending_events (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        batch_id    TEXT,
-        event_type  TEXT NOT NULL,
-        timestamp   TEXT NOT NULL,
-        data        TEXT DEFAULT '{}',
-        created_at  TEXT DEFAULT (datetime('now')),
-        synced_at   TEXT
-      );
+  private loadFromDisk(): QueueData {
+    try {
+      if (!fs.existsSync(this.filePath)) return emptyData();
+      const raw = fs.readFileSync(this.filePath, "utf-8");
+      const parsed = JSON.parse(raw) as Partial<QueueData>;
+      return {
+        nextEventId: parsed.nextEventId ?? 1,
+        events: parsed.events ?? [],
+        screenshots: parsed.screenshots ?? [],
+      };
+    } catch (err) {
+      console.warn("[Queue] Failed to load, starting fresh:", (err as Error).message);
+      return emptyData();
+    }
+  }
 
-      CREATE INDEX IF NOT EXISTS idx_events_batch   ON pending_events(batch_id);
-      CREATE INDEX IF NOT EXISTS idx_events_pending ON pending_events(synced_at);
+  /** Atomic write: write to temp file then rename */
+  private saveToDisk(): void {
+    try {
+      const tmp = this.filePath + ".tmp";
+      fs.writeFileSync(tmp, JSON.stringify(this.data), "utf-8");
+      fs.renameSync(tmp, this.filePath);
+    } catch (err) {
+      console.error("[Queue] Save failed:", (err as Error).message);
+    }
+  }
 
-      CREATE TABLE IF NOT EXISTS pending_screenshots (
-        id             TEXT PRIMARY KEY,
-        file_path      TEXT NOT NULL,
-        meta_json      TEXT NOT NULL DEFAULT '{}',
-        next_retry_at  INTEGER NOT NULL DEFAULT 0,
-        attempt_count  INTEGER NOT NULL DEFAULT 0,
-        created_at     INTEGER NOT NULL
-      );
+  /** Debounced save — coalesces rapid writes into a single disk flush */
+  private scheduleSave(): void {
+    if (this.saveTimer) return;
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.saveToDisk();
+    }, 100);
+  }
 
-      CREATE INDEX IF NOT EXISTS idx_screenshots_retry ON pending_screenshots(next_retry_at);
-    `);
+  /** Force immediate save (used before close) */
+  private flushSave(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    this.saveToDisk();
   }
 
   // ═══════════════════════════════════════
@@ -80,62 +107,65 @@ export class SqliteQueue {
   // ═══════════════════════════════════════
 
   enqueue(eventType: string, timestamp: Date, data: Record<string, unknown> = {}): void {
-    this.db
-      .prepare(
-        "INSERT INTO pending_events (event_type, timestamp, data) VALUES (?, ?, ?)"
-      )
-      .run(eventType, timestamp.toISOString(), JSON.stringify(data));
-    console.log(`[SqliteQueue] Enqueue: ${eventType} (pending: ${this.pendingCount()})`);
+    const event: QueuedEvent = {
+      id: this.data.nextEventId++,
+      batchId: null,
+      eventType,
+      timestamp: timestamp.toISOString(),
+      data: JSON.stringify(data),
+      createdAt: new Date().toISOString(),
+      syncedAt: null,
+    };
+    this.data.events.push(event);
+    this.scheduleSave();
+    console.log(`[Queue] Enqueue: ${eventType} (pending: ${this.pendingCount()})`);
   }
 
   getNextBatch(limit = 50): { batchId: string; events: QueuedEvent[] } {
     const batchId = randomUUID();
-    const rows = this.db
-      .prepare(
-        `SELECT id, batch_id as batchId, event_type as eventType,
-                timestamp, data, created_at as createdAt, synced_at as syncedAt
-         FROM pending_events WHERE synced_at IS NULL AND batch_id IS NULL LIMIT ?`
-      )
-      .all(limit) as QueuedEvent[];
+    const pending = this.data.events.filter(
+      (e) => e.syncedAt === null && e.batchId === null
+    );
+    const batch = pending.slice(0, limit);
 
-    if (rows.length > 0) {
-      const ids = rows.map((r) => r.id);
-      const placeholders = ids.map(() => "?").join(",");
-      this.db
-        .prepare(
-          `UPDATE pending_events SET batch_id = ? WHERE id IN (${placeholders})`
-        )
-        .run(batchId, ...ids);
+    for (const event of batch) {
+      event.batchId = batchId;
     }
 
-    return { batchId, events: rows };
+    if (batch.length > 0) {
+      this.scheduleSave();
+    }
+
+    return { batchId, events: batch };
   }
 
   markBatchSynced(batchId: string): void {
     const now = new Date().toISOString();
-    this.db
-      .prepare("UPDATE pending_events SET synced_at = ? WHERE batch_id = ?")
-      .run(now, batchId);
-    // Prune old synced rows
-    this.db
-      .prepare(
-        "DELETE FROM pending_events WHERE synced_at IS NOT NULL AND synced_at < datetime('now', '-7 days')"
-      )
-      .run();
-    console.log(`[SqliteQueue] Batch ${batchId.slice(0, 8)} synced`);
+    for (const event of this.data.events) {
+      if (event.batchId === batchId) {
+        event.syncedAt = now;
+      }
+    }
+    // Prune old synced rows (older than 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    this.data.events = this.data.events.filter(
+      (e) => e.syncedAt === null || e.syncedAt > sevenDaysAgo
+    );
+    this.scheduleSave();
+    console.log(`[Queue] Batch ${batchId.slice(0, 8)} synced`);
   }
 
   releaseBatch(batchId: string): void {
-    this.db
-      .prepare("UPDATE pending_events SET batch_id = NULL WHERE batch_id = ?")
-      .run(batchId);
+    for (const event of this.data.events) {
+      if (event.batchId === batchId) {
+        event.batchId = null;
+      }
+    }
+    this.scheduleSave();
   }
 
   pendingCount(): number {
-    const row = this.db
-      .prepare("SELECT COUNT(*) as n FROM pending_events WHERE synced_at IS NULL")
-      .get() as { n: number };
-    return row.n;
+    return this.data.events.filter((e) => e.syncedAt === null).length;
   }
 
   // ═══════════════════════════════════════
@@ -144,75 +174,56 @@ export class SqliteQueue {
 
   enqueueScreenshot(filePath: string, meta: Record<string, unknown>): string {
     const id = randomUUID();
-    this.db
-      .prepare(
-        "INSERT INTO pending_screenshots (id, file_path, meta_json, created_at) VALUES (?, ?, ?, ?)"
-      )
-      .run(id, filePath, JSON.stringify(meta), Date.now());
-    console.log(`[SqliteQueue] Screenshot enqueued: ${id.slice(0, 8)}`);
+    const entry: PendingScreenshot = {
+      id,
+      filePath,
+      metaJson: JSON.stringify(meta),
+      nextRetryAt: 0,
+      attemptCount: 0,
+      createdAt: Date.now(),
+    };
+    this.data.screenshots.push(entry);
+    this.scheduleSave();
+    console.log(`[Queue] Screenshot enqueued: ${id.slice(0, 8)}`);
     return id;
   }
 
   getNextPendingScreenshot(nowMs = Date.now()): PendingScreenshot | null {
-    const row = this.db
-      .prepare(
-        `SELECT id, file_path, meta_json, next_retry_at, attempt_count, created_at
-         FROM pending_screenshots
-         WHERE next_retry_at <= ?
-         ORDER BY created_at ASC
-         LIMIT 1`
-      )
-      .get(nowMs) as
-      | {
-          id: string;
-          file_path: string;
-          meta_json: string;
-          next_retry_at: number;
-          attempt_count: number;
-          created_at: number;
-        }
-      | undefined;
-
-    if (!row) return null;
-    return {
-      id: row.id,
-      filePath: row.file_path,
-      metaJson: row.meta_json,
-      nextRetryAt: row.next_retry_at,
-      attemptCount: row.attempt_count,
-      createdAt: row.created_at,
-    };
+    const ready = this.data.screenshots
+      .filter((s) => s.nextRetryAt <= nowMs)
+      .sort((a, b) => a.createdAt - b.createdAt);
+    return ready[0] ?? null;
   }
 
   markScreenshotSent(id: string): void {
-    this.db.prepare("DELETE FROM pending_screenshots WHERE id = ?").run(id);
-    console.log(`[SqliteQueue] Screenshot ${id.slice(0, 8)} sent`);
+    this.data.screenshots = this.data.screenshots.filter((s) => s.id !== id);
+    this.scheduleSave();
+    console.log(`[Queue] Screenshot ${id.slice(0, 8)} sent`);
   }
 
   failScreenshot(id: string, backoffMs: number): void {
-    this.db
-      .prepare(
-        "UPDATE pending_screenshots SET attempt_count = attempt_count + 1, next_retry_at = ? WHERE id = ?"
-      )
-      .run(Date.now() + backoffMs, id);
+    const entry = this.data.screenshots.find((s) => s.id === id);
+    if (entry) {
+      entry.attemptCount += 1;
+      entry.nextRetryAt = Date.now() + backoffMs;
+      this.scheduleSave();
+    }
   }
 
   pendingScreenshotCount(): number {
-    const row = this.db
-      .prepare("SELECT COUNT(*) as n FROM pending_screenshots")
-      .get() as { n: number };
-    return row.n;
+    return this.data.screenshots.length;
   }
 
   cleanup(): void {
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    this.db
-      .prepare("DELETE FROM pending_screenshots WHERE created_at < ?")
-      .run(sevenDaysAgo);
+    this.data.screenshots = this.data.screenshots.filter(
+      (s) => s.createdAt >= sevenDaysAgo
+    );
+    this.scheduleSave();
   }
 
   close(): void {
-    this.db.close();
-    console.log("[SqliteQueue] Closed");
+    this.flushSave();
+    console.log("[Queue] Closed");
   }
 }
