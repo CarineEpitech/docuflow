@@ -50,7 +50,13 @@ function createMainWindow(): BrowserWindow {
   });
 
   win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  win.once("ready-to-show", () => win.show());
+  win.once("ready-to-show", () => {
+    // setAlwaysOnTop bypasses Windows 11 focus-stealing prevention
+    win.setAlwaysOnTop(true);
+    win.show();
+    win.focus();
+    win.setAlwaysOnTop(false);
+  });
 
   win.on("close", (e) => {
     e.preventDefault();
