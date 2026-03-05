@@ -27,8 +27,8 @@ const config: ForgeConfig = {
         name: "DocuFlow Desktop Agent",
         shortName: "DocuFlow Agent",
         appUserModelId: "com.docuflow.agent",
-        // Per-user install: no admin rights needed, installs to AppData
-        perMachine: false,
+        // Per-machine install: installs to Program Files, requires admin once
+        perMachine: true,
         // Create shortcut in Start Menu
         shortcutFolderName: "DocuFlow",
         // UTF-8 codepage to support special characters in description

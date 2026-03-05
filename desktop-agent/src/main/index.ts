@@ -258,6 +258,23 @@ ipcMain.handle("agent:timer-state", () => {
   return store.getTimerState();
 });
 
+// ─── Single instance ───
+
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.setAlwaysOnTop(true);
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.setAlwaysOnTop(false);
+    }
+  });
+}
+
 // ─── App lifecycle ───
 
 app.whenReady().then(() => {
