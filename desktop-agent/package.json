@@ -7,20 +7,40 @@
   "scripts": {
     "predev": "node scripts/kill-port.js 9000",
     "dev": "electron-forge start",
-    "build": "node scripts/build-msi.js",
-    "build:msi": "node scripts/build-msi.js",
-    "setup:wix": "node scripts/setup-wix.js",
     "package": "electron-forge package",
+    "dist:win": "node scripts/dist-win.js",
+    "dist": "node scripts/dist-win.js",
     "lint": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.docuflow.agent",
+    "productName": "DocuFlow Desktop Agent",
+    "copyright": "Copyright © 2024 DocuFlow",
+    "directories": {
+      "output": "dist"
+    },
+    "artifactName": "DocuFlowAgentSetup-${version}.exe",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DocuFlow Desktop Agent",
+      "uninstallDisplayName": "DocuFlow Desktop Agent"
+    }
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.0.0",
     "@electron-forge/maker-deb": "^7.0.0",
     "@electron-forge/maker-dmg": "^7.0.0",
-    "@electron-forge/maker-wix": "^7.11.1",
     "@electron-forge/maker-zip": "^7.0.0",
     "@electron-forge/plugin-webpack": "^7.11.1",
     "electron": "^33.0.0",
+    "electron-builder": "^26.8.1",
     "ts-loader": "^9.5.4",
     "typescript": "^5.0.0"
   }
