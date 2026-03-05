@@ -2,5 +2,5 @@ node_modules/
 .webpack/
 dist/
 out/
-# WiX portable binaries — downloaded via `node scripts/setup-wix.js`
+# WiX portable binaries (legacy — no longer used)
 .wix-tools/

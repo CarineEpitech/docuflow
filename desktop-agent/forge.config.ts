@@ -1,10 +1,12 @@
 /**
  * Electron Forge configuration.
+ *
+ * Forge is used for dev (electron-forge start) and packaging (electron-forge package).
+ * Distribution is handled by electron-builder (see scripts/dist-win.js).
  */
 
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { WebpackPlugin } from "@electron-forge/plugin-webpack";
-import path from "path";
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -16,30 +18,7 @@ const config: ForgeConfig = {
     extraResource: ["./assets"],
   },
   makers: [
-    // MSI installer for Windows — no Squirrel/Update.exe, no .NET crash
-    {
-      name: "@electron-forge/maker-wix",
-      platforms: ["win32"],
-      config: {
-        // Stable GUID — never change this or Windows will treat it as a new product
-        upgradeCode: "7B2F4A3E-1C8D-4F6E-9A5B-2D3E7F1C4A8B",
-        manufacturer: "DocuFlow",
-        name: "DocuFlow Desktop Agent",
-        shortName: "DocuFlow Agent",
-        appUserModelId: "com.docuflow.agent",
-        // Per-machine install: installs to Program Files, requires admin once
-        perMachine: true,
-        // Create shortcut in Start Menu
-        shortcutFolderName: "DocuFlow",
-        // UTF-8 codepage to support special characters in description
-        codepage: "65001",
-        // Override description to avoid em-dash encoding issues
-        description: "DocuFlow Desktop Agent - time tracking, activity monitoring, and screenshot capture",
-        // Portable WiX binaries (no system install needed)
-        wixInstallation: path.resolve(process.cwd(), ".wix-tools"),
-      },
-    },
-    // ZIP fallback — portable, no install needed, useful if MSI is blocked
+    // ZIP portable — fallback, no install needed
     { name: "@electron-forge/maker-zip", platforms: ["win32", "darwin"] },
     { name: "@electron-forge/maker-deb", config: {} },
     { name: "@electron-forge/maker-dmg", config: {} },
