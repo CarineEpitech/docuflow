@@ -42,9 +42,9 @@ import {
   Download,
 } from "lucide-react";
 
-const DOWNLOAD_URL_WINDOWS = "https://github.com/CarineEpitech/docuflow/releases/download/desktop-agent-v0.1.1/DocuFlowAgentSetup-0.1.1.msi";
+const DOWNLOAD_URL_WINDOWS = "PLACEHOLDER_GITHUB_RELEASE_EXE_URL";
 const DOWNLOAD_URL_WINDOWS_ZIP = "PLACEHOLDER_GITHUB_RELEASE_ZIP_URL";
-const AGENT_VERSION = "v0.1.1";
+const AGENT_VERSION = "v0.1.2";
 
 interface Device {
   id: string;
@@ -339,7 +339,7 @@ export default function DevicesPage() {
                 onClick={() => window.open(DOWNLOAD_URL_WINDOWS, "_blank", "noopener,noreferrer")}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Download Windows Agent (MSI)
+                Download Windows Agent (Installer)
               </Button>
               <a
                 href={DOWNLOAD_URL_WINDOWS_ZIP}
@@ -350,7 +350,7 @@ export default function DevicesPage() {
                 Download ZIP (portable fallback)
               </a>
               <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
-                Windows may show a security prompt because this installer is unsigned (MVP).
+                Windows may show a SmartScreen prompt because this installer is unsigned (MVP).
                 Click <strong>More info</strong> → <strong>Run anyway</strong>.
               </p>
             </div>
