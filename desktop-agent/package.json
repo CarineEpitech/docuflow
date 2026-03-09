@@ -9,6 +9,7 @@
     "dev": "electron-forge start",
     "package": "electron-forge package",
     "dist:win": "node scripts/dist-win.js",
+    "dist:win:debug": "node scripts/dist-win.js --debug",
     "dist": "node scripts/dist-win.js",
     "lint": "tsc --noEmit"
   },
@@ -17,11 +18,13 @@
     "productName": "DocuFlow Desktop Agent",
     "copyright": "Copyright © 2024 DocuFlow",
     "directories": {
-      "output": "dist"
+      "output": "release"
     },
-    "artifactName": "DocuFlowAgentSetup-${version}.exe",
+    "artifactName": "DocuFlowAgentSetup.exe",
+    "compression": "normal",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "executableName": "docuflow-agent"
     },
     "nsis": {
       "oneClick": false,
@@ -30,7 +33,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "DocuFlow Desktop Agent",
-      "uninstallDisplayName": "DocuFlow Desktop Agent"
+      "uninstallDisplayName": "DocuFlow Desktop Agent",
+      "differentialPackage": false
     }
   },
   "devDependencies": {
