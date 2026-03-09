@@ -41,6 +41,12 @@ export interface CrmProjectSummary {
   status: string;
 }
 
+export interface TaskSummary {
+  id: string;
+  name: string;
+  status: string;
+}
+
 export class ApiClient {
   private store: AgentStore;
   private accessToken: string | null = null;
@@ -91,11 +97,20 @@ export class ApiClient {
     return res?.data ?? [];
   }
 
-  async startTimer(crmProjectId: string, description?: string): Promise<TimeEntry> {
+  async getTasks(crmProjectId: string): Promise<TaskSummary[]> {
+    const res = await this.authenticatedRequest(
+      `/api/agent/tasks?crmProjectId=${encodeURIComponent(crmProjectId)}`,
+      { method: "GET" }
+    );
+    return res?.data ?? [];
+  }
+
+  async startTimer(crmProjectId: string, taskId?: string, description?: string): Promise<TimeEntry> {
     return this.authenticatedRequest("/api/agent/timer/start", {
       method: "POST",
       body: JSON.stringify({
         crmProjectId,
+        taskId: taskId || null,
         description: description || null,
         deviceId: this.store.getDeviceId(),
         clientType: "desktop",

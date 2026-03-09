@@ -20,8 +20,11 @@ import {
   teamInvites,
   notifications,
   audioRecordings,
+  tasks,
   timeEntries,
   timeEntryScreenshots,
+  type Task,
+  type InsertTask,
   type User,
   type SafeUser,
   type InsertUser,
@@ -290,6 +293,13 @@ export interface IStorage {
   }): Promise<TimeEntryScreenshot[]>;
   updateTimeEntryScreenshot(id: string, data: { storageKey: string }): Promise<TimeEntryScreenshot | undefined>;
   deleteTimeEntryScreenshot(id: string): Promise<void>;
+
+  // Tasks
+  getTasks(options: { crmProjectId: string; includeArchived?: boolean }): Promise<Task[]>;
+  getTask(id: string): Promise<Task | undefined>;
+  createTask(data: InsertTask): Promise<Task>;
+  updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined>;
+  deleteTask(id: string): Promise<void>;
 
   // ─── Desktop Agent ───
 
@@ -2395,6 +2405,41 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTimeEntryScreenshot(id: string): Promise<void> {
     await db.delete(timeEntryScreenshots).where(eq(timeEntryScreenshots.id, id));
+  }
+
+  // ═══════════════════════════════════════
+  // Tasks
+  // ═══════════════════════════════════════
+
+  async getTasks(options: { crmProjectId: string; includeArchived?: boolean }): Promise<Task[]> {
+    const conditions = [eq(tasks.crmProjectId, options.crmProjectId)];
+    if (!options.includeArchived) {
+      conditions.push(sql`${tasks.status} != 'archived'`);
+    }
+    return db.select().from(tasks).where(and(...conditions)).orderBy(asc(tasks.createdAt));
+  }
+
+  async getTask(id: string): Promise<Task | undefined> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task;
+  }
+
+  async createTask(data: InsertTask): Promise<Task> {
+    const [task] = await db.insert(tasks).values(data).returning();
+    return task;
+  }
+
+  async updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined> {
+    const [updated] = await db
+      .update(tasks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tasks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTask(id: string): Promise<void> {
+    await db.delete(tasks).where(eq(tasks.id, id));
   }
 
   // ═══════════════════════════════════════

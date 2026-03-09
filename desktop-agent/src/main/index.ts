@@ -234,7 +234,7 @@ ipcMain.handle("agent:unpair", () => {
   return { ok: true };
 });
 
-// ─── IPC: Projects ───
+// ─── IPC: Projects & Tasks ───
 
 ipcMain.handle("agent:get-projects", async () => {
   try {
@@ -245,11 +245,20 @@ ipcMain.handle("agent:get-projects", async () => {
   }
 });
 
+ipcMain.handle("agent:get-tasks", async (_event, { crmProjectId }) => {
+  try {
+    const taskList = await apiClient.getTasks(crmProjectId);
+    return { ok: true, data: taskList };
+  } catch (error: any) {
+    return { ok: false, error: error.message, data: [] };
+  }
+});
+
 // ─── IPC: Timer ───
 
-ipcMain.handle("agent:timer-start", async (_event, { crmProjectId, projectName, description }) => {
+ipcMain.handle("agent:timer-start", async (_event, { crmProjectId, taskId, projectName, description }) => {
   try {
-    const entry = await apiClient.startTimer(crmProjectId, description);
+    const entry = await apiClient.startTimer(crmProjectId, taskId || undefined, description);
     store.setTimerRunning(entry.id, entry.duration || 0, projectName || null);
     pushStateToRenderer();
     return { ok: true, entry };

@@ -645,6 +645,19 @@ export function registerAgentRoutes(app: Express): void {
     }
   });
 
+  /** Agent: list tasks for a CRM project (for timer start dropdown) */
+  app.get("/api/agent/tasks", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
+    try {
+      const { crmProjectId } = req.query as { crmProjectId?: string };
+      if (!crmProjectId) return res.status(400).json({ message: "crmProjectId is required" });
+      const taskList = await storage.getTasks({ crmProjectId });
+      res.json({ data: taskList.map((t) => ({ id: t.id, name: t.name, status: t.status })) });
+    } catch (error) {
+      logError("agent.tasks.list.failed", error);
+      res.status(500).json({ message: "Failed to list tasks" });
+    }
+  });
+
   /** Agent: list CRM projects (for timer start dropdown) */
   app.get("/api/agent/projects", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
     try {
@@ -669,7 +682,7 @@ export function registerAgentRoutes(app: Express): void {
       if (!(await requireActiveDevice(req, res))) return;
 
       const userId = req.agentUserId!;
-      const { crmProjectId, description, deviceId } = req.body;
+      const { crmProjectId, taskId, description, deviceId } = req.body;
 
       if (!crmProjectId) {
         return res.status(400).json({ message: "crmProjectId is required" });
@@ -694,6 +707,7 @@ export function registerAgentRoutes(app: Express): void {
       const entry = await storage.createTimeEntry({
         userId,
         crmProjectId,
+        taskId: taskId || null,
         description: description || null,
         startTime: new Date(),
         status: "running",
@@ -702,7 +716,7 @@ export function registerAgentRoutes(app: Express): void {
         idleTime: 0,
       });
 
-      logTimeEvent("start", entry.id, userId, { crmProjectId, deviceId, clientType: "desktop" });
+      logTimeEvent("start", entry.id, userId, { crmProjectId, taskId: taskId || null, deviceId, clientType: "desktop" });
       logInfo("agent.timer.start", { userId, deviceId, entryId: entry.id, crmProjectId });
       res.json(entry);
     } catch (error) {

@@ -144,6 +144,12 @@
         <select id="project-select">
           <option value="">Loading projects...</option>
         </select>
+        <div id="task-section" style="display:none">
+          <label for="task-select">Task <span style="color:#ef4444">*</span></label>
+          <select id="task-select" disabled>
+            <option value="">Loading tasks...</option>
+          </select>
+        </div>
         <label for="task-description">Description (optional)</label>
         <input id="task-description" type="text" placeholder="What are you working on?" style="margin-bottom:0" />
       </div>
@@ -191,6 +197,8 @@
     const stopBtn = document.getElementById("stop-btn");
     const startBtn = document.getElementById("start-btn");
     const projectSelect = document.getElementById("project-select");
+    const taskSection = document.getElementById("task-section");
+    const taskSelect = document.getElementById("task-select");
 
     let timerInterval = null;
 
@@ -247,7 +255,42 @@
         opt.dataset.name = p.name;
         projectSelect.appendChild(opt);
       });
-      startBtn.disabled = false;
+      taskSection.style.display = "none";
+      updateStartButton();
+    }
+
+    // Tasks (cascade from project selection)
+    async function loadTasks(crmProjectId) {
+      taskSection.style.display = "block";
+      taskSelect.disabled = true;
+      taskSelect.innerHTML = '<option value="">Loading tasks...</option>';
+      updateStartButton();
+
+      const result = await bridge.getTasks({ crmProjectId });
+      taskSelect.innerHTML = "";
+
+      const defaultOpt = document.createElement("option");
+      defaultOpt.value = "";
+      defaultOpt.textContent = result.ok && result.data.length ? "Select a task..." : "No tasks — create one on the web";
+      taskSelect.appendChild(defaultOpt);
+
+      if (result.ok && result.data.length) {
+        result.data.forEach(function(t) {
+          const opt = document.createElement("option");
+          opt.value = t.id;
+          opt.textContent = t.name;
+          opt.dataset.name = t.name;
+          taskSelect.appendChild(opt);
+        });
+        taskSelect.disabled = false;
+      }
+      updateStartButton();
+    }
+
+    function updateStartButton() {
+      const hasProject = !!projectSelect.value;
+      const hasTask = !!taskSelect.value;
+      startBtn.disabled = !hasProject || !hasTask;
     }
 
     // Timer UI
@@ -320,17 +363,35 @@
       btn.textContent = "Connect";
     });
 
+    // Project change → load tasks
+    projectSelect.addEventListener("change", function() {
+      var crmProjectId = projectSelect.value;
+      taskSelect.value = "";
+      if (crmProjectId) {
+        loadTasks(crmProjectId);
+      } else {
+        taskSection.style.display = "none";
+        updateStartButton();
+      }
+    });
+
+    // Task change → update start button
+    taskSelect.addEventListener("change", function() {
+      updateStartButton();
+    });
+
     // Start timer
     startBtn.addEventListener("click", async function() {
       var crmProjectId = projectSelect.value;
-      var selectedOption = projectSelect.options[projectSelect.selectedIndex];
-      var projectName = selectedOption ? (selectedOption.dataset.name || selectedOption.textContent || "") : "";
+      var taskId = taskSelect.value;
+      var projectOption = projectSelect.options[projectSelect.selectedIndex];
+      var projectName = projectOption ? (projectOption.dataset.name || projectOption.textContent || "") : "";
       var description = document.getElementById("task-description").value.trim();
       var errorEl = document.getElementById("start-error");
 
       errorEl.style.display = "none";
-      if (!crmProjectId) {
-        errorEl.textContent = "Please select a project";
+      if (!crmProjectId || !taskId) {
+        errorEl.textContent = "Please select a project and a task";
         errorEl.style.display = "block";
         return;
       }
@@ -338,7 +399,7 @@
       startBtn.disabled = true;
       startBtn.textContent = "Starting...";
 
-      var result = await bridge.timerStart({ crmProjectId: crmProjectId, projectName: projectName, description: description });
+      var result = await bridge.timerStart({ crmProjectId: crmProjectId, taskId: taskId, projectName: projectName, description: description });
       if (result.ok) {
         var timer = await bridge.timerState();
         updateTimerUI(Object.assign({}, timer, { projectName: projectName }));
