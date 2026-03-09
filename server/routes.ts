@@ -4061,10 +4061,14 @@ Instructions:
         timeEntryId?: string;
         userId?: string;
         crmProjectId?: string;
+        startDate?: Date;
+        endDate?: Date;
       } = {};
 
       if (req.query.timeEntryId) filters.timeEntryId = req.query.timeEntryId;
       if (req.query.crmProjectId) filters.crmProjectId = req.query.crmProjectId;
+      if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
 
       if (user?.role !== "admin") {
         filters.userId = userId;
