@@ -191,7 +191,11 @@ export class ApiClient {
 
   // ─── Heartbeat & Events ───
 
-  async sendHeartbeat(data: Record<string, unknown>): Promise<{ ok: boolean; serverTime: string }> {
+  async sendHeartbeat(data: Record<string, unknown>): Promise<{
+    ok: boolean;
+    serverTime: string;
+    timerSync?: { entryId: string; status: string; duration: number } | null;
+  }> {
     return this.authenticatedRequest("/api/agent/heartbeat", {
       method: "POST",
       body: JSON.stringify(data),

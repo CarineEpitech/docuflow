@@ -33,6 +33,7 @@ let heartbeatWorker: HeartbeatWorker | null = null;
 let activityWorker: ActivityWorker | null = null;
 let syncWorker: SyncWorker | null = null;
 let screenshotWorker: ScreenCaptureWorker | null = null;
+let resyncInterval: ReturnType<typeof setInterval> | null = null;
 
 // ─── Window ───
 
@@ -104,7 +105,7 @@ function createTray(): void {
 function startWorkers(): void {
   if (!store.isPaired()) return;
 
-  heartbeatWorker = new HeartbeatWorker(apiClient, store);
+  heartbeatWorker = new HeartbeatWorker(apiClient, store, applyServerTimerSync);
   heartbeatWorker.start();
 
   activityWorker = new ActivityWorker(queue, store);
@@ -116,6 +117,7 @@ function startWorkers(): void {
   screenshotWorker = new ScreenCaptureWorker(queue, store, SCREENSHOTS_ENABLED);
   screenshotWorker.start();
 
+  startResyncPolling();
   console.log(`[Main] Workers started (screenshots: ${SCREENSHOTS_ENABLED})`);
 }
 
@@ -124,11 +126,63 @@ function stopWorkers(): void {
   activityWorker?.stop();
   syncWorker?.stop();
   screenshotWorker?.stop();
+  stopResyncPolling();
   heartbeatWorker = null;
   activityWorker = null;
   syncWorker = null;
   screenshotWorker = null;
   console.log("[Main] Workers stopped");
+}
+
+// ─── Timer resync (backend as source of truth) ───
+
+/**
+ * Apply server-authoritative timer state to local store.
+ * Triggers a renderer push only if state actually diverged.
+ */
+function applyServerTimerSync(
+  timerSync: { entryId: string; status: string; duration: number } | null
+): void {
+  const localStatus = store.getTimerStatus();
+  const localEntryId = store.getActiveEntryId();
+  const serverEntryId = timerSync?.entryId ?? null;
+  const serverStatus = timerSync?.status ?? "stopped";
+
+  if (localEntryId === serverEntryId && localStatus === serverStatus) return;
+
+  console.log(
+    `[Main] Timer resync: local=${localStatus}/${localEntryId ?? "none"} → server=${serverStatus}/${serverEntryId ?? "none"}`
+  );
+  store.syncFromServer(timerSync);
+  pushStateToRenderer();
+}
+
+/** Fetch active entry from server and reconcile local state. */
+async function syncTimerFromServer(): Promise<void> {
+  if (!store.isPaired()) return;
+  try {
+    const active = await apiClient.getActiveEntry();
+    const timerSync =
+      active && active.status !== "stopped"
+        ? { entryId: active.id, status: active.status, duration: active.duration ?? 0 }
+        : null;
+    applyServerTimerSync(timerSync);
+  } catch (err: any) {
+    console.warn(`[Main] Timer resync failed: ${err.message}`);
+  }
+}
+
+function startResyncPolling(): void {
+  stopResyncPolling();
+  resyncInterval = setInterval(() => syncTimerFromServer(), 30_000);
+  console.log("[Main] Timer resync polling started (30s)");
+}
+
+function stopResyncPolling(): void {
+  if (resyncInterval) {
+    clearInterval(resyncInterval);
+    resyncInterval = null;
+  }
 }
 
 /** Notify renderer of state changes */
@@ -164,16 +218,8 @@ ipcMain.handle("agent:pair", async (_event, { serverUrl, pairingCode, deviceName
 
     store.setPairing(result.deviceId, result.deviceToken, deviceName);
 
-    // Sync active entry from server
-    try {
-      const active = await apiClient.getActiveEntry();
-      if (active && active.status !== "stopped") {
-        store.setTimerRunning(active.id, active.duration || 0, null);
-        if (active.status === "paused") store.setTimerPaused(active.duration || 0);
-      }
-    } catch { /* non-fatal */ }
-
     startWorkers();
+    await syncTimerFromServer().catch(() => { /* non-fatal */ });
     pushStateToRenderer();
     return { ok: true };
   } catch (error: any) {
@@ -208,6 +254,8 @@ ipcMain.handle("agent:timer-start", async (_event, { crmProjectId, projectName, 
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {
+    // On start failure, resync so UI reflects actual server state
+    await syncTimerFromServer();
     return { ok: false, error: error.message };
   }
 });
@@ -222,7 +270,12 @@ ipcMain.handle("agent:timer-pause", async () => {
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {
-    return { ok: false, error: error.message };
+    const msg: string = error.message ?? "";
+    if (msg.includes("not running") || msg.includes("already stopped") || msg.includes("not paused")) {
+      console.log(`[Main] Timer conflict on pause ("${msg}") — resyncing from server`);
+      await syncTimerFromServer();
+    }
+    return { ok: false, error: msg };
   }
 });
 
@@ -236,7 +289,12 @@ ipcMain.handle("agent:timer-resume", async () => {
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {
-    return { ok: false, error: error.message };
+    const msg: string = error.message ?? "";
+    if (msg.includes("not running") || msg.includes("already stopped") || msg.includes("not paused")) {
+      console.log(`[Main] Timer conflict on resume ("${msg}") — resyncing from server`);
+      await syncTimerFromServer();
+    }
+    return { ok: false, error: msg };
   }
 });
 
@@ -250,7 +308,12 @@ ipcMain.handle("agent:timer-stop", async () => {
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {
-    return { ok: false, error: error.message };
+    const msg: string = error.message ?? "";
+    if (msg.includes("already stopped") || msg.includes("not running") || msg.includes("not found")) {
+      console.log(`[Main] Timer conflict on stop ("${msg}") — resyncing from server`);
+      await syncTimerFromServer();
+    }
+    return { ok: false, error: msg };
   }
 });
 
@@ -283,16 +346,11 @@ app.whenReady().then(() => {
   mainWindow = createMainWindow();
 
   if (store.isPaired()) {
-    // Sync active entry from server on startup
-    apiClient.getActiveEntry().then((active) => {
-      if (active && active.status !== "stopped") {
-        store.setTimerRunning(active.id, active.duration || 0, null);
-        if (active.status === "paused") store.setTimerPaused(active.duration || 0);
-      }
-      pushStateToRenderer();
-    }).catch(() => { /* non-fatal */ });
-
     startWorkers();
+    // Sync timer state from server on startup, then always push to renderer
+    syncTimerFromServer()
+      .catch(() => { /* non-fatal — workers will retry via polling */ })
+      .finally(() => pushStateToRenderer());
   }
 });
 

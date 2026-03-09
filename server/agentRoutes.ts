@@ -355,14 +355,22 @@ export function registerAgentRoutes(app: Express): void {
         });
       }
 
+      // Get server-authoritative timer state for desktop resync
+      const serverActive = await storage.getActiveTimeEntry(req.agentUserId!);
+      const timerSync =
+        serverActive && serverActive.status !== "stopped"
+          ? { entryId: serverActive.id, status: serverActive.status, duration: serverActive.duration ?? 0 }
+          : null;
+
       logInfo("agent.heartbeat", {
         deviceId: body.deviceId,
         timeEntryId: body.timeEntryId ?? null,
         clientType: body.clientType,
         clientVersion: body.clientVersion,
+        timerSyncStatus: timerSync?.status ?? "none",
       });
 
-      res.json({ ok: true, serverTime: new Date().toISOString() });
+      res.json({ ok: true, serverTime: new Date().toISOString(), timerSync });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid request", errors: error.errors });
@@ -432,6 +440,26 @@ export function registerAgentRoutes(app: Express): void {
       const timeEntry = await storage.getTimeEntry(body.timeEntryId);
       if (!timeEntry) {
         return res.status(404).json({ message: "Time entry not found" });
+      }
+
+      // Guard: reject screenshot if entry is not actively running
+      if (timeEntry.status !== "running") {
+        logInfo("agent.screenshots.presign.rejected", {
+          reason: "entry_not_running",
+          entryStatus: timeEntry.status,
+          timeEntryId: body.timeEntryId,
+          deviceId: body.deviceId,
+        });
+        return res.status(409).json({
+          message: `Screenshot rejected: time entry is ${timeEntry.status}, not running`,
+          entryStatus: timeEntry.status,
+        });
+      }
+
+      // Guard: verify the requesting device is not revoked
+      const presignDevice = await storage.getDevice(req.agentDeviceId!);
+      if (!presignDevice || presignDevice.revokedAt) {
+        return res.status(403).json({ message: "Device has been revoked" });
       }
 
       // Create a screenshot record with pending status

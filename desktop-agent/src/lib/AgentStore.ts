@@ -143,6 +143,32 @@ export class AgentStore {
   }
 
   /**
+   * Apply server-authoritative timer state.
+   * Called after heartbeat sync or explicit refetch from /api/agent/timer/active.
+   * Preserves activeProjectName when the entry ID hasn't changed.
+   */
+  syncFromServer(entry: { id: string; status: string; duration: number } | null): void {
+    if (!entry || entry.status === "stopped") {
+      this.clearTimer();
+      return;
+    }
+    const entryChanged = this.runtime.activeEntryId !== entry.id;
+    this.runtime.activeEntryId = entry.id;
+    this.runtime.timerDuration = entry.duration;
+    if (entryChanged) {
+      this.runtime.activeProjectName = null; // unknown for new entry
+    }
+    if (entry.status === "running") {
+      this.runtime.timerStatus = "running";
+      this.runtime.timerLastActivityAt = Date.now();
+    } else {
+      // paused
+      this.runtime.timerStatus = "paused";
+      this.runtime.timerLastActivityAt = null;
+    }
+  }
+
+  /**
    * Get elapsed seconds (server duration + local delta if running).
    */
   getElapsedSeconds(): number {
