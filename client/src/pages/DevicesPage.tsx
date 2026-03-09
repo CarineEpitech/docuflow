@@ -181,9 +181,9 @@ export default function DevicesPage() {
             Manage Desktop Agent connections
           </p>
         </div>
-        <Button onClick={handleOpenConnect}>
+        <Button variant={activeDevices.length > 0 ? "outline" : "default"} onClick={handleOpenConnect}>
           <Plus className="h-4 w-4 mr-2" />
-          Connect Device
+          Add device
         </Button>
       </div>
 
@@ -191,7 +191,14 @@ export default function DevicesPage() {
       <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
         <Monitor className="h-4 w-4 shrink-0" />
         <span>
-          Click <strong>Connect Device</strong> to download the Windows agent or get a pairing code.
+          Download the Windows agent to get started. Already installed?{" "}
+          <button
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+            onClick={handleOpenConnect}
+          >
+            Get a pairing code
+          </button>
+          {" "}to pair your device.
         </span>
         <Badge variant="secondary" className="text-xs ml-auto shrink-0">
           {AGENT_VERSION}
@@ -269,7 +276,7 @@ export default function DevicesPage() {
             <div className="text-center py-12 text-muted-foreground">
               <Smartphone className="h-12 w-12 mx-auto mb-4 opacity-20" />
               <p className="font-medium">No devices connected</p>
-              <p className="text-sm mt-1">Click "Connect Device" to pair your first Desktop Agent</p>
+              <p className="text-sm mt-1">Download the Desktop Agent and use a pairing code to connect your first device</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -324,9 +331,9 @@ export default function DevicesPage() {
       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Connect Desktop Agent</DialogTitle>
+            <DialogTitle>Add Desktop Agent</DialogTitle>
             <DialogDescription>
-              Download the agent on your Windows machine, then pair it with your account.
+              Download the Windows agent, install it, then enter a pairing code to link it to your account.
             </DialogDescription>
           </DialogHeader>
 
@@ -359,7 +366,7 @@ export default function DevicesPage() {
 
             {/* Step 2 — Pair */}
             <div className="space-y-3">
-              <p className="text-sm font-medium">Step 2 — Pair your device</p>
+              <p className="text-sm font-medium">Step 2 — Pair with a code <span className="font-normal text-muted-foreground">(one-time setup)</span></p>
               {pairingCode ? (
                 <div className="flex flex-col items-center gap-3">
                   <div className="font-mono text-4xl tracking-[0.3em] font-bold select-all">

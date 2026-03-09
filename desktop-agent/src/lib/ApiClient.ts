@@ -51,9 +51,12 @@ export class ApiClient {
   private store: AgentStore;
   private accessToken: string | null = null;
   private tokenExpiresAt: number = 0;
+  /** Called when the server signals the device is revoked or permanently invalid. */
+  private onRevoke: (() => void) | null;
 
-  constructor(store: AgentStore) {
+  constructor(store: AgentStore, onRevoke?: () => void) {
     this.store = store;
+    this.onRevoke = onRevoke ?? null;
   }
 
   // ─── Pairing ───
@@ -242,7 +245,8 @@ export class ApiClient {
     });
 
     if (res.status === 401) {
-      // Token expired — refresh and retry once
+      // Token expired — refresh and retry once.
+      // ensureAccessToken will fire onRevoke if the device is permanently invalid.
       this.accessToken = null;
       await this.ensureAccessToken();
 
@@ -260,6 +264,15 @@ export class ApiClient {
         throw new Error(data.message || `Request failed: ${retry.status}`);
       }
       return retry.json().catch(() => null);
+    }
+
+    if (res.status === 403) {
+      // Device explicitly revoked — non-recoverable.
+      const data = await res.json().catch(() => ({ message: res.statusText }));
+      const msg = data.message || `Request failed: ${res.status}`;
+      console.log(`[ApiClient] Device revoked (403): ${msg}`);
+      this.onRevoke?.();
+      throw new Error(msg);
     }
 
     if (!res.ok) {
@@ -290,12 +303,19 @@ export class ApiClient {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({ message: "Token refresh failed" }));
-      throw new Error(data.message || "Token refresh failed");
+      const msg = data.message || "Token refresh failed";
+      console.log(`[ApiClient] auth.refresh.failed: ${msg} (status ${res.status})`);
+      // 401/403 = device revoked or deleted — permanent failure, signal main process.
+      if (res.status === 401 || res.status === 403) {
+        this.onRevoke?.();
+      }
+      throw new Error(msg);
     }
 
     const { accessToken, expiresAt } = await res.json();
     this.accessToken = accessToken;
     this.tokenExpiresAt = new Date(expiresAt).getTime();
+    console.log("[ApiClient] auth.refresh.success");
   }
 
   private async rawFetch(url: string, init: RequestInit, retries = 3): Promise<Response> {

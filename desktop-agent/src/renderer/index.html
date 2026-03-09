@@ -95,6 +95,15 @@
       text-align: center; padding: 0.5rem; margin-top: 0.5rem;
     }
     .disconnect-link:hover { color: #ef4444; }
+
+    /* Revoke / disconnected banner */
+    .revoked-banner {
+      display: none; align-items: flex-start; gap: 0.5rem;
+      background: #450a0a; border: 1px solid #7f1d1d; border-radius: 0.5rem;
+      padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #fca5a5;
+    }
+    .revoked-banner.visible { display: flex; }
+    .revoked-banner strong { color: #f87171; }
   </style>
 </head>
 <body>
@@ -110,6 +119,15 @@
 
   <!-- PAIRING VIEW -->
   <div id="pairing-view" class="view active">
+    <!-- Shown when a previously-paired device is revoked mid-session -->
+    <div id="revoked-banner" class="revoked-banner">
+      <span>⚠</span>
+      <div>
+        <strong>Device disconnected</strong><br/>
+        This device was revoked from the web dashboard. Enter a new pairing code to reconnect.
+      </div>
+    </div>
+
     <div style="margin-bottom:1.5rem">
       <div class="text-center text-muted">Connect to your DocuFlow workspace</div>
     </div>
@@ -201,10 +219,12 @@
     const taskSelect = document.getElementById("task-select");
 
     let timerInterval = null;
+    let currentlyPaired = false; // tracks paired state to detect revoke transitions
 
     // Init
     async function init() {
       const state = await bridge.getState();
+      currentlyPaired = !!state.isPaired;
       if (state.isPaired) {
         showConnected(state);
       }
@@ -212,6 +232,7 @@
 
     // View switching
     function showConnected(state) {
+      document.getElementById("revoked-banner").classList.remove("visible");
       pairingView.classList.remove("active");
       connectedView.classList.add("active");
       statusDot.classList.remove("disconnected");
@@ -227,12 +248,15 @@
       startTimerTick();
     }
 
-    function showPairing() {
+    function showPairing(wasRevoked) {
       connectedView.classList.remove("active");
       pairingView.classList.add("active");
       statusDot.classList.remove("connected");
       statusDot.classList.add("disconnected");
       stopTimerTick();
+      if (wasRevoked) {
+        document.getElementById("revoked-banner").classList.add("visible");
+      }
     }
 
     // Projects
@@ -440,7 +464,7 @@
     document.getElementById("disconnect-link").addEventListener("click", async function() {
       if (confirm("Disconnect this device?")) {
         await bridge.unpair();
-        showPairing();
+        showPairing(false);
       }
     });
 
@@ -451,8 +475,20 @@
       setTimeout(function() { el.style.display = "none"; }, 3000);
     }
 
-    // Listen for state pushes from main process
+    // Listen for state pushes from main process (timer sync, revoke events)
     bridge.onStateUpdate(function(state) {
+      var wasPaired = currentlyPaired;
+      currentlyPaired = !!state.isPaired;
+
+      if (!state.isPaired && wasPaired) {
+        // Transitioned from paired → unpaired: device was revoked remotely
+        showPairing(true);
+        return;
+      }
+      if (state.isPaired && !wasPaired) {
+        showConnected(state);
+        return;
+      }
       if (state.timer) updateTimerUI(state.timer);
     });
 

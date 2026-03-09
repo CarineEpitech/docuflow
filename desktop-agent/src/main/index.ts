@@ -24,7 +24,20 @@ let tray: Tray | null = null;
 const store = new AgentStore();
 // Pass userData path so SQLite DB survives restarts
 const queue = new SqliteQueue(app.getPath("userData"));
-const apiClient = new ApiClient(store);
+
+/**
+ * Called by ApiClient when the server signals this device is revoked or
+ * permanently invalid (401/403 on token refresh). Cleans up all local state
+ * so the renderer returns to the pairing screen.
+ */
+function handleDeviceRevoked(): void {
+  console.log("[Main] Device revoked — stopping workers and clearing session");
+  stopWorkers();
+  store.clearPairing();
+  pushStateToRenderer();
+}
+
+const apiClient = new ApiClient(store, handleDeviceRevoked);
 
 // Feature flag: enabled by default in dev; set SCREENSHOTS_ENABLED=false to disable
 const SCREENSHOTS_ENABLED = process.env.SCREENSHOTS_ENABLED !== "false";
@@ -355,10 +368,20 @@ app.whenReady().then(() => {
   mainWindow = createMainWindow();
 
   if (store.isPaired()) {
+    console.log("[Main] session.restore.start — attempting auto-reconnect");
     startWorkers();
-    // Sync timer state from server on startup, then always push to renderer
+    // Sync timer state from server on startup, then always push to renderer.
+    // If the device was revoked while offline, ensureAccessToken fires onRevoke
+    // (handleDeviceRevoked) which clears pairing and pushes unpaired state.
     syncTimerFromServer()
-      .catch(() => { /* non-fatal — workers will retry via polling */ })
+      .then(() => {
+        console.log("[Main] session.restore.success");
+      })
+      .catch((err: any) => {
+        console.warn(`[Main] session.restore.failed: ${(err as Error).message}`);
+        // onRevoke already called by ApiClient for permanent failures (401/403).
+        // Transient network errors are non-fatal — workers will retry.
+      })
       .finally(() => pushStateToRenderer());
   }
 });
