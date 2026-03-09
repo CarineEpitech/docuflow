@@ -2277,13 +2277,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry> {
-    const [newEntry] = await db
-      .insert(timeEntries)
-      .values({
-        id: randomUUID(),
-        ...entry,
-      })
-      .returning();
+    // Safety net: if task_id column doesn't exist yet (migration 002 pending),
+    // strip it and retry rather than crashing a timer start.
+    const values: any = { id: randomUUID(), ...entry };
+    const run = () => db.insert(timeEntries).values(values).returning();
+    const [newEntry] = await run().catch(async (err: any) => {
+      if (err?.code === "42703" && "taskId" in values) {
+        const { taskId: _dropped, ...safeValues } = values;
+        Object.assign(values, safeValues);
+        delete values.taskId;
+        return db.insert(timeEntries).values(values).returning();
+      }
+      throw err;
+    });
     return newEntry;
   }
 

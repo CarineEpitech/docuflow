@@ -37,7 +37,8 @@ import {
 } from "./transcripts";
 import { sendWelcomeEmail, sendPasswordUpdateEmail, sendProjectAssignmentEmail } from "./email";
 import { extractTextFromFile, isSupportedForExtraction, isVideoFile } from "./contentExtraction";
-import { logTimeEvent, logError, logStaleSession } from "./logger";
+import { logTimeEvent, logError, logStaleSession, logInfo } from "./logger";
+import { isTasksEnabled } from "./migrationFlags";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
 function getOpenAIClient(): OpenAI {
@@ -3514,6 +3515,7 @@ Instructions:
   // ========== TASKS ROUTES ==========
 
   app.get("/api/tasks", isAuthenticated, async (req: any, res) => {
+    if (!isTasksEnabled()) return res.json({ data: [] });
     try {
       const { crmProjectId, includeArchived } = req.query;
       if (!crmProjectId) return res.status(400).json({ message: "crmProjectId is required" });
@@ -3528,6 +3530,7 @@ Instructions:
   });
 
   app.post("/api/tasks", isAuthenticated, async (req: any, res) => {
+    if (!isTasksEnabled()) return res.status(503).json({ message: "Tasks feature not available yet — migration pending" });
     try {
       const userId = getUserId(req)!;
       const { crmProjectId, name, description } = req.body;
@@ -3548,6 +3551,7 @@ Instructions:
   });
 
   app.patch("/api/tasks/:id", isAuthenticated, async (req: any, res) => {
+    if (!isTasksEnabled()) return res.status(503).json({ message: "Tasks feature not available yet — migration pending" });
     try {
       const task = await storage.getTask(req.params.id);
       if (!task) return res.status(404).json({ message: "Task not found" });
@@ -3564,6 +3568,7 @@ Instructions:
   });
 
   app.delete("/api/tasks/:id", isAuthenticated, async (req: any, res) => {
+    if (!isTasksEnabled()) return res.status(503).json({ message: "Tasks feature not available yet — migration pending" });
     try {
       const task = await storage.getTask(req.params.id);
       if (!task) return res.status(404).json({ message: "Task not found" });
@@ -3673,7 +3678,9 @@ Instructions:
   app.post("/api/time-tracking/start", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req)!;
-      const { crmProjectId, taskId, description } = req.body;
+      const { crmProjectId, description } = req.body;
+      // Strip taskId if migration 002 hasn't been applied yet
+      const taskId = isTasksEnabled() ? (req.body.taskId || null) : null;
       
       if (!crmProjectId) {
         return res.status(400).json({ message: "Project is required" });

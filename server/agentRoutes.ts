@@ -13,6 +13,7 @@ import { storage } from "./storage";
 import { isAuthenticated, getUserId } from "./auth";
 import { logInfo, logError, logTimeEvent } from "./logger";
 import { parseObjectPath, signObjectURL } from "./objectStorage";
+import { isTasksEnabled } from "./migrationFlags";
 
 // ─── Constants ───
 
@@ -647,6 +648,7 @@ export function registerAgentRoutes(app: Express): void {
 
   /** Agent: list tasks for a CRM project (for timer start dropdown) */
   app.get("/api/agent/tasks", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
+    if (!isTasksEnabled()) return res.json({ data: [] });
     try {
       const { crmProjectId } = req.query as { crmProjectId?: string };
       if (!crmProjectId) return res.status(400).json({ message: "crmProjectId is required" });
@@ -682,7 +684,9 @@ export function registerAgentRoutes(app: Express): void {
       if (!(await requireActiveDevice(req, res))) return;
 
       const userId = req.agentUserId!;
-      const { crmProjectId, taskId, description, deviceId } = req.body;
+      const { crmProjectId, description, deviceId } = req.body;
+      // Strip taskId if migration 002 hasn't been applied yet
+      const taskId = isTasksEnabled() ? (req.body.taskId || null) : null;
 
       if (!crmProjectId) {
         return res.status(400).json({ message: "crmProjectId is required" });

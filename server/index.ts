@@ -6,6 +6,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
+import { detectMigrationFlags } from "./migrationFlags";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -118,6 +119,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Detect which optional migrations have been applied (non-fatal)
+  await detectMigrationFlags();
+
   await registerRoutes(httpServer, app);
 
   // Run migration to link any orphan projects to CRM on startup
