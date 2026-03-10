@@ -7,6 +7,7 @@ import { Strategy, type VerifyFunction } from "openid-client/passport";
 import passport from "passport";
 import memoize from "memoizee";
 import { storage } from "./storage";
+import { connectionString } from "./dbConfig";
 
 const SALT_ROUNDS = 12;
 
@@ -30,7 +31,7 @@ export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 7 days
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
+    conString: connectionString,
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",

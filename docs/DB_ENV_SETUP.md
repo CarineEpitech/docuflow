@@ -1,0 +1,129 @@
+# DB Environment Setup
+
+DocuFlow supporte deux modes de connexion à PostgreSQL. `DATABASE_URL` est toujours prioritaire.
+
+---
+
+## Mode 1 — DATABASE_URL (défaut Replit / Neon)
+
+```env
+DATABASE_URL=postgresql://user:password@host:5432/dbname
+```
+
+Ce mode est actif dès que `DATABASE_URL` est défini. C'est le mode actuel en production.
+
+---
+
+## Mode 2 — Variables PG* (fallback)
+
+Si `DATABASE_URL` n'est **pas** défini, le backend reconstruit la connexion depuis :
+
+| Variable | Obligatoire | Défaut | Description |
+|---|---|---|---|
+| `PGHOST` | ✅ | — | Hostname du serveur PostgreSQL |
+| `PGPORT` | ❌ | `5432` | Port |
+| `PGUSER` | ✅ | — | Utilisateur |
+| `PGPASSWORD` | ✅ | — | Mot de passe |
+| `PGDATABASE` | ✅ | — | Nom de la base |
+
+Exemple `.env` local :
+
+```env
+PGHOST=localhost
+PGPORT=5432
+PGUSER=docuflow
+PGPASSWORD=mysecret
+PGDATABASE=docuflow_dev
+```
+
+---
+
+## Où est définie la logique de fallback
+
+| Fichier | Rôle |
+|---|---|
+| `server/dbConfig.ts` | **Source unique** — résout la connection string au démarrage, loggue la source (sans le mot de passe) |
+| `server/db.ts` | Utilise `connectionString` de `dbConfig.ts` — plus de lecture directe de `DATABASE_URL` |
+| `server/auth.ts` | Session store (`connect-pg-simple`) — utilise `connectionString` de `dbConfig.ts` |
+| `drizzle.config.ts` | drizzle-kit CLI — contient la même logique inline (le CLI ne peut pas importer un module serveur TS) |
+| `scripts/resolve-db-url.js` | Utilitaire Node.js — imprime la connection string résolue sur stdout, pour scripts shell |
+
+---
+
+## Scripts de diagnostic
+
+```bash
+# Vérifie la config DB sans se connecter
+npm run db:env:check
+
+# Affiche l'URL masquée (mot de passe caché)
+npm run db:print:url:masked
+```
+
+Exemple de sortie `db:env:check` en mode DATABASE_URL :
+```
+=== DocuFlow — DB Environment Check ===
+
+✅  Mode: DATABASE_URL (priority)
+    Value: postgresql://user:<hidden>@host:5432/dbname
+```
+
+Exemple de sortie en mode PG* :
+```
+✅  Mode: PG* variables — all required vars present
+    Effective URL: postgresql://user:<hidden>@localhost:5432/docuflow_dev
+```
+
+---
+
+## Migrations / drizzle-kit
+
+`npm run db:push` utilise `drizzle.config.ts` qui embarque la même logique de résolution. Aucune variable supplémentaire nécessaire.
+
+```bash
+# Fonctionne avec DATABASE_URL défini
+npm run db:push
+
+# Fonctionne aussi avec PG* définis (sans DATABASE_URL)
+PGHOST=localhost PGUSER=me PGPASSWORD=x PGDATABASE=mydb npm run db:push
+```
+
+---
+
+## Tester localement
+
+1. Copier `.env.example` → `.env`
+2. Remplir soit `DATABASE_URL`, soit les variables `PG*`
+3. Vérifier : `npm run db:env:check`
+4. Démarrer : `npm run dev`
+5. Vérifier dans les logs serveur : `[DB] Config source: DATABASE_URL — ...` ou `[DB] Config source: PG_VARS — ...`
+
+---
+
+## Checklist avant de retirer DATABASE_URL sur Replit
+
+> ⚠️ **Ne pas retirer `DATABASE_URL` de prod tant que ce checklist n'est pas validé.**
+
+- [ ] Les variables `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` sont définies sur Replit
+- [ ] `npm run db:env:check` retourne ✅ en mode PG*
+- [ ] Le serveur démarre et loggue `[DB] Config source: PG_VARS`
+- [ ] La session utilisateur fonctionne (login / logout)
+- [ ] `npm run db:push` fonctionne en mode PG* sur un environnement de staging
+- [ ] Aucun log ne contient le mot de passe (`grep -i password` dans les logs)
+- [ ] Le desktop agent n'est pas impacté (il parle HTTP à l'API — pas de DB directe)
+
+---
+
+## Note : Desktop Agent
+
+Le desktop agent ne se connecte **jamais** directement à PostgreSQL. Il passe exclusivement par l'API HTTP du serveur. Ce changement est donc transparent pour lui.
+
+---
+
+## Avertissement
+
+Le mot de passe n'est jamais loggué. La connection string dans les logs a toujours la forme :
+
+```
+postgresql://user:<hidden>@host:5432/dbname
+```
