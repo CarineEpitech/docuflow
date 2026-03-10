@@ -31,7 +31,7 @@ const queue = new SqliteQueue(app.getPath("userData"));
  * so the renderer returns to the pairing screen.
  */
 function handleDeviceRevoked(): void {
-  console.log("[Main] Device revoked — stopping workers and clearing session");
+  console.log("[Main] device.revoked — stopping workers and clearing session");
   stopWorkers();
   store.clearPairing();
   pushStateToRenderer();
@@ -273,6 +273,7 @@ ipcMain.handle("agent:timer-start", async (_event, { crmProjectId, taskId, proje
   try {
     const entry = await apiClient.startTimer(crmProjectId, taskId || undefined, description);
     store.setTimerRunning(entry.id, entry.duration || 0, projectName || null);
+    console.log(`[Main] timer.start — entry=${entry.id} project="${projectName || ""}"`);
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {
@@ -327,6 +328,7 @@ ipcMain.handle("agent:timer-stop", async () => {
 
     const entry = await apiClient.stopTimer(entryId);
     store.clearTimer();
+    console.log(`[Main] timer.stop — entry=${entryId}`);
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {

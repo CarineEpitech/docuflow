@@ -100,7 +100,7 @@ export class ScreenCaptureWorker {
         return;
       }
 
-      console.log("[ScreenCapture] Captured screenshot");
+      console.log("[ScreenCaptureWorker] screenshot.capture");
 
       // Save to local file (userData dir — app-private, persists across reboots)
       const filename = `screenshot-${Date.now()}.png`;

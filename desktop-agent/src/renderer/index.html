@@ -88,6 +88,11 @@
     /* Misc */
     .error { color: #f87171; font-size: 0.8rem; margin-top: 0.25rem; text-align: center; }
     .spacer { flex: 1; }
+    .info-note {
+      font-size: 0.75rem; color: #64748b; display: flex; align-items: flex-start;
+      gap: 0.4rem; padding: 0.5rem 0.75rem; background: #0f172a;
+      border: 1px solid #1e293b; border-radius: 0.4rem; margin-bottom: 0.75rem;
+    }
     .text-center { text-align: center; }
     .text-muted { color: #64748b; font-size: 0.8rem; }
     .disconnect-link {
@@ -183,6 +188,12 @@
         <button id="stop-btn" class="btn-danger">Stop</button>
       </div>
       <div id="control-error" class="error" style="display:none"></div>
+    </div>
+
+    <!-- Screenshots info -->
+    <div class="info-note" id="screenshot-note">
+      <span>📷</span>
+      <span>Screenshots are captured automatically while the timer is running and uploaded to your workspace.</span>
     </div>
 
     <!-- Connection info -->
