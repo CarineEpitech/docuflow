@@ -1,14 +1,13 @@
 /**
- * Persistent store for agent configuration, pairing state, and runtime state.
+ * Persistent store for agent session state and runtime timer state.
  *
- * Pairing data (serverUrl, deviceId, deviceToken, deviceName) is persisted
+ * Session data (deviceId, deviceToken, deviceName, userEmail) is persisted
  * to a JSON file in app.getPath("userData"). Survives restarts.
  *
- * Timer runtime state stays in memory — rebuilt from server on startup.
+ * The server URL is no longer stored here — it comes from src/lib/config.ts
+ * (API_BASE constant, overridable via DOCUFLOW_API_URL env var).
  *
- * Phase 4.5 — replaced in-memory-only store and dropped electron-store dependency
- * (electron-store v8+ is ESM-only, incompatible with webpack commonjs externals).
- * Uses only Node.js builtins (fs, path) — zero packaging risk.
+ * Timer runtime state stays in memory — rebuilt from server on startup.
  */
 
 import { app } from "electron";
@@ -16,7 +15,6 @@ import fs from "fs";
 import path from "path";
 
 interface PersistedData {
-  serverUrl: string | null;
   deviceId: string | null;
   deviceToken: string | null;
   deviceName: string | null;
@@ -57,7 +55,6 @@ export class AgentStore {
 
   private loadFromDisk(): PersistedData {
     const empty: PersistedData = {
-      serverUrl: null,
       deviceId: null,
       deviceToken: null,
       deviceName: null,
@@ -86,12 +83,6 @@ export class AgentStore {
 
   isPaired(): boolean {
     return !!(this.data.deviceId && this.data.deviceToken);
-  }
-
-  getServerUrl(): string | null { return this.data.serverUrl; }
-  setServerUrl(url: string): void {
-    this.data.serverUrl = url;
-    this.saveToDisk();
   }
 
   getDeviceId(): string | null { return this.data.deviceId; }
