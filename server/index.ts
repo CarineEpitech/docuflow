@@ -120,6 +120,28 @@ app.use((req, res, next) => {
 });
 
 /**
+ * Ensure Migration 002 (tasks) is applied (idempotent).
+ * Safe to run every boot — uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS.
+ */
+async function ensureTasksMigration(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id             VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+      crm_project_id VARCHAR NOT NULL REFERENCES crm_projects(id) ON DELETE CASCADE,
+      name           VARCHAR(255) NOT NULL,
+      description    TEXT,
+      status         VARCHAR(20) NOT NULL DEFAULT 'open',
+      created_at     TIMESTAMP DEFAULT NOW(),
+      updated_at     TIMESTAMP DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_tasks_crm_project ON tasks(crm_project_id);
+    CREATE INDEX IF NOT EXISTS idx_tasks_status      ON tasks(status);
+    ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS task_id VARCHAR REFERENCES tasks(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS idx_time_entries_task_id ON time_entries(task_id);
+  `);
+}
+
+/**
  * Ensure the Desktop Agent tables exist (idempotent — safe to run every boot).
  * This covers databases provisioned before the agent schema was added.
  */
@@ -178,6 +200,14 @@ async function ensureAgentTables(): Promise<void> {
 (async () => {
   // Detect which optional migrations have been applied (non-fatal)
   await detectMigrationFlags();
+
+  // Ensure tasks migration (002) is applied (idempotent)
+  try {
+    await ensureTasksMigration();
+    log("Tasks migration OK");
+  } catch (error) {
+    console.error("Failed to ensure tasks migration:", error);
+  }
 
   // Ensure Desktop Agent tables exist (idempotent)
   try {
