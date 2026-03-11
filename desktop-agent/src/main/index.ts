@@ -7,6 +7,7 @@
 import { app, BrowserWindow, Tray, Menu, ipcMain } from "electron";
 import path from "path";
 import os from "os";
+import { API_HOST } from "../lib/config";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -205,7 +206,7 @@ function pushStateToRenderer(): void {
     isPaired: store.isPaired(),
     deviceName: store.getDeviceName(),
     userEmail: store.getUserEmail(),
-    serverUrl: store.getServerUrl(),
+    apiHost: API_HOST,
     timer: store.getTimerState(),
   });
 }
@@ -217,14 +218,13 @@ ipcMain.handle("agent:get-state", () => {
     isPaired: store.isPaired(),
     deviceName: store.getDeviceName(),
     userEmail: store.getUserEmail(),
-    serverUrl: store.getServerUrl(),
+    apiHost: API_HOST,
     timer: store.getTimerState(),
   };
 });
 
-ipcMain.handle("agent:login", async (_event, { serverUrl, email, password }) => {
+ipcMain.handle("agent:login", async (_event, { email, password }) => {
   try {
-    store.setServerUrl(serverUrl.replace(/\/+$/, ""));
     store.setClientVersion(app.getVersion());
 
     // Use OS hostname as device name — no manual input needed

@@ -8,7 +8,7 @@ import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("agentBridge", {
   // Auth
   getState: () => ipcRenderer.invoke("agent:get-state"),
-  login: (data: { serverUrl: string; email: string; password: string }) =>
+  login: (data: { email: string; password: string }) =>
     ipcRenderer.invoke("agent:login", data),
   unpair: () => ipcRenderer.invoke("agent:unpair"),
 
