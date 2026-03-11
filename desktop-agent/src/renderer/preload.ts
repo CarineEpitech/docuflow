@@ -1,15 +1,15 @@
 /**
  * Preload script — exposes safe IPC bridge to renderer.
- * Phase 3 MVP
+ * S4: pairing code removed, replaced with email+password login.
  */
 
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("agentBridge", {
-  // Pairing
+  // Auth
   getState: () => ipcRenderer.invoke("agent:get-state"),
-  pair: (data: { serverUrl: string; pairingCode: string; deviceName: string }) =>
-    ipcRenderer.invoke("agent:pair", data),
+  login: (data: { serverUrl: string; email: string; password: string }) =>
+    ipcRenderer.invoke("agent:login", data),
   unpair: () => ipcRenderer.invoke("agent:unpair"),
 
   // Projects & Tasks
