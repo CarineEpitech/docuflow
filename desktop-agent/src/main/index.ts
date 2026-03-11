@@ -6,6 +6,7 @@
 
 import { app, BrowserWindow, Tray, Menu, ipcMain } from "electron";
 import path from "path";
+import os from "os";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -28,12 +29,12 @@ const queue = new SqliteQueue(app.getPath("userData"));
 /**
  * Called by ApiClient when the server signals this device is revoked or
  * permanently invalid (401/403 on token refresh). Cleans up all local state
- * so the renderer returns to the pairing screen.
+ * so the renderer returns to the login screen.
  */
 function handleDeviceRevoked(): void {
   console.log("[Main] device.revoked — stopping workers and clearing session");
   stopWorkers();
-  store.clearPairing();
+  store.clearSession();
   pushStateToRenderer();
 }
 
@@ -203,6 +204,7 @@ function pushStateToRenderer(): void {
   mainWindow?.webContents.send("agent:state-update", {
     isPaired: store.isPaired(),
     deviceName: store.getDeviceName(),
+    userEmail: store.getUserEmail(),
     serverUrl: store.getServerUrl(),
     timer: store.getTimerState(),
   });
@@ -214,35 +216,42 @@ ipcMain.handle("agent:get-state", () => {
   return {
     isPaired: store.isPaired(),
     deviceName: store.getDeviceName(),
+    userEmail: store.getUserEmail(),
     serverUrl: store.getServerUrl(),
     timer: store.getTimerState(),
   };
 });
 
-ipcMain.handle("agent:pair", async (_event, { serverUrl, pairingCode, deviceName }) => {
+ipcMain.handle("agent:login", async (_event, { serverUrl, email, password }) => {
   try {
     store.setServerUrl(serverUrl.replace(/\/+$/, ""));
     store.setClientVersion(app.getVersion());
-    const result = await apiClient.completePairing(pairingCode, {
+
+    // Use OS hostname as device name — no manual input needed
+    const deviceName = os.hostname() || "Desktop";
+
+    const result = await apiClient.loginWithPassword(email, password, {
       deviceName,
       os: process.platform,
       clientVersion: app.getVersion(),
     });
 
-    store.setPairing(result.deviceId, result.deviceToken, deviceName);
+    store.setSession(result.deviceId, result.deviceToken, deviceName, result.user.email);
 
+    console.log(`[Main] auth.login.success — user=${result.user.email} device=${result.deviceId}`);
     startWorkers();
     await syncTimerFromServer().catch(() => { /* non-fatal */ });
     pushStateToRenderer();
     return { ok: true };
   } catch (error: any) {
+    console.log(`[Main] auth.login.failed: ${error.message}`);
     return { ok: false, error: error.message };
   }
 });
 
 ipcMain.handle("agent:unpair", () => {
   stopWorkers();
-  store.clearPairing();
+  store.clearSession();
   pushStateToRenderer();
   return { ok: true };
 });
@@ -370,11 +379,12 @@ app.whenReady().then(() => {
   mainWindow = createMainWindow();
 
   if (store.isPaired()) {
-    console.log("[Main] session.restore.start — attempting auto-reconnect");
+    const email = store.getUserEmail() ?? "unknown";
+    console.log(`[Main] session.restore.start — user=${email}`);
     startWorkers();
     // Sync timer state from server on startup, then always push to renderer.
     // If the device was revoked while offline, ensureAccessToken fires onRevoke
-    // (handleDeviceRevoked) which clears pairing and pushes unpaired state.
+    // (handleDeviceRevoked) which clears session and pushes unpaired state.
     syncTimerFromServer()
       .then(() => {
         console.log("[Main] session.restore.success");
