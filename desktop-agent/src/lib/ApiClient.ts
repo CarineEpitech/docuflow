@@ -83,7 +83,7 @@ export class ApiClient {
 
     const ct = res.headers.get("content-type") ?? "";
     if (!ct.includes("application/json")) {
-      throw new Error("Unexpected response from server. Please try again.");
+      throw new Error("Could not connect to DocuFlow — the server may be starting up. Please try again in a few seconds.");
     }
     const result: LoginResult = await res.json();
     this.accessToken = result.accessToken;
