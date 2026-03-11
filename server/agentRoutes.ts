@@ -10,7 +10,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { randomBytes, createHash, createHmac } from "crypto";
 import { z } from "zod";
 import { storage } from "./storage";
-import { isAuthenticated, getUserId } from "./auth";
+import { isAuthenticated, getUserId, verifyPassword } from "./auth";
 import { logInfo, logError, logTimeEvent } from "./logger";
 import { parseObjectPath, signObjectURL } from "./objectStorage";
 import { isTasksEnabled } from "./migrationFlags";
@@ -147,6 +147,12 @@ const pairingCompleteSchema = z.object({
   deviceMeta: deviceMetaSchema,
 });
 
+const agentLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  deviceMeta: deviceMetaSchema,
+});
+
 const refreshSchema = z.object({
   deviceId: z.string().uuid(),
   deviceToken: z.string().min(1),
@@ -201,46 +207,54 @@ export function registerAgentRoutes(app: Express): void {
   // PAIRING
   // ═══════════════════════════════════════
 
-  /** Web: generate a pairing code */
-  app.post("/api/agent/pairing/start", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = getUserId(req)!;
-      const code = generatePairingCode();
-      const expiresAt = new Date(Date.now() + PAIRING_CODE_TTL_MS);
-
-      await storage.createAgentPairingCode({ userId, code, expiresAt });
-
-      logInfo("agent.pairing.start", { userId, code });
-      res.json({ pairingCode: code, expiresAt: expiresAt.toISOString() });
-    } catch (error) {
-      logError("agent.pairing.start.failed", error);
-      res.status(500).json({ message: "Failed to generate pairing code" });
-    }
+  /**
+   * DEPRECATED (S4): pairing code flow has been removed.
+   * Desktop agents now authenticate via POST /api/agent/auth/login (email + password).
+   * These endpoints return 410 Gone to surface clear errors to old agent versions.
+   */
+  app.post("/api/agent/pairing/start", (_req, res) => {
+    res.status(410).json({
+      message: "Pairing codes have been removed. Use the desktop app and sign in with your DocuFlow email and password.",
+    });
   });
 
-  /** Agent: complete pairing with code */
-  app.post("/api/agent/pairing/complete", async (req, res) => {
+  app.post("/api/agent/pairing/complete", (_req, res) => {
+    res.status(410).json({
+      message: "Pairing codes have been removed. Use the desktop app and sign in with your DocuFlow email and password.",
+    });
+  });
+
+  // ═══════════════════════════════════════
+  // AUTH
+  // ═══════════════════════════════════════
+
+  /**
+   * Agent: login with DocuFlow email + password.
+   * Creates (or registers) a device for this machine and returns credentials.
+   * Replaces the pairing code flow as of S4.
+   */
+  app.post("/api/agent/auth/login", async (req, res) => {
     try {
-      const body = pairingCompleteSchema.parse(req.body);
+      const body = agentLoginSchema.parse(req.body);
 
-      const pairingRecord = await storage.getAgentPairingCode(body.pairingCode);
-      if (!pairingRecord) {
-        return res.status(400).json({ message: "Invalid pairing code" });
-      }
-      if (pairingRecord.usedAt) {
-        return res.status(400).json({ message: "Pairing code already used" });
-      }
-      if (new Date() > new Date(pairingRecord.expiresAt)) {
-        return res.status(400).json({ message: "Pairing code expired" });
+      const user = await storage.getUserByEmail(body.email);
+      if (!user) {
+        logInfo("agent.auth.login.failed", { email: body.email, reason: "user_not_found" });
+        return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      // Generate tokens
+      const valid = await verifyPassword(body.password, user.password);
+      if (!valid) {
+        logInfo("agent.auth.login.failed", { userId: user.id, reason: "bad_password" });
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Create a new device for this login
       const deviceToken = generateToken(DEVICE_TOKEN_LENGTH);
       const deviceTokenHash = hashToken(deviceToken);
 
-      // Create device
       const device = await storage.createDevice({
-        userId: pairingRecord.userId,
+        userId: user.id,
         name: body.deviceMeta.deviceName,
         os: body.deviceMeta.os ?? null,
         clientVersion: body.deviceMeta.clientVersion ?? null,
@@ -248,31 +262,29 @@ export function registerAgentRoutes(app: Express): void {
         lastSeenAt: new Date(),
       });
 
-      // Mark pairing code as used
-      await storage.markPairingCodeUsed(pairingRecord.id);
+      const { accessToken, expiresAt } = createAccessToken(device.id, user.id);
 
-      // Create short-lived access token
-      const { accessToken, expiresAt } = createAccessToken(device.id, pairingRecord.userId);
-
-      logInfo("agent.pairing.complete", { deviceId: device.id, userId: pairingRecord.userId });
+      logInfo("agent.auth.login.success", { userId: user.id, deviceId: device.id });
       res.json({
         deviceId: device.id,
         deviceToken,
         accessToken,
         expiresAt: expiresAt.toISOString(),
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid request", errors: error.errors });
       }
-      logError("agent.pairing.complete.failed", error);
-      res.status(500).json({ message: "Failed to complete pairing" });
+      logError("agent.auth.login.failed", error);
+      res.status(500).json({ message: "Login failed" });
     }
   });
-
-  // ═══════════════════════════════════════
-  // AUTH
-  // ═══════════════════════════════════════
 
   /** Agent: refresh access token using device token */
   app.post("/api/agent/auth/refresh", async (req, res) => {
