@@ -41,10 +41,6 @@
       font-size: 0.85rem; outline: none; margin-bottom: 0.75rem;
     }
     input:focus, select:focus { border-color: #6366f1; }
-    input.code-input {
-      text-align: center; font-family: monospace; font-size: 1.4rem;
-      letter-spacing: 0.3em; text-transform: uppercase;
-    }
     select { cursor: pointer; }
 
     /* Buttons */
@@ -122,32 +118,36 @@
     <div class="status-dot disconnected" id="status-dot"></div>
   </div>
 
-  <!-- PAIRING VIEW -->
+  <!-- LOGIN VIEW -->
   <div id="pairing-view" class="view active">
-    <!-- Shown when a previously-paired device is revoked mid-session -->
+    <!-- Shown when a device is revoked mid-session or session expires -->
     <div id="revoked-banner" class="revoked-banner">
       <span>⚠</span>
       <div>
-        <strong>Device disconnected</strong><br/>
-        This device was revoked from the web dashboard. Enter a new pairing code to reconnect.
+        <strong>Session ended</strong><br/>
+        This device was disconnected. Please sign in again.
       </div>
     </div>
 
     <div style="margin-bottom:1.5rem">
-      <div class="text-center text-muted">Connect to your DocuFlow workspace</div>
+      <div class="text-center text-muted">Sign in to your DocuFlow account</div>
     </div>
 
     <label for="server-url">Server URL</label>
-    <input id="server-url" type="url" placeholder="https://your-docuflow.replit.app" />
+    <input id="server-url" type="url" placeholder="https://your-workspace.replit.app" />
 
-    <label for="device-name">Device Name</label>
-    <input id="device-name" type="text" placeholder="My Work Laptop" />
+    <label for="login-email">Email</label>
+    <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email" />
 
-    <label for="pairing-code">Pairing Code</label>
-    <input id="pairing-code" class="code-input" type="text" maxlength="6" placeholder="------" />
+    <label for="login-password">Password</label>
+    <input id="login-password" type="password" placeholder="Enter your password" autocomplete="current-password" />
 
-    <button id="pair-btn" class="btn-primary">Connect</button>
+    <button id="pair-btn" class="btn-primary">Sign in</button>
     <div id="pair-error" class="error" style="display:none"></div>
+
+    <div class="text-center text-muted" style="margin-top:0.75rem; font-size:0.75rem">
+      <!-- Forgot password: manage your account on the web dashboard -->
+    </div>
   </div>
 
   <!-- CONNECTED VIEW -->
@@ -206,7 +206,7 @@
       </div>
     </div>
 
-    <div class="disconnect-link" id="disconnect-link">Disconnect Device</div>
+    <div class="disconnect-link" id="disconnect-link">Sign out</div>
   </div>
 
   <script>
@@ -249,7 +249,7 @@
       statusDot.classList.remove("disconnected");
       statusDot.classList.add("connected");
 
-      document.getElementById("conn-device-name").textContent = state.deviceName || "Device";
+      document.getElementById("conn-device-name").textContent = state.userEmail || state.deviceName || "Connected";
       try {
         document.getElementById("conn-server").textContent = new URL(state.serverUrl).hostname;
       } catch { document.getElementById("conn-server").textContent = ""; }
@@ -368,34 +368,34 @@
       if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     }
 
-    // Pair
+    // Sign in
     document.getElementById("pair-btn").addEventListener("click", async function() {
       var serverUrl = document.getElementById("server-url").value.trim();
-      var deviceName = document.getElementById("device-name").value.trim();
-      var pairingCode = document.getElementById("pairing-code").value.trim().toUpperCase();
+      var email = document.getElementById("login-email").value.trim();
+      var password = document.getElementById("login-password").value;
       var errorEl = document.getElementById("pair-error");
       var btn = document.getElementById("pair-btn");
 
       errorEl.style.display = "none";
-      if (!serverUrl || !deviceName || pairingCode.length !== 6) {
-        errorEl.textContent = "Please fill in all fields (code must be 6 characters)";
+      if (!serverUrl || !email || !password) {
+        errorEl.textContent = "Please fill in all fields";
         errorEl.style.display = "block";
         return;
       }
 
       btn.disabled = true;
-      btn.textContent = "Connecting...";
+      btn.textContent = "Signing in...";
 
-      var result = await bridge.pair({ serverUrl: serverUrl, pairingCode: pairingCode, deviceName: deviceName });
+      var result = await bridge.login({ serverUrl: serverUrl, email: email, password: password });
       if (result.ok) {
         var state = await bridge.getState();
         showConnected(state);
       } else {
-        errorEl.textContent = result.error || "Pairing failed";
+        errorEl.textContent = result.error || "Sign in failed";
         errorEl.style.display = "block";
       }
       btn.disabled = false;
-      btn.textContent = "Connect";
+      btn.textContent = "Sign in";
     });
 
     // Project change → load tasks
@@ -471,9 +471,9 @@
       stopBtn.disabled = false;
     });
 
-    // Disconnect
+    // Sign out
     document.getElementById("disconnect-link").addEventListener("click", async function() {
-      if (confirm("Disconnect this device?")) {
+      if (confirm("Sign out of this device?")) {
         await bridge.unpair();
         showPairing(false);
       }
