@@ -54,9 +54,13 @@ let resyncInterval: ReturnType<typeof setInterval> | null = null;
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 440,
-    height: 620,
-    resizable: false,
+    width: 580,
+    height: 700,
+    minWidth: 420,
+    minHeight: 560,
+    maxWidth: 900,
+    maxHeight: 1000,
+    resizable: true,
     show: false,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,

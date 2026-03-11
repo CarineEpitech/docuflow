@@ -198,16 +198,16 @@ async function ensureAgentTables(): Promise<void> {
 }
 
 (async () => {
-  // Detect which optional migrations have been applied (non-fatal)
-  await detectMigrationFlags();
-
-  // Ensure tasks migration (002) is applied (idempotent)
+  // Ensure tasks migration (002) is applied (idempotent) — must run BEFORE detectMigrationFlags
   try {
     await ensureTasksMigration();
     log("Tasks migration OK");
   } catch (error) {
     console.error("Failed to ensure tasks migration:", error);
   }
+
+  // Detect which optional migrations have been applied (non-fatal)
+  await detectMigrationFlags();
 
   // Ensure Desktop Agent tables exist (idempotent)
   try {
