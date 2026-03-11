@@ -9,11 +9,12 @@
 
 import { AgentStore } from "./AgentStore";
 
-interface PairingResult {
+interface LoginResult {
   deviceId: string;
   deviceToken: string;
   accessToken: string;
   expiresAt: string;
+  user: { id: string; email: string; firstName: string | null; lastName: string | null };
 }
 
 interface DeviceMeta {
@@ -59,31 +60,32 @@ export class ApiClient {
     this.onRevoke = onRevoke ?? null;
   }
 
-  // ─── Pairing ───
+  // ─── Authentication ───
 
-  async completePairing(pairingCode: string, meta: DeviceMeta): Promise<PairingResult> {
+  async loginWithPassword(email: string, password: string, meta: DeviceMeta): Promise<LoginResult> {
     const serverUrl = this.store.getServerUrl();
     if (!serverUrl) throw new Error("Server URL not configured");
 
-    const res = await this.rawFetch(`${serverUrl}/api/agent/pairing/complete`, {
+    const res = await this.rawFetch(`${serverUrl}/api/agent/auth/login`, {
       method: "POST",
-      body: JSON.stringify({ pairingCode, deviceMeta: meta }),
+      body: JSON.stringify({ email, password, deviceMeta: meta }),
     });
 
     if (!res.ok) {
       const ct = res.headers.get("content-type") ?? "";
       if (!ct.includes("application/json")) {
-        throw new Error(`Server returned HTTP ${res.status} (${res.statusText}). Check the Server URL.`);
+        throw new Error(`Server returned HTTP ${res.status}. Check the Server URL.`);
       }
       const data = await res.json().catch(() => ({ message: res.statusText }));
-      throw new Error(data.message || "Pairing failed");
+      if (res.status === 401) throw new Error("Invalid email or password");
+      throw new Error(data.message || "Sign in failed");
     }
 
     const ct = res.headers.get("content-type") ?? "";
     if (!ct.includes("application/json")) {
-      throw new Error("Server returned HTML instead of JSON — is the Server URL correct and the server running?");
+      throw new Error("Server returned HTML instead of JSON — is the Server URL correct?");
     }
-    const result: PairingResult = await res.json();
+    const result: LoginResult = await res.json();
     this.accessToken = result.accessToken;
     this.tokenExpiresAt = new Date(result.expiresAt).getTime();
     return result;
