@@ -20,6 +20,7 @@ interface PersistedData {
   deviceId: string | null;
   deviceToken: string | null;
   deviceName: string | null;
+  userEmail: string | null;
 }
 
 // Runtime state (not persisted — rebuilt from server on startup)
@@ -60,6 +61,7 @@ export class AgentStore {
       deviceId: null,
       deviceToken: null,
       deviceName: null,
+      userEmail: null,
     };
     try {
       if (!fs.existsSync(this.configPath)) return empty;
@@ -95,23 +97,36 @@ export class AgentStore {
   getDeviceId(): string | null { return this.data.deviceId; }
   getDeviceToken(): string | null { return this.data.deviceToken; }
   getDeviceName(): string | null { return this.data.deviceName; }
+  getUserEmail(): string | null { return this.data.userEmail; }
   getClientVersion(): string { return this.runtime.clientVersion; }
 
   setClientVersion(v: string): void { this.runtime.clientVersion = v; }
 
-  setPairing(deviceId: string, deviceToken: string, deviceName: string): void {
+  setSession(deviceId: string, deviceToken: string, deviceName: string, userEmail: string): void {
     this.data.deviceId = deviceId;
     this.data.deviceToken = deviceToken;
     this.data.deviceName = deviceName;
+    this.data.userEmail = userEmail;
     this.saveToDisk();
   }
 
-  clearPairing(): void {
+  clearSession(): void {
     this.data.deviceId = null;
     this.data.deviceToken = null;
     this.data.deviceName = null;
+    this.data.userEmail = null;
     this.saveToDisk();
     this.clearTimer();
+  }
+
+  /** @deprecated Use setSession / clearSession */
+  setPairing(deviceId: string, deviceToken: string, deviceName: string): void {
+    this.setSession(deviceId, deviceToken, deviceName, this.data.userEmail ?? "");
+  }
+
+  /** @deprecated Use clearSession */
+  clearPairing(): void {
+    this.clearSession();
   }
 
   // ─── Timer runtime state ───
