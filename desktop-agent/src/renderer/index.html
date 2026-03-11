@@ -133,9 +133,6 @@
       <div class="text-center text-muted">Sign in to your DocuFlow account</div>
     </div>
 
-    <label for="server-url">Server URL</label>
-    <input id="server-url" type="url" placeholder="https://your-workspace.replit.app" />
-
     <label for="login-email">Email</label>
     <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email" />
 
@@ -250,9 +247,7 @@
       statusDot.classList.add("connected");
 
       document.getElementById("conn-device-name").textContent = state.userEmail || state.deviceName || "Connected";
-      try {
-        document.getElementById("conn-server").textContent = new URL(state.serverUrl).hostname;
-      } catch { document.getElementById("conn-server").textContent = ""; }
+      document.getElementById("conn-server").textContent = state.apiHost || "";
 
       loadProjects();
       updateTimerUI(state.timer || { status: "stopped", elapsed: 0 });
@@ -370,15 +365,14 @@
 
     // Sign in
     document.getElementById("pair-btn").addEventListener("click", async function() {
-      var serverUrl = document.getElementById("server-url").value.trim();
       var email = document.getElementById("login-email").value.trim();
       var password = document.getElementById("login-password").value;
       var errorEl = document.getElementById("pair-error");
       var btn = document.getElementById("pair-btn");
 
       errorEl.style.display = "none";
-      if (!serverUrl || !email || !password) {
-        errorEl.textContent = "Please fill in all fields";
+      if (!email || !password) {
+        errorEl.textContent = "Please enter your email and password";
         errorEl.style.display = "block";
         return;
       }
@@ -386,7 +380,7 @@
       btn.disabled = true;
       btn.textContent = "Signing in...";
 
-      var result = await bridge.login({ serverUrl: serverUrl, email: email, password: password });
+      var result = await bridge.login({ email: email, password: password });
       if (result.ok) {
         var state = await bridge.getState();
         showConnected(state);
