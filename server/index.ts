@@ -7,6 +7,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
 import { detectMigrationFlags } from "./migrationFlags";
+import { pool } from "./db";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -118,9 +119,73 @@ app.use((req, res, next) => {
   next();
 });
 
+/**
+ * Ensure the Desktop Agent tables exist (idempotent — safe to run every boot).
+ * This covers databases provisioned before the agent schema was added.
+ */
+async function ensureAgentTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "devices" (
+      "id"                varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      "user_id"           varchar NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+      "name"              varchar(255) NOT NULL,
+      "os"                varchar(100),
+      "client_version"    varchar(50),
+      "device_token_hash" varchar(64) NOT NULL,
+      "last_seen_at"      timestamp,
+      "revoked_at"        timestamp,
+      "created_at"        timestamp DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS "idx_devices_user"       ON "devices"("user_id");
+    CREATE INDEX IF NOT EXISTS "idx_devices_token_hash" ON "devices"("device_token_hash");
+
+    CREATE TABLE IF NOT EXISTS "agent_pairing_codes" (
+      "id"         varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      "user_id"    varchar NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+      "code"       varchar(10) NOT NULL UNIQUE,
+      "expires_at" timestamp NOT NULL,
+      "used_at"    timestamp,
+      "created_at" timestamp DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS "idx_pairing_code" ON "agent_pairing_codes"("code");
+
+    CREATE TABLE IF NOT EXISTS "agent_processed_batches" (
+      "batch_id"     varchar PRIMARY KEY,
+      "device_id"    varchar NOT NULL REFERENCES "devices"("id") ON DELETE CASCADE,
+      "event_count"  integer NOT NULL DEFAULT 0,
+      "processed_at" timestamp DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS "idx_processed_batches_device" ON "agent_processed_batches"("device_id");
+    CREATE INDEX IF NOT EXISTS "idx_processed_batches_time"   ON "agent_processed_batches"("processed_at");
+
+    CREATE TABLE IF NOT EXISTS "agent_activity_events" (
+      "id"            varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      "device_id"     varchar NOT NULL REFERENCES "devices"("id") ON DELETE CASCADE,
+      "user_id"       varchar NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+      "time_entry_id" varchar REFERENCES "time_entries"("id") ON DELETE SET NULL,
+      "batch_id"      varchar NOT NULL,
+      "event_type"    varchar(50) NOT NULL,
+      "timestamp"     timestamp NOT NULL,
+      "data"          jsonb,
+      "created_at"    timestamp DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS "idx_agent_events_device"    ON "agent_activity_events"("device_id");
+    CREATE INDEX IF NOT EXISTS "idx_agent_events_user_time" ON "agent_activity_events"("user_id", "timestamp");
+    CREATE INDEX IF NOT EXISTS "idx_agent_events_batch"     ON "agent_activity_events"("batch_id");
+  `);
+}
+
 (async () => {
   // Detect which optional migrations have been applied (non-fatal)
   await detectMigrationFlags();
+
+  // Ensure Desktop Agent tables exist (idempotent)
+  try {
+    await ensureAgentTables();
+    log("Agent tables OK");
+  } catch (error) {
+    console.error("Failed to ensure agent tables:", error);
+  }
 
   await registerRoutes(httpServer, app);
 
