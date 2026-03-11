@@ -1,13 +1,16 @@
 /**
  * API client for communicating with the DocuFlow server.
  *
+ * All requests target API_BASE (config.ts). No server URL is stored locally
+ * or passed by the user — the API endpoint is baked in at build time and
+ * can be overridden via DOCUFLOW_API_URL at runtime.
+ *
  * Handles access token refresh, request retry with exponential backoff,
  * and proper error classification (network vs auth vs server).
- *
- * Phase 3 MVP
  */
 
 import { AgentStore } from "./AgentStore";
+import { API_BASE } from "./config";
 
 interface LoginResult {
   deviceId: string;
@@ -63,10 +66,7 @@ export class ApiClient {
   // ─── Authentication ───
 
   async loginWithPassword(email: string, password: string, meta: DeviceMeta): Promise<LoginResult> {
-    const serverUrl = this.store.getServerUrl();
-    if (!serverUrl) throw new Error("Server URL not configured");
-
-    const res = await this.rawFetch(`${serverUrl}/api/agent/auth/login`, {
+    const res = await this.rawFetch(`${API_BASE}/api/agent/auth/login`, {
       method: "POST",
       body: JSON.stringify({ email, password, deviceMeta: meta }),
     });
@@ -74,7 +74,7 @@ export class ApiClient {
     if (!res.ok) {
       const ct = res.headers.get("content-type") ?? "";
       if (!ct.includes("application/json")) {
-        throw new Error(`Server returned HTTP ${res.status}. Check the Server URL.`);
+        throw new Error(`Cannot reach DocuFlow (HTTP ${res.status}). Check your network connection.`);
       }
       const data = await res.json().catch(() => ({ message: res.statusText }));
       if (res.status === 401) throw new Error("Invalid email or password");
@@ -83,7 +83,7 @@ export class ApiClient {
 
     const ct = res.headers.get("content-type") ?? "";
     if (!ct.includes("application/json")) {
-      throw new Error("Server returned HTML instead of JSON — is the Server URL correct?");
+      throw new Error("Unexpected response from server. Please try again.");
     }
     const result: LoginResult = await res.json();
     this.accessToken = result.accessToken;
@@ -174,25 +174,18 @@ export class ApiClient {
 
   /** Upload raw image binary to the upload endpoint (PUT, with auth for server-side uploads). */
   async uploadScreenshot(uploadURL: string, imageBuffer: Buffer): Promise<void> {
-    const serverUrl = this.store.getServerUrl() ?? "";
     // If the URL is relative (server-side upload endpoint), make it absolute
-    const fullURL = uploadURL.startsWith("http")
-      ? uploadURL
-      : `${serverUrl}${uploadURL}`;
+    const fullURL = uploadURL.startsWith("http") ? uploadURL : `${API_BASE}${uploadURL}`;
 
     // Server-side upload endpoint requires Bearer token
-    const isServerUpload = !uploadURL.startsWith("http") || uploadURL.startsWith(serverUrl);
+    const isServerUpload = !uploadURL.startsWith("http") || uploadURL.startsWith(API_BASE);
     const headers: Record<string, string> = { "Content-Type": "image/png" };
     if (isServerUpload) {
       await this.ensureAccessToken();
       headers["Authorization"] = `Bearer ${this.accessToken}`;
     }
 
-    const res = await fetch(fullURL, {
-      method: "PUT",
-      headers,
-      body: imageBuffer,
-    });
+    const res = await fetch(fullURL, { method: "PUT", headers, body: imageBuffer });
     if (!res.ok) {
       const body = await res.json().catch(() => ({ message: res.statusText }));
       throw new Error(`Screenshot upload failed: ${res.status} — ${body.message ?? res.statusText}`);
@@ -234,10 +227,7 @@ export class ApiClient {
   private async authenticatedRequest(path: string, init: RequestInit): Promise<any> {
     await this.ensureAccessToken();
 
-    const serverUrl = this.store.getServerUrl();
-    if (!serverUrl) throw new Error("Server URL not configured");
-
-    const res = await this.rawFetch(`${serverUrl}${path}`, {
+    const res = await this.rawFetch(`${API_BASE}${path}`, {
       ...init,
       headers: {
         ...((init.headers as Record<string, string>) ?? {}),
@@ -248,11 +238,10 @@ export class ApiClient {
 
     if (res.status === 401) {
       // Token expired — refresh and retry once.
-      // ensureAccessToken will fire onRevoke if the device is permanently invalid.
       this.accessToken = null;
       await this.ensureAccessToken();
 
-      const retry = await this.rawFetch(`${serverUrl}${path}`, {
+      const retry = await this.rawFetch(`${API_BASE}${path}`, {
         ...init,
         headers: {
           ...((init.headers as Record<string, string>) ?? {}),
@@ -269,7 +258,6 @@ export class ApiClient {
     }
 
     if (res.status === 403) {
-      // Device explicitly revoked — non-recoverable.
       const data = await res.json().catch(() => ({ message: res.statusText }));
       const msg = data.message || `Request failed: ${res.status}`;
       console.log(`[ApiClient] Device revoked (403): ${msg}`);
@@ -278,6 +266,10 @@ export class ApiClient {
     }
 
     if (!res.ok) {
+      const ct = res.headers.get("content-type") ?? "";
+      if (!ct.includes("application/json")) {
+        throw new Error(`Server error (HTTP ${res.status}). Please try again.`);
+      }
       const data = await res.json().catch(() => ({ message: res.statusText }));
       throw new Error(data.message || `Request failed: ${res.status}`);
     }
@@ -290,15 +282,14 @@ export class ApiClient {
       return;
     }
 
-    const serverUrl = this.store.getServerUrl();
     const deviceId = this.store.getDeviceId();
     const deviceToken = this.store.getDeviceToken();
 
-    if (!serverUrl || !deviceId || !deviceToken) {
-      throw new Error("Not paired — cannot refresh access token");
+    if (!deviceId || !deviceToken) {
+      throw new Error("Not signed in — cannot refresh access token");
     }
 
-    const res = await this.rawFetch(`${serverUrl}/api/agent/auth/refresh`, {
+    const res = await this.rawFetch(`${API_BASE}/api/agent/auth/refresh`, {
       method: "POST",
       body: JSON.stringify({ deviceId, deviceToken }),
     });
@@ -307,7 +298,6 @@ export class ApiClient {
       const data = await res.json().catch(() => ({ message: "Token refresh failed" }));
       const msg = data.message || "Token refresh failed";
       console.log(`[ApiClient] auth.refresh.failed: ${msg} (status ${res.status})`);
-      // 401/403 = device revoked or deleted — permanent failure, signal main process.
       if (res.status === 401 || res.status === 403) {
         this.onRevoke?.();
       }
