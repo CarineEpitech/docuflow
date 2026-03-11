@@ -37,7 +37,8 @@ import {
 } from "./transcripts";
 import { sendWelcomeEmail, sendPasswordUpdateEmail, sendProjectAssignmentEmail } from "./email";
 import { extractTextFromFile, isSupportedForExtraction, isVideoFile } from "./contentExtraction";
-import { logTimeEvent, logError, logStaleSession } from "./logger";
+import { logTimeEvent, logError, logStaleSession, logInfo } from "./logger";
+import { isTasksEnabled } from "./migrationFlags";
 
 // Helper to get OpenAI client lazily (only when needed, not at import time)
 function getOpenAIClient(): OpenAI {
@@ -3511,6 +3512,73 @@ Instructions:
     }
   });
 
+  // ========== TASKS ROUTES ==========
+
+  app.get("/api/tasks", isAuthenticated, async (req: any, res) => {
+    if (!isTasksEnabled()) return res.json({ data: [] });
+    try {
+      const { crmProjectId, includeArchived } = req.query;
+      if (!crmProjectId) return res.status(400).json({ message: "crmProjectId is required" });
+      const taskList = await storage.getTasks({
+        crmProjectId: crmProjectId as string,
+        includeArchived: includeArchived === "true",
+      });
+      res.json({ data: taskList });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch tasks" });
+    }
+  });
+
+  app.post("/api/tasks", isAuthenticated, async (req: any, res) => {
+    if (!isTasksEnabled()) return res.status(503).json({ message: "Tasks feature not available yet — migration pending" });
+    try {
+      const userId = getUserId(req)!;
+      const { crmProjectId, name, description } = req.body;
+      if (!crmProjectId || !name?.trim()) {
+        return res.status(400).json({ message: "crmProjectId and name are required" });
+      }
+      const task = await storage.createTask({
+        crmProjectId,
+        name: name.trim(),
+        description: description?.trim() || null,
+        status: "open",
+      });
+      logInfo("task.created", { taskId: task.id, crmProjectId, userId });
+      res.json(task);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create task" });
+    }
+  });
+
+  app.patch("/api/tasks/:id", isAuthenticated, async (req: any, res) => {
+    if (!isTasksEnabled()) return res.status(503).json({ message: "Tasks feature not available yet — migration pending" });
+    try {
+      const task = await storage.getTask(req.params.id);
+      if (!task) return res.status(404).json({ message: "Task not found" });
+      const { name, description, status } = req.body;
+      const updated = await storage.updateTask(req.params.id, {
+        ...(name !== undefined && { name: name.trim() }),
+        ...(description !== undefined && { description: description?.trim() || null }),
+        ...(status !== undefined && { status }),
+      });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update task" });
+    }
+  });
+
+  app.delete("/api/tasks/:id", isAuthenticated, async (req: any, res) => {
+    if (!isTasksEnabled()) return res.status(503).json({ message: "Tasks feature not available yet — migration pending" });
+    try {
+      const task = await storage.getTask(req.params.id);
+      if (!task) return res.status(404).json({ message: "Task not found" });
+      await storage.deleteTask(req.params.id);
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
   // ========== TIME TRACKING ROUTES ==========
   
   // Get time entries with filters
@@ -3611,6 +3679,8 @@ Instructions:
     try {
       const userId = getUserId(req)!;
       const { crmProjectId, description } = req.body;
+      // Strip taskId if migration 002 hasn't been applied yet
+      const taskId = isTasksEnabled() ? (req.body.taskId || null) : null;
       
       if (!crmProjectId) {
         return res.status(400).json({ message: "Project is required" });
@@ -3635,6 +3705,7 @@ Instructions:
       const entry = await storage.createTimeEntry({
         userId,
         crmProjectId,
+        taskId: taskId || null,
         description: description || null,
         startTime: new Date(),
         status: "running",
@@ -3643,7 +3714,7 @@ Instructions:
         idleTime: 0,
       });
 
-      logTimeEvent("start", entry.id, userId, { crmProjectId });
+      logTimeEvent("start", entry.id, userId, { crmProjectId, taskId: taskId || null });
       res.json(entry);
     } catch (error) {
       logError("time-tracking.start.failed", error, { userId: getUserId(req) });
@@ -3990,10 +4061,14 @@ Instructions:
         timeEntryId?: string;
         userId?: string;
         crmProjectId?: string;
+        startDate?: Date;
+        endDate?: Date;
       } = {};
 
       if (req.query.timeEntryId) filters.timeEntryId = req.query.timeEntryId;
       if (req.query.crmProjectId) filters.crmProjectId = req.query.crmProjectId;
+      if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
 
       if (user?.role !== "admin") {
         filters.userId = userId;

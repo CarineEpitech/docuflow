@@ -46,6 +46,7 @@ interface TimeTrackerProps {
 export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = false }: TimeTrackerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
+  const [taskSelectorOpen, setTaskSelectorOpen] = useState(false);
 
   const {
     activeEntry,
@@ -55,7 +56,9 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
     isPaused,
     hasActiveEntry,
     projects,
+    tasks,
     selectedProjectId,
+    selectedTaskId,
     description,
     showIdleDialog,
     idleCountdown,
@@ -66,6 +69,7 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
     resumeMutationPending,
     stopMutationPending,
     setSelectedProjectId,
+    setSelectedTaskId,
     setDescription,
     handleStart,
     handlePause,
@@ -167,6 +171,58 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                 </Popover>
               </div>
 
+              {selectedProjectId && (
+                <div className="space-y-2">
+                  <label className="text-sm text-muted-foreground">
+                    Task <span className="text-destructive">*</span>
+                  </label>
+                  <Popover open={taskSelectorOpen} onOpenChange={setTaskSelectorOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={taskSelectorOpen}
+                        className="w-full justify-between"
+                        data-testid="select-time-task"
+                      >
+                        {selectedTaskId
+                          ? tasks.find((t) => t.id === selectedTaskId)?.name || "Unnamed Task"
+                          : "Choose a task..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search tasks..." />
+                        <CommandList>
+                          <CommandEmpty>No tasks found for this project.</CommandEmpty>
+                          <CommandGroup>
+                            {tasks.map((task) => (
+                              <CommandItem
+                                key={task.id}
+                                value={task.name}
+                                onSelect={() => {
+                                  setSelectedTaskId(task.id);
+                                  setTaskSelectorOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedTaskId === task.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {task.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-sm text-muted-foreground">Description (optional)</label>
                 <Input
@@ -178,8 +234,8 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
               </div>
 
               <Button
-                onClick={() => handleStart()}
-                disabled={!selectedProjectId || startMutationPending}
+                onClick={() => handleStart(undefined, selectedTaskId || undefined)}
+                disabled={!selectedProjectId || !selectedTaskId || startMutationPending}
                 className="w-full gap-2"
                 data-testid="button-start-tracking"
               >

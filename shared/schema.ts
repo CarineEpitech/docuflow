@@ -993,11 +993,46 @@ export type InsertCrmCustomFieldValue = z.infer<typeof insertCrmCustomFieldValue
 export const timeEntryStatusValues = ["running", "paused", "stopped"] as const;
 export type TimeEntryStatus = typeof timeEntryStatusValues[number];
 
+// Tasks table - work units within CRM projects
+export const taskStatusValues = ["open", "in_progress", "done", "archived"] as const;
+export type TaskStatus = typeof taskStatusValues[number];
+
+export const tasks = pgTable("tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  crmProjectId: varchar("crm_project_id").notNull().references(() => crmProjects.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  status: varchar("status", { length: 20 }).notNull().default("open"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_tasks_crm_project").on(table.crmProjectId),
+  index("idx_tasks_status").on(table.status),
+]);
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  crmProject: one(crmProjects, {
+    fields: [tasks.crmProjectId],
+    references: [crmProjects.id],
+  }),
+}));
+
+export const insertTaskSchema = createInsertSchema(tasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+
 // Time Entries table - tracks time spent on CRM projects
 export const timeEntries = pgTable("time_entries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   crmProjectId: varchar("crm_project_id").notNull().references(() => crmProjects.id, { onDelete: "cascade" }),
+  // taskId: nullable for backward compat with existing entries; UI enforces selection for new entries
+  taskId: varchar("task_id").references(() => tasks.id, { onDelete: "set null" }),
   description: text("description"),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
@@ -1023,6 +1058,10 @@ export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
     fields: [timeEntries.crmProjectId],
     references: [crmProjects.id],
   }),
+  task: one(tasks, {
+    fields: [timeEntries.taskId],
+    references: [tasks.id],
+  }),
 }));
 
 export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({
@@ -1041,6 +1080,7 @@ export type TimeEntryWithDetails = TimeEntry & {
     project?: Project;
     client?: CrmClient;
   };
+  task?: Task;
 };
 
 // Time Entry Screenshots table

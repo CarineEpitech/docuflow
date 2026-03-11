@@ -1,0 +1,8 @@
+node_modules/
+.webpack/
+dist/
+out/
+installer/
+release/
+# WiX portable binaries (legacy — no longer used)
+.wix-tools/

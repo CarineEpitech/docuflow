@@ -14,7 +14,7 @@
       height: 100vh;
       display: flex;
       flex-direction: column;
-      user-select: none;
+      user-select: text;
     }
 
     /* Header */
@@ -41,10 +41,6 @@
       font-size: 0.85rem; outline: none; margin-bottom: 0.75rem;
     }
     input:focus, select:focus { border-color: #6366f1; }
-    input.code-input {
-      text-align: center; font-family: monospace; font-size: 1.4rem;
-      letter-spacing: 0.3em; text-transform: uppercase;
-    }
     select { cursor: pointer; }
 
     /* Buttons */
@@ -88,6 +84,11 @@
     /* Misc */
     .error { color: #f87171; font-size: 0.8rem; margin-top: 0.25rem; text-align: center; }
     .spacer { flex: 1; }
+    .info-note {
+      font-size: 0.75rem; color: #64748b; display: flex; align-items: flex-start;
+      gap: 0.4rem; padding: 0.5rem 0.75rem; background: #0f172a;
+      border: 1px solid #1e293b; border-radius: 0.4rem; margin-bottom: 0.75rem;
+    }
     .text-center { text-align: center; }
     .text-muted { color: #64748b; font-size: 0.8rem; }
     .disconnect-link {
@@ -95,6 +96,15 @@
       text-align: center; padding: 0.5rem; margin-top: 0.5rem;
     }
     .disconnect-link:hover { color: #ef4444; }
+
+    /* Revoke / disconnected banner */
+    .revoked-banner {
+      display: none; align-items: flex-start; gap: 0.5rem;
+      background: #450a0a; border: 1px solid #7f1d1d; border-radius: 0.5rem;
+      padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #fca5a5;
+    }
+    .revoked-banner.visible { display: flex; }
+    .revoked-banner strong { color: #f87171; }
   </style>
 </head>
 <body>
@@ -103,28 +113,38 @@
   <div class="header">
     <div class="header-left">
       <span class="logo">DocuFlow Agent</span>
-      <span class="version">v0.1.0</span>
+      <span class="version">v0.1.3</span>
     </div>
     <div class="status-dot disconnected" id="status-dot"></div>
   </div>
 
-  <!-- PAIRING VIEW -->
+  <!-- LOGIN VIEW -->
   <div id="pairing-view" class="view active">
-    <div style="margin-bottom:1.5rem">
-      <div class="text-center text-muted">Connect to your DocuFlow workspace</div>
+    <!-- Shown when a device is revoked mid-session or session expires -->
+    <div id="revoked-banner" class="revoked-banner">
+      <span>⚠</span>
+      <div>
+        <strong>Session ended</strong><br/>
+        This device was disconnected. Please sign in again.
+      </div>
     </div>
 
-    <label for="server-url">Server URL</label>
-    <input id="server-url" type="url" placeholder="https://your-docuflow.replit.app" />
+    <div style="margin-bottom:1.5rem">
+      <div class="text-center text-muted">Sign in to your DocuFlow account</div>
+    </div>
 
-    <label for="device-name">Device Name</label>
-    <input id="device-name" type="text" placeholder="My Work Laptop" />
+    <label for="login-email">Email</label>
+    <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email" />
 
-    <label for="pairing-code">Pairing Code</label>
-    <input id="pairing-code" class="code-input" type="text" maxlength="6" placeholder="------" />
+    <label for="login-password">Password</label>
+    <input id="login-password" type="password" placeholder="Enter your password" autocomplete="current-password" />
 
-    <button id="pair-btn" class="btn-primary">Connect</button>
+    <button id="pair-btn" class="btn-primary">Sign in</button>
     <div id="pair-error" class="error" style="display:none"></div>
+
+    <div class="text-center text-muted" style="margin-top:0.75rem; font-size:0.75rem">
+      <!-- Forgot password: manage your account on the web dashboard -->
+    </div>
   </div>
 
   <!-- CONNECTED VIEW -->
@@ -144,6 +164,12 @@
         <select id="project-select">
           <option value="">Loading projects...</option>
         </select>
+        <div id="task-section" style="display:none">
+          <label for="task-select">Task <span style="color:#ef4444">*</span></label>
+          <select id="task-select" disabled>
+            <option value="">Loading tasks...</option>
+          </select>
+        </div>
         <label for="task-description">Description (optional)</label>
         <input id="task-description" type="text" placeholder="What are you working on?" style="margin-bottom:0" />
       </div>
@@ -161,6 +187,12 @@
       <div id="control-error" class="error" style="display:none"></div>
     </div>
 
+    <!-- Screenshots info -->
+    <div class="info-note" id="screenshot-note">
+      <span>📷</span>
+      <span>Screenshots are captured automatically while the timer is running and uploaded to your workspace.</span>
+    </div>
+
     <!-- Connection info -->
     <div class="spacer"></div>
     <div class="card" style="margin-top:1rem">
@@ -171,7 +203,7 @@
       </div>
     </div>
 
-    <div class="disconnect-link" id="disconnect-link">Disconnect Device</div>
+    <div class="disconnect-link" id="disconnect-link">Sign out</div>
   </div>
 
   <script>
@@ -191,12 +223,16 @@
     const stopBtn = document.getElementById("stop-btn");
     const startBtn = document.getElementById("start-btn");
     const projectSelect = document.getElementById("project-select");
+    const taskSection = document.getElementById("task-section");
+    const taskSelect = document.getElementById("task-select");
 
     let timerInterval = null;
+    let currentlyPaired = false; // tracks paired state to detect revoke transitions
 
     // Init
     async function init() {
       const state = await bridge.getState();
+      currentlyPaired = !!state.isPaired;
       if (state.isPaired) {
         showConnected(state);
       }
@@ -204,27 +240,29 @@
 
     // View switching
     function showConnected(state) {
+      document.getElementById("revoked-banner").classList.remove("visible");
       pairingView.classList.remove("active");
       connectedView.classList.add("active");
       statusDot.classList.remove("disconnected");
       statusDot.classList.add("connected");
 
-      document.getElementById("conn-device-name").textContent = state.deviceName || "Device";
-      try {
-        document.getElementById("conn-server").textContent = new URL(state.serverUrl).hostname;
-      } catch { document.getElementById("conn-server").textContent = ""; }
+      document.getElementById("conn-device-name").textContent = state.userEmail || state.deviceName || "Connected";
+      document.getElementById("conn-server").textContent = state.apiHost || "";
 
       loadProjects();
       updateTimerUI(state.timer || { status: "stopped", elapsed: 0 });
       startTimerTick();
     }
 
-    function showPairing() {
+    function showPairing(wasRevoked) {
       connectedView.classList.remove("active");
       pairingView.classList.add("active");
       statusDot.classList.remove("connected");
       statusDot.classList.add("disconnected");
       stopTimerTick();
+      if (wasRevoked) {
+        document.getElementById("revoked-banner").classList.add("visible");
+      }
     }
 
     // Projects
@@ -247,7 +285,42 @@
         opt.dataset.name = p.name;
         projectSelect.appendChild(opt);
       });
-      startBtn.disabled = false;
+      taskSection.style.display = "none";
+      updateStartButton();
+    }
+
+    // Tasks (cascade from project selection)
+    async function loadTasks(crmProjectId) {
+      taskSection.style.display = "block";
+      taskSelect.disabled = true;
+      taskSelect.innerHTML = '<option value="">Loading tasks...</option>';
+      updateStartButton();
+
+      const result = await bridge.getTasks({ crmProjectId });
+      taskSelect.innerHTML = "";
+
+      const defaultOpt = document.createElement("option");
+      defaultOpt.value = "";
+      defaultOpt.textContent = result.ok && result.data.length ? "Select a task..." : "No tasks — create one on the web";
+      taskSelect.appendChild(defaultOpt);
+
+      if (result.ok && result.data.length) {
+        result.data.forEach(function(t) {
+          const opt = document.createElement("option");
+          opt.value = t.id;
+          opt.textContent = t.name;
+          opt.dataset.name = t.name;
+          taskSelect.appendChild(opt);
+        });
+        taskSelect.disabled = false;
+      }
+      updateStartButton();
+    }
+
+    function updateStartButton() {
+      const hasProject = !!projectSelect.value;
+      const hasTask = !!taskSelect.value;
+      startBtn.disabled = !hasProject || !hasTask;
     }
 
     // Timer UI
@@ -290,47 +363,64 @@
       if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     }
 
-    // Pair
+    // Sign in
     document.getElementById("pair-btn").addEventListener("click", async function() {
-      var serverUrl = document.getElementById("server-url").value.trim();
-      var deviceName = document.getElementById("device-name").value.trim();
-      var pairingCode = document.getElementById("pairing-code").value.trim().toUpperCase();
+      var email = document.getElementById("login-email").value.trim();
+      var password = document.getElementById("login-password").value;
       var errorEl = document.getElementById("pair-error");
       var btn = document.getElementById("pair-btn");
 
       errorEl.style.display = "none";
-      if (!serverUrl || !deviceName || pairingCode.length !== 6) {
-        errorEl.textContent = "Please fill in all fields (code must be 6 characters)";
+      if (!email || !password) {
+        errorEl.textContent = "Please enter your email and password";
         errorEl.style.display = "block";
         return;
       }
 
       btn.disabled = true;
-      btn.textContent = "Connecting...";
+      btn.textContent = "Signing in...";
 
-      var result = await bridge.pair({ serverUrl: serverUrl, pairingCode: pairingCode, deviceName: deviceName });
+      var result = await bridge.login({ email: email, password: password });
       if (result.ok) {
         var state = await bridge.getState();
         showConnected(state);
       } else {
-        errorEl.textContent = result.error || "Pairing failed";
+        errorEl.textContent = result.error || "Sign in failed";
         errorEl.style.display = "block";
       }
       btn.disabled = false;
-      btn.textContent = "Connect";
+      btn.textContent = "Sign in";
+    });
+
+    // Project change → load tasks
+    projectSelect.addEventListener("change", function() {
+      var crmProjectId = projectSelect.value;
+      taskSelect.value = "";
+      if (crmProjectId) {
+        loadTasks(crmProjectId);
+      } else {
+        taskSection.style.display = "none";
+        updateStartButton();
+      }
+    });
+
+    // Task change → update start button
+    taskSelect.addEventListener("change", function() {
+      updateStartButton();
     });
 
     // Start timer
     startBtn.addEventListener("click", async function() {
       var crmProjectId = projectSelect.value;
-      var selectedOption = projectSelect.options[projectSelect.selectedIndex];
-      var projectName = selectedOption ? (selectedOption.dataset.name || selectedOption.textContent || "") : "";
+      var taskId = taskSelect.value;
+      var projectOption = projectSelect.options[projectSelect.selectedIndex];
+      var projectName = projectOption ? (projectOption.dataset.name || projectOption.textContent || "") : "";
       var description = document.getElementById("task-description").value.trim();
       var errorEl = document.getElementById("start-error");
 
       errorEl.style.display = "none";
-      if (!crmProjectId) {
-        errorEl.textContent = "Please select a project";
+      if (!crmProjectId || !taskId) {
+        errorEl.textContent = "Please select a project and a task";
         errorEl.style.display = "block";
         return;
       }
@@ -338,7 +428,7 @@
       startBtn.disabled = true;
       startBtn.textContent = "Starting...";
 
-      var result = await bridge.timerStart({ crmProjectId: crmProjectId, projectName: projectName, description: description });
+      var result = await bridge.timerStart({ crmProjectId: crmProjectId, taskId: taskId, projectName: projectName, description: description });
       if (result.ok) {
         var timer = await bridge.timerState();
         updateTimerUI(Object.assign({}, timer, { projectName: projectName }));
@@ -375,11 +465,11 @@
       stopBtn.disabled = false;
     });
 
-    // Disconnect
+    // Sign out
     document.getElementById("disconnect-link").addEventListener("click", async function() {
-      if (confirm("Disconnect this device?")) {
+      if (confirm("Sign out of this device?")) {
         await bridge.unpair();
-        showPairing();
+        showPairing(false);
       }
     });
 
@@ -390,8 +480,20 @@
       setTimeout(function() { el.style.display = "none"; }, 3000);
     }
 
-    // Listen for state pushes from main process
+    // Listen for state pushes from main process (timer sync, revoke events)
     bridge.onStateUpdate(function(state) {
+      var wasPaired = currentlyPaired;
+      currentlyPaired = !!state.isPaired;
+
+      if (!state.isPaired && wasPaired) {
+        // Transitioned from paired → unpaired: device was revoked remotely
+        showPairing(true);
+        return;
+      }
+      if (state.isPaired && !wasPaired) {
+        showConnected(state);
+        return;
+      }
       if (state.timer) updateTimerUI(state.timer);
     });
 

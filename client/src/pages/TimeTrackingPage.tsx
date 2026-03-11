@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Clock, Calendar, TrendingUp, Timer, Filter, X, ChevronDown, ChevronRight, LayoutList, Table2, Monitor, ImageIcon, Play, Pause, Square } from "lucide-react";
+import { Clock, Calendar, TrendingUp, Timer, Filter, X, ChevronDown, ChevronRight, LayoutList, Table2, Monitor, ImageIcon, Play, Pause, Square, ChevronLeft } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import type { TimeEntry, CrmProjectWithDetails, User } from "@shared/schema";
 
@@ -70,6 +70,9 @@ export default function TimeTrackingPage() {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("grouped");
   const [selectedScreenshot, setSelectedScreenshot] = useState<Screenshot | null>(null);
+  const [screenshotDateFilter, setScreenshotDateFilter] = useState<DateFilter>("week");
+  const [screenshotPage, setScreenshotPage] = useState(1);
+  const SCREENSHOT_PAGE_SIZE = 24;
 
   // ─── Single Source of Truth: same context as Sidebar ───
   const {
@@ -120,12 +123,35 @@ export default function TimeTrackingPage() {
     queryKey: ["/api/users"],
   });
 
-  const screenshotQueryParams = new URLSearchParams();
-  if (projectFilter !== "all") screenshotQueryParams.set("crmProjectId", projectFilter);
-  if (userFilter !== "all") screenshotQueryParams.set("userId", userFilter);
+  const screenshotDateRange = useMemo(() => {
+    const now = new Date();
+    if (screenshotDateFilter === "today") {
+      const start = new Date(now); start.setHours(0, 0, 0, 0);
+      const end = new Date(now); end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+    if (screenshotDateFilter === "week") {
+      return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
+    }
+    if (screenshotDateFilter === "month") {
+      return { start: startOfMonth(now), end: endOfMonth(now) };
+    }
+    return null;
+  }, [screenshotDateFilter]);
+
+  const screenshotQueryParams = useMemo(() => {
+    const p = new URLSearchParams();
+    if (projectFilter !== "all") p.set("crmProjectId", projectFilter);
+    if (userFilter !== "all") p.set("userId", userFilter);
+    if (screenshotDateRange) {
+      p.set("startDate", screenshotDateRange.start.toISOString());
+      p.set("endDate", screenshotDateRange.end.toISOString());
+    }
+    return p;
+  }, [projectFilter, userFilter, screenshotDateRange]);
 
   const { data: screenshotsData, isLoading: isLoadingScreenshots } = useQuery<{ data: Screenshot[] }>({
-    queryKey: ["/api/time-tracking/screenshots", projectFilter, userFilter],
+    queryKey: ["/api/time-tracking/screenshots", projectFilter, userFilter, screenshotDateFilter],
     queryFn: () => fetch(`/api/time-tracking/screenshots?${screenshotQueryParams.toString()}`).then(r => r.json()),
     enabled: activeTab === "screenshots",
   });
@@ -233,6 +259,22 @@ export default function TimeTrackingPage() {
       return bTime - aTime;
     });
   }, [filteredEntries, projects]);
+
+  const allScreenshots = screenshotsData?.data ?? [];
+  const screenshotTotalPages = Math.max(1, Math.ceil(allScreenshots.length / SCREENSHOT_PAGE_SIZE));
+  const paginatedScreenshots = allScreenshots.slice(
+    (screenshotPage - 1) * SCREENSHOT_PAGE_SIZE,
+    screenshotPage * SCREENSHOT_PAGE_SIZE,
+  );
+
+  const hasActiveScreenshotFilters = screenshotDateFilter !== "week" || projectFilter !== "all" || userFilter !== "all";
+
+  const clearScreenshotFilters = () => {
+    setScreenshotDateFilter("week");
+    setProjectFilter("all");
+    setUserFilter("all");
+    setScreenshotPage(1);
+  };
 
   const getProjectName = (projectId: string) => {
     const project = projects.find((p) => p.id === projectId);
@@ -630,11 +672,26 @@ export default function TimeTrackingPage() {
           <CardHeader className="pb-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <CardTitle className="flex items-center gap-2">
-                <Monitor className="h-4 w-4" />
+                <Filter className="h-4 w-4" />
                 Screenshots
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2">
-                <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <Select
+                  value={screenshotDateFilter}
+                  onValueChange={(v) => { setScreenshotDateFilter(v as DateFilter); setScreenshotPage(1); }}
+                >
+                  <SelectTrigger className="w-32" data-testid="select-screenshot-date-filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">This Week</SelectItem>
+                    <SelectItem value="month">This Month</SelectItem>
+                    <SelectItem value="all">All Time</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={projectFilter} onValueChange={(v) => { setProjectFilter(v); setScreenshotPage(1); }}>
                   <SelectTrigger className="w-40" data-testid="select-screenshot-project-filter">
                     <SelectValue placeholder="All Projects" />
                   </SelectTrigger>
@@ -648,7 +705,7 @@ export default function TimeTrackingPage() {
                   </SelectContent>
                 </Select>
 
-                <Select value={userFilter} onValueChange={setUserFilter}>
+                <Select value={userFilter} onValueChange={(v) => { setUserFilter(v); setScreenshotPage(1); }}>
                   <SelectTrigger className="w-40" data-testid="select-screenshot-user-filter">
                     <SelectValue placeholder="All Users" />
                   </SelectTrigger>
@@ -661,9 +718,33 @@ export default function TimeTrackingPage() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                {hasActiveScreenshotFilters && (
+                  <Button variant="ghost" size="sm" onClick={clearScreenshotFilters} className="gap-1">
+                    <X className="h-3 w-3" />
+                    Clear
+                  </Button>
+                )}
               </div>
             </div>
+
+            {!isLoadingScreenshots && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+                <ImageIcon className="h-3.5 w-3.5" />
+                <span>
+                  {allScreenshots.length === 0
+                    ? "No screenshots"
+                    : `${allScreenshots.length} screenshot${allScreenshots.length === 1 ? "" : "s"}`}
+                  {screenshotDateFilter !== "all" && (
+                    <span className="ml-1">
+                      · {screenshotDateFilter === "today" ? "today" : screenshotDateFilter === "week" ? "this week" : "this month"}
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
           </CardHeader>
+
           <CardContent>
             {isLoadingScreenshots ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -671,46 +752,87 @@ export default function TimeTrackingPage() {
                   <Skeleton key={i} className="aspect-video rounded-lg" />
                 ))}
               </div>
-            ) : !screenshotsData?.data?.length ? (
+            ) : allScreenshots.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                <p>No screenshots captured yet</p>
-                <p className="text-sm mt-1">Enable screen sharing in the time tracker to start capturing screenshots</p>
+                <p>{hasActiveScreenshotFilters ? "No screenshots match your filters" : "No screenshots captured yet"}</p>
+                <p className="text-sm mt-1">
+                  {hasActiveScreenshotFilters
+                    ? "Try adjusting the date range or clearing filters"
+                    : "Enable screen sharing in the time tracker to start capturing screenshots"}
+                </p>
+                {hasActiveScreenshotFilters && (
+                  <Button variant="outline" size="sm" className="mt-3" onClick={clearScreenshotFilters}>
+                    Clear filters
+                  </Button>
+                )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {screenshotsData.data.map((screenshot) => {
-                  const project = projects.find(p => p.id === screenshot.crmProjectId);
-                  return (
-                    <div
-                      key={screenshot.id}
-                      className="group relative rounded-lg border overflow-visible hover-elevate cursor-pointer"
-                      onClick={() => setSelectedScreenshot(screenshot)}
-                      data-testid={`screenshot-${screenshot.id}`}
-                    >
-                      <div className="aspect-video bg-muted overflow-hidden rounded-t-lg">
-                        <img
-                          src={`/api/time-tracking/screenshots/${screenshot.id}/image`}
-                          alt={`Screenshot at ${format(new Date(screenshot.capturedAt), "h:mm a")}`}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {paginatedScreenshots.map((screenshot) => {
+                    const project = projects.find(p => p.id === screenshot.crmProjectId);
+                    return (
+                      <div
+                        key={screenshot.id}
+                        className="group relative rounded-lg border overflow-visible hover-elevate cursor-pointer"
+                        onClick={() => setSelectedScreenshot(screenshot)}
+                        data-testid={`screenshot-${screenshot.id}`}
+                      >
+                        <div className="aspect-video bg-muted overflow-hidden rounded-t-lg">
+                          <img
+                            src={`/api/time-tracking/screenshots/${screenshot.id}/image`}
+                            alt={`Screenshot at ${format(new Date(screenshot.capturedAt), "h:mm a")}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className="p-2 space-y-0.5">
+                          <div className="text-xs font-medium truncate">
+                            {project?.project?.name || "Unknown Project"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(screenshot.capturedAt), "MMM d, h:mm a")}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {getUserName(screenshot.userId)}
+                          </div>
+                        </div>
                       </div>
-                      <div className="p-2 space-y-0.5">
-                        <div className="text-xs font-medium truncate">
-                          {project?.project?.name || "Unknown Project"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {format(new Date(screenshot.capturedAt), "MMM d, yyyy h:mm a")}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {getUserName(screenshot.userId)}
-                        </div>
-                      </div>
+                    );
+                  })}
+                </div>
+
+                {screenshotTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Page {screenshotPage} of {screenshotTotalPages} · showing {(screenshotPage - 1) * SCREENSHOT_PAGE_SIZE + 1}–{Math.min(screenshotPage * SCREENSHOT_PAGE_SIZE, allScreenshots.length)} of {allScreenshots.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScreenshotPage(p => Math.max(1, p - 1))}
+                        disabled={screenshotPage === 1}
+                        data-testid="button-screenshot-prev"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Prev
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScreenshotPage(p => Math.min(screenshotTotalPages, p + 1))}
+                        disabled={screenshotPage === screenshotTotalPages}
+                        data-testid="button-screenshot-next"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

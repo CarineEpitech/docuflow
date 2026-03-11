@@ -5,12 +5,15 @@
  * Phase 2 D2
  */
 
+import express from "express";
 import type { Express, Request, Response, NextFunction } from "express";
-import { randomBytes, createHash } from "crypto";
+import { randomBytes, createHash, createHmac } from "crypto";
 import { z } from "zod";
 import { storage } from "./storage";
-import { isAuthenticated, getUserId } from "./auth";
+import { isAuthenticated, getUserId, verifyPassword } from "./auth";
 import { logInfo, logError, logTimeEvent } from "./logger";
+import { parseObjectPath, signObjectURL } from "./objectStorage";
+import { isTasksEnabled } from "./migrationFlags";
 
 // ─── Constants ───
 
@@ -40,15 +43,63 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-// Simple in-memory access token store (short-lived, 1h)
-// In production, use JWT or Redis. This is a V1 placeholder.
-const accessTokenStore = new Map<string, { deviceId: string; userId: string; expiresAt: number }>();
+// ─── JWT (HMAC-SHA256, no external dependency) ───
+
+const JWT_SECRET = process.env.JWT_SECRET ?? generateToken(32); // fallback: ephemeral random key
+
+interface JwtPayload {
+  sub: string;  // deviceId
+  uid: string;  // userId
+  exp: number;  // unix seconds
+  iat: number;
+}
+
+function base64urlEncode(buf: Buffer | string): string {
+  const b = typeof buf === "string" ? Buffer.from(buf) : buf;
+  return b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function base64urlDecode(str: string): Buffer {
+  const padded = str.replace(/-/g, "+").replace(/_/g, "/");
+  return Buffer.from(padded, "base64");
+}
+
+function signJwt(payload: JwtPayload): string {
+  const header = base64urlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body = base64urlEncode(JSON.stringify(payload));
+  const data = `${header}.${body}`;
+  const sig = createHmac("sha256", JWT_SECRET).update(data).digest();
+  return `${data}.${base64urlEncode(sig)}`;
+}
+
+function verifyJwt(token: string): JwtPayload | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const data = `${parts[0]}.${parts[1]}`;
+  const expected = base64urlEncode(createHmac("sha256", JWT_SECRET).update(data).digest());
+  // Constant-time comparison
+  if (expected.length !== parts[2].length) return null;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ parts[2].charCodeAt(i);
+  }
+  if (diff !== 0) return null;
+  try {
+    return JSON.parse(base64urlDecode(parts[1]).toString()) as JwtPayload;
+  } catch {
+    return null;
+  }
+}
 
 function createAccessToken(deviceId: string, userId: string): { accessToken: string; expiresAt: Date } {
-  const accessToken = generateToken(ACCESS_TOKEN_LENGTH);
   const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MS);
-  accessTokenStore.set(accessToken, { deviceId, userId, expiresAt: expiresAt.getTime() });
-  return { accessToken, expiresAt };
+  const payload: JwtPayload = {
+    sub: deviceId,
+    uid: userId,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(expiresAt.getTime() / 1000),
+  };
+  return { accessToken: signJwt(payload), expiresAt };
 }
 
 // ─── Agent auth middleware ───
@@ -66,33 +117,22 @@ function isAgentAuthenticated(req: AgentAuthRequest, res: Response, next: NextFu
   }
 
   const token = authHeader.slice(7);
-  const entry = accessTokenStore.get(token);
+  const payload = verifyJwt(token);
 
-  if (!entry) {
+  if (!payload) {
     res.status(401).json({ message: "Invalid access token" });
     return;
   }
 
-  if (Date.now() > entry.expiresAt) {
-    accessTokenStore.delete(token);
+  if (Math.floor(Date.now() / 1000) > payload.exp) {
     res.status(401).json({ message: "Access token expired" });
     return;
   }
 
-  req.agentDeviceId = entry.deviceId;
-  req.agentUserId = entry.userId;
+  req.agentDeviceId = payload.sub;
+  req.agentUserId = payload.uid;
   next();
 }
-
-// Cleanup expired tokens periodically (every 5 min)
-setInterval(() => {
-  const now = Date.now();
-  accessTokenStore.forEach((entry, token) => {
-    if (now > entry.expiresAt) {
-      accessTokenStore.delete(token);
-    }
-  });
-}, 5 * 60 * 1000);
 
 // ─── Validation schemas ───
 
@@ -104,6 +144,12 @@ const deviceMetaSchema = z.object({
 
 const pairingCompleteSchema = z.object({
   pairingCode: z.string().length(PAIRING_CODE_LENGTH),
+  deviceMeta: deviceMetaSchema,
+});
+
+const agentLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
   deviceMeta: deviceMetaSchema,
 });
 
@@ -161,46 +207,54 @@ export function registerAgentRoutes(app: Express): void {
   // PAIRING
   // ═══════════════════════════════════════
 
-  /** Web: generate a pairing code */
-  app.post("/api/agent/pairing/start", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = getUserId(req)!;
-      const code = generatePairingCode();
-      const expiresAt = new Date(Date.now() + PAIRING_CODE_TTL_MS);
-
-      await storage.createAgentPairingCode({ userId, code, expiresAt });
-
-      logInfo("agent.pairing.start", { userId, code });
-      res.json({ pairingCode: code, expiresAt: expiresAt.toISOString() });
-    } catch (error) {
-      logError("agent.pairing.start.failed", error);
-      res.status(500).json({ message: "Failed to generate pairing code" });
-    }
+  /**
+   * DEPRECATED (S4): pairing code flow has been removed.
+   * Desktop agents now authenticate via POST /api/agent/auth/login (email + password).
+   * These endpoints return 410 Gone to surface clear errors to old agent versions.
+   */
+  app.post("/api/agent/pairing/start", (_req, res) => {
+    res.status(410).json({
+      message: "Pairing codes have been removed. Use the desktop app and sign in with your DocuFlow email and password.",
+    });
   });
 
-  /** Agent: complete pairing with code */
-  app.post("/api/agent/pairing/complete", async (req, res) => {
+  app.post("/api/agent/pairing/complete", (_req, res) => {
+    res.status(410).json({
+      message: "Pairing codes have been removed. Use the desktop app and sign in with your DocuFlow email and password.",
+    });
+  });
+
+  // ═══════════════════════════════════════
+  // AUTH
+  // ═══════════════════════════════════════
+
+  /**
+   * Agent: login with DocuFlow email + password.
+   * Creates (or registers) a device for this machine and returns credentials.
+   * Replaces the pairing code flow as of S4.
+   */
+  app.post("/api/agent/auth/login", async (req, res) => {
     try {
-      const body = pairingCompleteSchema.parse(req.body);
+      const body = agentLoginSchema.parse(req.body);
 
-      const pairingRecord = await storage.getAgentPairingCode(body.pairingCode);
-      if (!pairingRecord) {
-        return res.status(400).json({ message: "Invalid pairing code" });
-      }
-      if (pairingRecord.usedAt) {
-        return res.status(400).json({ message: "Pairing code already used" });
-      }
-      if (new Date() > new Date(pairingRecord.expiresAt)) {
-        return res.status(400).json({ message: "Pairing code expired" });
+      const user = await storage.getUserByEmail(body.email);
+      if (!user) {
+        logInfo("agent.auth.login.failed", { email: body.email, reason: "user_not_found" });
+        return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      // Generate tokens
+      const valid = await verifyPassword(body.password, user.password);
+      if (!valid) {
+        logInfo("agent.auth.login.failed", { userId: user.id, reason: "bad_password" });
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Create a new device for this login
       const deviceToken = generateToken(DEVICE_TOKEN_LENGTH);
       const deviceTokenHash = hashToken(deviceToken);
 
-      // Create device
       const device = await storage.createDevice({
-        userId: pairingRecord.userId,
+        userId: user.id,
         name: body.deviceMeta.deviceName,
         os: body.deviceMeta.os ?? null,
         clientVersion: body.deviceMeta.clientVersion ?? null,
@@ -208,31 +262,29 @@ export function registerAgentRoutes(app: Express): void {
         lastSeenAt: new Date(),
       });
 
-      // Mark pairing code as used
-      await storage.markPairingCodeUsed(pairingRecord.id);
+      const { accessToken, expiresAt } = createAccessToken(device.id, user.id);
 
-      // Create short-lived access token
-      const { accessToken, expiresAt } = createAccessToken(device.id, pairingRecord.userId);
-
-      logInfo("agent.pairing.complete", { deviceId: device.id, userId: pairingRecord.userId });
+      logInfo("agent.auth.login.success", { userId: user.id, deviceId: device.id });
       res.json({
         deviceId: device.id,
         deviceToken,
         accessToken,
         expiresAt: expiresAt.toISOString(),
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid request", errors: error.errors });
       }
-      logError("agent.pairing.complete.failed", error);
-      res.status(500).json({ message: "Failed to complete pairing" });
+      logError("agent.auth.login.failed", error);
+      res.status(500).json({ message: "Login failed" });
     }
   });
-
-  // ═══════════════════════════════════════
-  // AUTH
-  // ═══════════════════════════════════════
 
   /** Agent: refresh access token using device token */
   app.post("/api/agent/auth/refresh", async (req, res) => {
@@ -316,14 +368,22 @@ export function registerAgentRoutes(app: Express): void {
         });
       }
 
+      // Get server-authoritative timer state for desktop resync
+      const serverActive = await storage.getActiveTimeEntry(req.agentUserId!);
+      const timerSync =
+        serverActive && serverActive.status !== "stopped"
+          ? { entryId: serverActive.id, status: serverActive.status, duration: serverActive.duration ?? 0 }
+          : null;
+
       logInfo("agent.heartbeat", {
         deviceId: body.deviceId,
         timeEntryId: body.timeEntryId ?? null,
         clientType: body.clientType,
         clientVersion: body.clientVersion,
+        timerSyncStatus: timerSync?.status ?? "none",
       });
 
-      res.json({ ok: true, serverTime: new Date().toISOString() });
+      res.json({ ok: true, serverTime: new Date().toISOString(), timerSync });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid request", errors: error.errors });
@@ -389,22 +449,47 @@ export function registerAgentRoutes(app: Express): void {
     try {
       const body = presignSchema.parse(req.body);
 
+      // Fetch time entry to get crmProjectId
+      const timeEntry = await storage.getTimeEntry(body.timeEntryId);
+      if (!timeEntry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+
+      // Guard: reject screenshot if entry is not actively running
+      if (timeEntry.status !== "running") {
+        logInfo("agent.screenshots.presign.rejected", {
+          reason: "entry_not_running",
+          entryStatus: timeEntry.status,
+          timeEntryId: body.timeEntryId,
+          deviceId: body.deviceId,
+        });
+        return res.status(409).json({
+          message: `Screenshot rejected: time entry is ${timeEntry.status}, not running`,
+          entryStatus: timeEntry.status,
+        });
+      }
+
+      // Guard: verify the requesting device is not revoked
+      const presignDevice = await storage.getDevice(req.agentDeviceId!);
+      if (!presignDevice || presignDevice.revokedAt) {
+        return res.status(403).json({ message: "Device has been revoked" });
+      }
+
       // Create a screenshot record with pending status
       const screenshot = await storage.createTimeEntryScreenshot({
         timeEntryId: body.timeEntryId,
         userId: req.agentUserId!,
-        crmProjectId: "", // Will be filled from time entry
-        storageKey: `pending-${Date.now()}`, // Placeholder until confirmed
+        crmProjectId: timeEntry.crmProjectId,
+        storageKey: `pending-${Date.now()}`, // Replaced on upload
         capturedAt: new Date(body.capturedAt),
       });
 
-      // Get signed upload URL
-      // [PLACEHOLDER]: Use ObjectStorageService for proper signed URL
-      // For now, return a placeholder
-      const uploadURL = `/api/time-tracking/screenshots/upload/${screenshot.id}`;
+      // Upload URL points to our server endpoint (server-side relay to GCS)
+      const uploadURL = `/api/agent/screenshots/upload/${screenshot.id}`;
 
       logInfo("agent.screenshots.presign", {
         screenshotId: screenshot.id,
+        timeEntryId: body.timeEntryId,
         deviceId: body.deviceId,
         clientType: body.clientType,
       });
@@ -423,14 +508,112 @@ export function registerAgentRoutes(app: Express): void {
     }
   });
 
-  /** Agent: confirm screenshot upload */
+  /** Agent: upload screenshot binary (server-side relay to GCS) */
+  app.put(
+    "/api/agent/screenshots/upload/:id",
+    isAgentAuthenticated as any,
+    express.raw({ type: ["image/png", "application/octet-stream"], limit: "6mb" }),
+    async (req: AgentAuthRequest, res) => {
+      try {
+        const { id } = req.params;
+        const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+        // Validate Content-Type
+        const contentType = req.headers["content-type"] || "";
+        if (!contentType.startsWith("image/png") && !contentType.startsWith("application/octet-stream")) {
+          return res.status(415).json({ message: "Content-Type must be image/png" });
+        }
+
+        const imageBuffer: Buffer = req.body;
+        if (!imageBuffer || imageBuffer.length === 0) {
+          return res.status(400).json({ message: "Empty body" });
+        }
+        if (imageBuffer.length > MAX_SIZE) {
+          return res.status(413).json({ message: `Screenshot exceeds 5 MB limit (${(imageBuffer.length / 1024 / 1024).toFixed(1)} MB)` });
+        }
+
+        // Verify PNG magic bytes (89 50 4E 47)
+        if (
+          imageBuffer[0] !== 0x89 ||
+          imageBuffer[1] !== 0x50 ||
+          imageBuffer[2] !== 0x4e ||
+          imageBuffer[3] !== 0x47
+        ) {
+          return res.status(415).json({ message: "Not a valid PNG file" });
+        }
+
+        // Verify screenshot record exists and belongs to this user
+        const screenshot = await storage.getTimeEntryScreenshotById(id);
+        if (!screenshot) {
+          return res.status(404).json({ message: "Screenshot record not found" });
+        }
+        if (screenshot.userId !== req.agentUserId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+
+        // Upload to Object Storage via signed URL (Replit sidecar)
+        const privateDir = process.env.PRIVATE_OBJECT_DIR;
+        if (!privateDir) {
+          return res.status(503).json({ message: "Object storage not configured" });
+        }
+
+        // Full GCS path for the actual upload
+        const objectSubPath = `agent-screenshots/${id}.png`;
+        const fullObjectPath = `${privateDir}/${objectSubPath}`;
+        const { bucketName, objectName } = parseObjectPath(fullObjectPath);
+
+        const signedPutUrl = await signObjectURL({
+          bucketName,
+          objectName,
+          method: "PUT",
+          ttlSec: 300,
+        });
+
+        const uploadRes = await fetch(signedPutUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "image/png" },
+          body: imageBuffer,
+        });
+        if (!uploadRes.ok) {
+          throw new Error(`Object storage upload failed: ${uploadRes.status}`);
+        }
+
+        // DB storageKey uses /objects/ prefix so getObjectEntityFile() can resolve it
+        const storageKey = `/objects/${objectSubPath}`;
+        await storage.updateTimeEntryScreenshot(id, { storageKey });
+
+        logInfo("agent.screenshots.upload", {
+          screenshotId: id,
+          sizeBytes: imageBuffer.length,
+          userId: req.agentUserId,
+        });
+
+        res.json({ ok: true });
+      } catch (error: any) {
+        logError("agent.screenshots.upload.failed", error);
+        res.status(500).json({ message: `Upload failed: ${error.message}` });
+      }
+    }
+  );
+
+  /** Agent: confirm screenshot upload complete */
   app.post("/api/agent/screenshots/confirm", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
     try {
       const body = confirmSchema.parse(req.body);
 
+      // Verify the screenshot was actually uploaded (storageKey no longer starts with "pending-")
+      const screenshot = await storage.getTimeEntryScreenshotById(body.screenshotId);
+      if (!screenshot) {
+        return res.status(404).json({ message: "Screenshot not found" });
+      }
+      if (screenshot.storageKey.startsWith("pending-")) {
+        return res.status(409).json({ message: "Screenshot upload not yet received" });
+      }
+
       logInfo("agent.screenshots.confirm", {
         screenshotId: body.screenshotId,
         deviceId: body.deviceId,
+        userId: req.agentUserId,
       });
 
       res.json({ ok: true });
@@ -475,6 +658,20 @@ export function registerAgentRoutes(app: Express): void {
     }
   });
 
+  /** Agent: list tasks for a CRM project (for timer start dropdown) */
+  app.get("/api/agent/tasks", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
+    if (!isTasksEnabled()) return res.json({ data: [] });
+    try {
+      const { crmProjectId } = req.query as { crmProjectId?: string };
+      if (!crmProjectId) return res.status(400).json({ message: "crmProjectId is required" });
+      const taskList = await storage.getTasks({ crmProjectId });
+      res.json({ data: taskList.map((t) => ({ id: t.id, name: t.name, status: t.status })) });
+    } catch (error) {
+      logError("agent.tasks.list.failed", error);
+      res.status(500).json({ message: "Failed to list tasks" });
+    }
+  });
+
   /** Agent: list CRM projects (for timer start dropdown) */
   app.get("/api/agent/projects", isAgentAuthenticated as any, async (req: AgentAuthRequest, res) => {
     try {
@@ -500,6 +697,8 @@ export function registerAgentRoutes(app: Express): void {
 
       const userId = req.agentUserId!;
       const { crmProjectId, description, deviceId } = req.body;
+      // Strip taskId if migration 002 hasn't been applied yet
+      const taskId = isTasksEnabled() ? (req.body.taskId || null) : null;
 
       if (!crmProjectId) {
         return res.status(400).json({ message: "crmProjectId is required" });
@@ -524,6 +723,7 @@ export function registerAgentRoutes(app: Express): void {
       const entry = await storage.createTimeEntry({
         userId,
         crmProjectId,
+        taskId: taskId || null,
         description: description || null,
         startTime: new Date(),
         status: "running",
@@ -532,7 +732,7 @@ export function registerAgentRoutes(app: Express): void {
         idleTime: 0,
       });
 
-      logTimeEvent("start", entry.id, userId, { crmProjectId, deviceId, clientType: "desktop" });
+      logTimeEvent("start", entry.id, userId, { crmProjectId, taskId: taskId || null, deviceId, clientType: "desktop" });
       logInfo("agent.timer.start", { userId, deviceId, entryId: entry.id, crmProjectId });
       res.json(entry);
     } catch (error) {

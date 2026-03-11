@@ -3,7 +3,7 @@
  * Phase 2 D3
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -31,15 +31,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Monitor,
-  Plus,
   Trash2,
   Smartphone,
   Clock,
   ShieldCheck,
   ShieldX,
-  Copy,
-  CheckCircle,
+  Download,
 } from "lucide-react";
+
+const DOWNLOAD_URL_WINDOWS = "https://github.com/CarineEpitech/docuflow/releases/download/desktop-agent-v0.1.1/DocuFlowAgentSetup.exe";
+const AGENT_VERSION = "v0.1.3";
 
 interface Device {
   id: string;
@@ -80,10 +81,7 @@ function DeviceStatusBadge({ device }: { device: Device }) {
 
 export default function DevicesPage() {
   const { toast } = useToast();
-  const [showPairingDialog, setShowPairingDialog] = useState(false);
-  const [pairingCode, setPairingCode] = useState<string | null>(null);
-  const [pairingExpiresAt, setPairingExpiresAt] = useState<string | null>(null);
-  const [codeCopied, setCodeCopied] = useState(false);
+  const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [revokeDeviceId, setRevokeDeviceId] = useState<string | null>(null);
 
   // Fetch devices
@@ -95,21 +93,6 @@ export default function DevicesPage() {
   const devices = devicesResponse?.data ?? [];
   const activeDevices = devices.filter(d => !d.revokedAt);
   const revokedDevices = devices.filter(d => d.revokedAt);
-
-  // Generate pairing code
-  const pairingMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/agent/pairing/start");
-    },
-    onSuccess: (data: { pairingCode: string; expiresAt: string }) => {
-      setPairingCode(data.pairingCode);
-      setPairingExpiresAt(data.expiresAt);
-      setShowPairingDialog(true);
-    },
-    onError: () => {
-      toast({ title: "Failed to generate pairing code", variant: "destructive" });
-    },
-  });
 
   // Revoke device
   const revokeMutation = useMutation({
@@ -126,39 +109,6 @@ export default function DevicesPage() {
     },
   });
 
-  // Auto-close pairing dialog and refresh devices when code expires
-  useEffect(() => {
-    if (!pairingExpiresAt) return;
-    const timeout = setTimeout(() => {
-      setShowPairingDialog(false);
-      setPairingCode(null);
-      setPairingExpiresAt(null);
-    }, new Date(pairingExpiresAt).getTime() - Date.now());
-    return () => clearTimeout(timeout);
-  }, [pairingExpiresAt]);
-
-  // Poll devices faster while pairing dialog is open
-  useEffect(() => {
-    if (!showPairingDialog) return;
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ["/api/agent/devices"] });
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [showPairingDialog]);
-
-  const handleCopyCode = () => {
-    if (pairingCode) {
-      navigator.clipboard.writeText(pairingCode);
-      setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 2000);
-    }
-  };
-
-  const handleStartPairing = () => {
-    setCodeCopied(false);
-    pairingMutation.mutate();
-  };
-
   const deviceToRevoke = devices.find(d => d.id === revokeDeviceId);
 
   return (
@@ -171,10 +121,21 @@ export default function DevicesPage() {
             Manage Desktop Agent connections
           </p>
         </div>
-        <Button onClick={handleStartPairing} disabled={pairingMutation.isPending}>
-          <Plus className="h-4 w-4 mr-2" />
-          {pairingMutation.isPending ? "Generating..." : "Connect Device"}
+        <Button variant="outline" onClick={() => setShowConnectDialog(true)}>
+          <Download className="h-4 w-4 mr-2" />
+          Get the app
         </Button>
+      </div>
+
+      {/* Help note */}
+      <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
+        <Monitor className="h-4 w-4 shrink-0" />
+        <span>
+          Install the desktop app and sign in with your DocuFlow account to connect this device.
+        </span>
+        <Badge variant="secondary" className="text-xs ml-auto shrink-0">
+          {AGENT_VERSION}
+        </Badge>
       </div>
 
       {/* Stats */}
@@ -248,7 +209,7 @@ export default function DevicesPage() {
             <div className="text-center py-12 text-muted-foreground">
               <Smartphone className="h-12 w-12 mx-auto mb-4 opacity-20" />
               <p className="font-medium">No devices connected</p>
-              <p className="text-sm mt-1">Click "Connect Device" to pair your first Desktop Agent</p>
+              <p className="text-sm mt-1">Install the desktop app and sign in to connect your first device</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -293,44 +254,33 @@ export default function DevicesPage() {
         </CardContent>
       </Card>
 
-      {/* Pairing Code Dialog */}
-      <Dialog open={showPairingDialog} onOpenChange={(open) => {
-        setShowPairingDialog(open);
-        if (!open) {
-          setPairingCode(null);
-          setPairingExpiresAt(null);
-        }
-      }}>
+      {/* Download Agent Dialog */}
+      <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Connect Desktop Agent</DialogTitle>
+            <DialogTitle>Download Desktop Agent</DialogTitle>
             <DialogDescription>
-              Enter this code in your Desktop Agent app to pair it with your account.
+              Install the desktop app, then sign in with your DocuFlow email and password to connect.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center py-6">
-            <div className="font-mono text-4xl tracking-[0.3em] font-bold select-all">
-              {pairingCode ?? "------"}
-            </div>
-            <p className="text-xs text-muted-foreground mt-3">
-              Code expires in 10 minutes
+
+          <div className="space-y-4 py-2">
+            <Button
+              className="w-full"
+              onClick={() => window.open(DOWNLOAD_URL_WINDOWS, "_blank", "noopener,noreferrer")}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Windows Agent (Installer)
+            </Button>
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+              Windows may show a SmartScreen prompt because this installer is unsigned (MVP).
+              Click <strong>More info</strong> → <strong>Run anyway</strong>.
+            </p>
+            <p className="text-xs text-muted-foreground text-center">
+              Once installed, open the app and sign in with your DocuFlow account.
+              The device will appear in this list automatically.
             </p>
           </div>
-          <DialogFooter className="sm:justify-center">
-            <Button variant="outline" onClick={handleCopyCode} className="gap-2">
-              {codeCopied ? (
-                <>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4" />
-                  Copy Code
-                </>
-              )}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -341,7 +291,7 @@ export default function DevicesPage() {
             <AlertDialogTitle>Revoke device?</AlertDialogTitle>
             <AlertDialogDescription>
               This will disconnect "{deviceToRevoke?.name}" and prevent it from syncing data.
-              You can pair it again later with a new code.
+              The device will need to sign in again to reconnect.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

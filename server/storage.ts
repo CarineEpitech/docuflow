@@ -20,8 +20,11 @@ import {
   teamInvites,
   notifications,
   audioRecordings,
+  tasks,
   timeEntries,
   timeEntryScreenshots,
+  type Task,
+  type InsertTask,
   type User,
   type SafeUser,
   type InsertUser,
@@ -288,7 +291,15 @@ export interface IStorage {
     startDate?: Date;
     endDate?: Date;
   }): Promise<TimeEntryScreenshot[]>;
+  updateTimeEntryScreenshot(id: string, data: { storageKey: string }): Promise<TimeEntryScreenshot | undefined>;
   deleteTimeEntryScreenshot(id: string): Promise<void>;
+
+  // Tasks
+  getTasks(options: { crmProjectId: string; includeArchived?: boolean }): Promise<Task[]>;
+  getTask(id: string): Promise<Task | undefined>;
+  createTask(data: InsertTask): Promise<Task>;
+  updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined>;
+  deleteTask(id: string): Promise<void>;
 
   // ─── Desktop Agent ───
 
@@ -2266,13 +2277,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry> {
-    const [newEntry] = await db
-      .insert(timeEntries)
-      .values({
-        id: randomUUID(),
-        ...entry,
-      })
-      .returning();
+    // Safety net: if task_id column doesn't exist yet (migration 002 pending),
+    // strip it and retry rather than crashing a timer start.
+    const values: any = { id: randomUUID(), ...entry };
+    const run = () => db.insert(timeEntries).values(values).returning();
+    const [newEntry] = await run().catch(async (err: any) => {
+      if (err?.code === "42703" && "taskId" in values) {
+        const { taskId: _dropped, ...safeValues } = values;
+        Object.assign(values, safeValues);
+        delete values.taskId;
+        return db.insert(timeEntries).values(values).returning();
+      }
+      throw err;
+    });
     return newEntry;
   }
 
@@ -2383,8 +2400,52 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(timeEntryScreenshots.capturedAt));
   }
 
+  async updateTimeEntryScreenshot(id: string, data: { storageKey: string }): Promise<TimeEntryScreenshot | undefined> {
+    const [result] = await db
+      .update(timeEntryScreenshots)
+      .set({ storageKey: data.storageKey })
+      .where(eq(timeEntryScreenshots.id, id))
+      .returning();
+    return result;
+  }
+
   async deleteTimeEntryScreenshot(id: string): Promise<void> {
     await db.delete(timeEntryScreenshots).where(eq(timeEntryScreenshots.id, id));
+  }
+
+  // ═══════════════════════════════════════
+  // Tasks
+  // ═══════════════════════════════════════
+
+  async getTasks(options: { crmProjectId: string; includeArchived?: boolean }): Promise<Task[]> {
+    const conditions = [eq(tasks.crmProjectId, options.crmProjectId)];
+    if (!options.includeArchived) {
+      conditions.push(sql`${tasks.status} != 'archived'`);
+    }
+    return db.select().from(tasks).where(and(...conditions)).orderBy(asc(tasks.createdAt));
+  }
+
+  async getTask(id: string): Promise<Task | undefined> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task;
+  }
+
+  async createTask(data: InsertTask): Promise<Task> {
+    const [task] = await db.insert(tasks).values(data).returning();
+    return task;
+  }
+
+  async updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined> {
+    const [updated] = await db
+      .update(tasks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tasks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTask(id: string): Promise<void> {
+    await db.delete(tasks).where(eq(tasks.id, id));
   }
 
   // ═══════════════════════════════════════

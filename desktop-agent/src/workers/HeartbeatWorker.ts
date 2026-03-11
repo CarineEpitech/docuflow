@@ -13,14 +13,20 @@ import { AgentStore } from "../lib/AgentStore";
 
 const HEARTBEAT_INTERVAL_MS = 60_000;
 
+type TimerSyncCallback = (
+  sync: { entryId: string; status: string; duration: number } | null
+) => void;
+
 export class HeartbeatWorker {
   private apiClient: ApiClient;
   private store: AgentStore;
   private interval: ReturnType<typeof setInterval> | null = null;
+  private onTimerSync: TimerSyncCallback | null;
 
-  constructor(apiClient: ApiClient, store: AgentStore) {
+  constructor(apiClient: ApiClient, store: AgentStore, onTimerSync?: TimerSyncCallback) {
     this.apiClient = apiClient;
     this.store = store;
+    this.onTimerSync = onTimerSync ?? null;
   }
 
   start(): void {
@@ -49,13 +55,16 @@ export class HeartbeatWorker {
         deviceId,
         timeEntryId: this.store.getActiveEntryId(),
         timestamp: new Date().toISOString(),
-        activeApp: null,
-        activeWindow: null,
         clientType: "electron",
         clientVersion: this.store.getClientVersion(),
       });
 
       console.log(`[HeartbeatWorker] OK (server: ${result.serverTime})`);
+
+      // Propagate server's authoritative timer state for immediate resync
+      if (this.onTimerSync && "timerSync" in result) {
+        this.onTimerSync(result.timerSync ?? null);
+      }
     } catch (error: any) {
       console.error("[HeartbeatWorker] Failed:", error.message);
     }

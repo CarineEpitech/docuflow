@@ -1,46 +1,82 @@
 /**
- * Persistent store for agent configuration, pairing state, and runtime state.
+ * Persistent store for agent session state and runtime timer state.
  *
- * Phase 3 MVP — in-memory (persists for session lifetime).
- * [PLACEHOLDER]: Replace with electron-store for real disk persistence.
+ * Session data (deviceId, deviceToken, deviceName, userEmail) is persisted
+ * to a JSON file in app.getPath("userData"). Survives restarts.
+ *
+ * The server URL is no longer stored here — it comes from src/lib/config.ts
+ * (API_BASE constant, overridable via DOCUFLOW_API_URL env var).
+ *
+ * Timer runtime state stays in memory — rebuilt from server on startup.
  */
 
-interface StoreData {
-  serverUrl: string | null;
+import { app } from "electron";
+import fs from "fs";
+import path from "path";
+
+interface PersistedData {
   deviceId: string | null;
   deviceToken: string | null;
   deviceName: string | null;
-  clientVersion: string;
+  userEmail: string | null;
 }
 
-// Runtime state (not persisted)
+// Runtime state (not persisted — rebuilt from server on startup)
 interface RuntimeState {
   activeEntryId: string | null;
   activeProjectName: string | null;
   timerStatus: "stopped" | "running" | "paused";
   timerDuration: number; // accumulated seconds from server
   timerLastActivityAt: number | null; // timestamp ms for local elapsed calc
+  clientVersion: string;
 }
 
+const CONFIG_FILENAME = "agent-config.json";
+
 export class AgentStore {
-  private data: StoreData;
+  private data: PersistedData;
   private runtime: RuntimeState;
+  private configPath: string;
 
   constructor() {
-    this.data = {
-      serverUrl: null,
-      deviceId: null,
-      deviceToken: null,
-      deviceName: null,
-      clientVersion: "0.1.0",
-    };
+    this.configPath = path.join(app.getPath("userData"), CONFIG_FILENAME);
+    this.data = this.loadFromDisk();
     this.runtime = {
       activeEntryId: null,
       activeProjectName: null,
       timerStatus: "stopped",
       timerDuration: 0,
       timerLastActivityAt: null,
+      clientVersion: "0.1.0",
     };
+  }
+
+  // ─── Disk persistence ───
+
+  private loadFromDisk(): PersistedData {
+    const empty: PersistedData = {
+      deviceId: null,
+      deviceToken: null,
+      deviceName: null,
+      userEmail: null,
+    };
+    try {
+      if (!fs.existsSync(this.configPath)) return empty;
+      const raw = fs.readFileSync(this.configPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      return { ...empty, ...parsed };
+    } catch (err) {
+      console.warn("[AgentStore] Failed to load config, using defaults:", (err as Error).message);
+      return empty;
+    }
+  }
+
+  private saveToDisk(): void {
+    try {
+      fs.writeFileSync(this.configPath, JSON.stringify(this.data, null, 2), "utf-8");
+    } catch (err) {
+      console.error("[AgentStore] Failed to save config:", (err as Error).message);
+    }
   }
 
   // ─── Pairing ───
@@ -49,27 +85,39 @@ export class AgentStore {
     return !!(this.data.deviceId && this.data.deviceToken);
   }
 
-  getServerUrl(): string | null { return this.data.serverUrl; }
-  setServerUrl(url: string): void { this.data.serverUrl = url; }
-
   getDeviceId(): string | null { return this.data.deviceId; }
   getDeviceToken(): string | null { return this.data.deviceToken; }
   getDeviceName(): string | null { return this.data.deviceName; }
-  getClientVersion(): string { return this.data.clientVersion; }
+  getUserEmail(): string | null { return this.data.userEmail; }
+  getClientVersion(): string { return this.runtime.clientVersion; }
 
-  setClientVersion(v: string): void { this.data.clientVersion = v; }
+  setClientVersion(v: string): void { this.runtime.clientVersion = v; }
 
-  setPairing(deviceId: string, deviceToken: string, deviceName: string): void {
+  setSession(deviceId: string, deviceToken: string, deviceName: string, userEmail: string): void {
     this.data.deviceId = deviceId;
     this.data.deviceToken = deviceToken;
     this.data.deviceName = deviceName;
+    this.data.userEmail = userEmail;
+    this.saveToDisk();
   }
 
-  clearPairing(): void {
+  clearSession(): void {
     this.data.deviceId = null;
     this.data.deviceToken = null;
     this.data.deviceName = null;
+    this.data.userEmail = null;
+    this.saveToDisk();
     this.clearTimer();
+  }
+
+  /** @deprecated Use setSession / clearSession */
+  setPairing(deviceId: string, deviceToken: string, deviceName: string): void {
+    this.setSession(deviceId, deviceToken, deviceName, this.data.userEmail ?? "");
+  }
+
+  /** @deprecated Use clearSession */
+  clearPairing(): void {
+    this.clearSession();
   }
 
   // ─── Timer runtime state ───
@@ -98,6 +146,32 @@ export class AgentStore {
     this.runtime.timerDuration = 0;
     this.runtime.timerLastActivityAt = null;
     this.runtime.activeProjectName = null;
+  }
+
+  /**
+   * Apply server-authoritative timer state.
+   * Called after heartbeat sync or explicit refetch from /api/agent/timer/active.
+   * Preserves activeProjectName when the entry ID hasn't changed.
+   */
+  syncFromServer(entry: { id: string; status: string; duration: number } | null): void {
+    if (!entry || entry.status === "stopped") {
+      this.clearTimer();
+      return;
+    }
+    const entryChanged = this.runtime.activeEntryId !== entry.id;
+    this.runtime.activeEntryId = entry.id;
+    this.runtime.timerDuration = entry.duration;
+    if (entryChanged) {
+      this.runtime.activeProjectName = null; // unknown for new entry
+    }
+    if (entry.status === "running") {
+      this.runtime.timerStatus = "running";
+      this.runtime.timerLastActivityAt = Date.now();
+    } else {
+      // paused
+      this.runtime.timerStatus = "paused";
+      this.runtime.timerLastActivityAt = null;
+    }
   }
 
   /**

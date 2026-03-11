@@ -6,23 +6,49 @@
 
 import { app, BrowserWindow, Tray, Menu, ipcMain } from "electron";
 import path from "path";
+import os from "os";
+import { API_HOST } from "../lib/config";
+
+declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
+declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
+
 import { AgentStore } from "../lib/AgentStore";
 import { SqliteQueue } from "../lib/SqliteQueue";
 import { ApiClient } from "../lib/ApiClient";
 import { HeartbeatWorker } from "../workers/HeartbeatWorker";
 import { ActivityWorker } from "../workers/ActivityWorker";
 import { SyncWorker } from "../workers/SyncWorker";
+import { ScreenCaptureWorker } from "../workers/ScreenCaptureWorker";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 const store = new AgentStore();
-const queue = new SqliteQueue();
-const apiClient = new ApiClient(store);
+// Pass userData path so SQLite DB survives restarts
+const queue = new SqliteQueue(app.getPath("userData"));
+
+/**
+ * Called by ApiClient when the server signals this device is revoked or
+ * permanently invalid (401/403 on token refresh). Cleans up all local state
+ * so the renderer returns to the login screen.
+ */
+function handleDeviceRevoked(): void {
+  console.log("[Main] device.revoked — stopping workers and clearing session");
+  stopWorkers();
+  store.clearSession();
+  pushStateToRenderer();
+}
+
+const apiClient = new ApiClient(store, handleDeviceRevoked);
+
+// Feature flag: enabled by default in dev; set SCREENSHOTS_ENABLED=false to disable
+const SCREENSHOTS_ENABLED = process.env.SCREENSHOTS_ENABLED !== "false";
 
 let heartbeatWorker: HeartbeatWorker | null = null;
 let activityWorker: ActivityWorker | null = null;
 let syncWorker: SyncWorker | null = null;
+let screenshotWorker: ScreenCaptureWorker | null = null;
+let resyncInterval: ReturnType<typeof setInterval> | null = null;
 
 // ─── Window ───
 
@@ -33,14 +59,20 @@ function createMainWindow(): BrowserWindow {
     resizable: false,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "../renderer/preload.js"),
+      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  win.loadFile(path.join(__dirname, "../renderer/index.html"));
-  win.once("ready-to-show", () => win.show());
+  win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  win.once("ready-to-show", () => {
+    // setAlwaysOnTop bypasses Windows 11 focus-stealing prevention
+    win.setAlwaysOnTop(true);
+    win.show();
+    win.focus();
+    win.setAlwaysOnTop(false);
+  });
 
   win.on("close", (e) => {
     e.preventDefault();
@@ -52,9 +84,24 @@ function createMainWindow(): BrowserWindow {
 
 // ─── Tray ───
 
+function getTrayIconPath(): string {
+  // In production (packaged), __dirname points inside .webpack/main
+  // which is inside app.asar. Assets need to be resolved relative to the app root.
+  if (app.isPackaged) {
+    // Packaged: resources/app.asar/.webpack/main → go up to resources/
+    return path.join(process.resourcesPath, "assets", "tray-icon.png");
+  }
+  // Dev: .webpack/main → ../../assets/
+  return path.join(__dirname, "../../assets/tray-icon.png");
+}
+
 function createTray(): void {
-  // [PLACEHOLDER]: Use proper icon asset
-  tray = new Tray(path.join(__dirname, "../../assets/tray-icon.png"));
+  try {
+    tray = new Tray(getTrayIconPath());
+  } catch (err) {
+    console.warn("[Main] Tray icon not found, skipping tray:", (err as Error).message);
+    return;
+  }
 
   const contextMenu = Menu.buildFromTemplate([
     { label: "Show Agent", click: () => mainWindow?.show() },
@@ -73,7 +120,7 @@ function createTray(): void {
 function startWorkers(): void {
   if (!store.isPaired()) return;
 
-  heartbeatWorker = new HeartbeatWorker(apiClient, store);
+  heartbeatWorker = new HeartbeatWorker(apiClient, store, applyServerTimerSync);
   heartbeatWorker.start();
 
   activityWorker = new ActivityWorker(queue, store);
@@ -82,17 +129,75 @@ function startWorkers(): void {
   syncWorker = new SyncWorker(apiClient, queue, store);
   syncWorker.start();
 
-  console.log("[Main] Workers started");
+  screenshotWorker = new ScreenCaptureWorker(queue, store, SCREENSHOTS_ENABLED);
+  screenshotWorker.start();
+
+  startResyncPolling();
+  console.log(`[Main] Workers started (screenshots: ${SCREENSHOTS_ENABLED})`);
 }
 
 function stopWorkers(): void {
   heartbeatWorker?.stop();
   activityWorker?.stop();
   syncWorker?.stop();
+  screenshotWorker?.stop();
+  stopResyncPolling();
   heartbeatWorker = null;
   activityWorker = null;
   syncWorker = null;
+  screenshotWorker = null;
   console.log("[Main] Workers stopped");
+}
+
+// ─── Timer resync (backend as source of truth) ───
+
+/**
+ * Apply server-authoritative timer state to local store.
+ * Triggers a renderer push only if state actually diverged.
+ */
+function applyServerTimerSync(
+  timerSync: { entryId: string; status: string; duration: number } | null
+): void {
+  const localStatus = store.getTimerStatus();
+  const localEntryId = store.getActiveEntryId();
+  const serverEntryId = timerSync?.entryId ?? null;
+  const serverStatus = timerSync?.status ?? "stopped";
+
+  if (localEntryId === serverEntryId && localStatus === serverStatus) return;
+
+  console.log(
+    `[Main] Timer resync: local=${localStatus}/${localEntryId ?? "none"} → server=${serverStatus}/${serverEntryId ?? "none"}`
+  );
+  store.syncFromServer(timerSync);
+  pushStateToRenderer();
+}
+
+/** Fetch active entry from server and reconcile local state. */
+async function syncTimerFromServer(): Promise<void> {
+  if (!store.isPaired()) return;
+  try {
+    const active = await apiClient.getActiveEntry();
+    const timerSync =
+      active && active.status !== "stopped"
+        ? { entryId: active.id, status: active.status, duration: active.duration ?? 0 }
+        : null;
+    applyServerTimerSync(timerSync);
+  } catch (err: any) {
+    console.warn(`[Main] Timer resync failed: ${err.message}`);
+  }
+}
+
+function startResyncPolling(): void {
+  stopResyncPolling();
+  resyncInterval = setInterval(() => syncTimerFromServer(), 30_000);
+  console.log("[Main] Timer resync polling started (30s)");
+}
+
+function stopResyncPolling(): void {
+  if (resyncInterval) {
+    clearInterval(resyncInterval);
+    resyncInterval = null;
+  }
 }
 
 /** Notify renderer of state changes */
@@ -100,7 +205,8 @@ function pushStateToRenderer(): void {
   mainWindow?.webContents.send("agent:state-update", {
     isPaired: store.isPaired(),
     deviceName: store.getDeviceName(),
-    serverUrl: store.getServerUrl(),
+    userEmail: store.getUserEmail(),
+    apiHost: API_HOST,
     timer: store.getTimerState(),
   });
 }
@@ -111,48 +217,46 @@ ipcMain.handle("agent:get-state", () => {
   return {
     isPaired: store.isPaired(),
     deviceName: store.getDeviceName(),
-    serverUrl: store.getServerUrl(),
+    userEmail: store.getUserEmail(),
+    apiHost: API_HOST,
     timer: store.getTimerState(),
   };
 });
 
-ipcMain.handle("agent:pair", async (_event, { serverUrl, pairingCode, deviceName }) => {
+ipcMain.handle("agent:login", async (_event, { email, password }) => {
   try {
-    store.setServerUrl(serverUrl);
     store.setClientVersion(app.getVersion());
-    const result = await apiClient.completePairing(pairingCode, {
+
+    // Use OS hostname as device name — no manual input needed
+    const deviceName = os.hostname() || "Desktop";
+
+    const result = await apiClient.loginWithPassword(email, password, {
       deviceName,
       os: process.platform,
       clientVersion: app.getVersion(),
     });
 
-    store.setPairing(result.deviceId, result.deviceToken, deviceName);
+    store.setSession(result.deviceId, result.deviceToken, deviceName, result.user.email);
 
-    // Sync active entry from server
-    try {
-      const active = await apiClient.getActiveEntry();
-      if (active && active.status !== "stopped") {
-        store.setTimerRunning(active.id, active.duration || 0, null);
-        if (active.status === "paused") store.setTimerPaused(active.duration || 0);
-      }
-    } catch { /* non-fatal */ }
-
+    console.log(`[Main] auth.login.success — user=${result.user.email} device=${result.deviceId}`);
     startWorkers();
+    await syncTimerFromServer().catch(() => { /* non-fatal */ });
     pushStateToRenderer();
     return { ok: true };
   } catch (error: any) {
+    console.log(`[Main] auth.login.failed: ${error.message}`);
     return { ok: false, error: error.message };
   }
 });
 
 ipcMain.handle("agent:unpair", () => {
   stopWorkers();
-  store.clearPairing();
+  store.clearSession();
   pushStateToRenderer();
   return { ok: true };
 });
 
-// ─── IPC: Projects ───
+// ─── IPC: Projects & Tasks ───
 
 ipcMain.handle("agent:get-projects", async () => {
   try {
@@ -163,15 +267,27 @@ ipcMain.handle("agent:get-projects", async () => {
   }
 });
 
+ipcMain.handle("agent:get-tasks", async (_event, { crmProjectId }) => {
+  try {
+    const taskList = await apiClient.getTasks(crmProjectId);
+    return { ok: true, data: taskList };
+  } catch (error: any) {
+    return { ok: false, error: error.message, data: [] };
+  }
+});
+
 // ─── IPC: Timer ───
 
-ipcMain.handle("agent:timer-start", async (_event, { crmProjectId, projectName, description }) => {
+ipcMain.handle("agent:timer-start", async (_event, { crmProjectId, taskId, projectName, description }) => {
   try {
-    const entry = await apiClient.startTimer(crmProjectId, description);
+    const entry = await apiClient.startTimer(crmProjectId, taskId || undefined, description);
     store.setTimerRunning(entry.id, entry.duration || 0, projectName || null);
+    console.log(`[Main] timer.start — entry=${entry.id} project="${projectName || ""}"`);
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {
+    // On start failure, resync so UI reflects actual server state
+    await syncTimerFromServer();
     return { ok: false, error: error.message };
   }
 });
@@ -186,7 +302,12 @@ ipcMain.handle("agent:timer-pause", async () => {
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {
-    return { ok: false, error: error.message };
+    const msg: string = error.message ?? "";
+    if (msg.includes("not running") || msg.includes("already stopped") || msg.includes("not paused")) {
+      console.log(`[Main] Timer conflict on pause ("${msg}") — resyncing from server`);
+      await syncTimerFromServer();
+    }
+    return { ok: false, error: msg };
   }
 });
 
@@ -200,7 +321,12 @@ ipcMain.handle("agent:timer-resume", async () => {
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {
-    return { ok: false, error: error.message };
+    const msg: string = error.message ?? "";
+    if (msg.includes("not running") || msg.includes("already stopped") || msg.includes("not paused")) {
+      console.log(`[Main] Timer conflict on resume ("${msg}") — resyncing from server`);
+      await syncTimerFromServer();
+    }
+    return { ok: false, error: msg };
   }
 });
 
@@ -211,16 +337,39 @@ ipcMain.handle("agent:timer-stop", async () => {
 
     const entry = await apiClient.stopTimer(entryId);
     store.clearTimer();
+    console.log(`[Main] timer.stop — entry=${entryId}`);
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {
-    return { ok: false, error: error.message };
+    const msg: string = error.message ?? "";
+    if (msg.includes("already stopped") || msg.includes("not running") || msg.includes("not found")) {
+      console.log(`[Main] Timer conflict on stop ("${msg}") — resyncing from server`);
+      await syncTimerFromServer();
+    }
+    return { ok: false, error: msg };
   }
 });
 
 ipcMain.handle("agent:timer-state", () => {
   return store.getTimerState();
 });
+
+// ─── Single instance ───
+
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.setAlwaysOnTop(true);
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.setAlwaysOnTop(false);
+    }
+  });
+}
 
 // ─── App lifecycle ───
 
@@ -230,21 +379,27 @@ app.whenReady().then(() => {
   mainWindow = createMainWindow();
 
   if (store.isPaired()) {
-    // Sync active entry from server on startup
-    apiClient.getActiveEntry().then((active) => {
-      if (active && active.status !== "stopped") {
-        store.setTimerRunning(active.id, active.duration || 0, null);
-        if (active.status === "paused") store.setTimerPaused(active.duration || 0);
-      }
-      pushStateToRenderer();
-    }).catch(() => { /* non-fatal */ });
-
+    const email = store.getUserEmail() ?? "unknown";
+    console.log(`[Main] session.restore.start — user=${email}`);
     startWorkers();
+    // Sync timer state from server on startup, then always push to renderer.
+    // If the device was revoked while offline, ensureAccessToken fires onRevoke
+    // (handleDeviceRevoked) which clears session and pushes unpaired state.
+    syncTimerFromServer()
+      .then(() => {
+        console.log("[Main] session.restore.success");
+      })
+      .catch((err: any) => {
+        console.warn(`[Main] session.restore.failed: ${(err as Error).message}`);
+        // onRevoke already called by ApiClient for permanent failures (401/403).
+        // Transient network errors are non-fatal — workers will retry.
+      })
+      .finally(() => pushStateToRenderer());
   }
 });
 
-app.on("window-all-closed", (e: Event) => {
-  e.preventDefault();
+app.on("window-all-closed", () => {
+  // Keep app running in tray — window hides on close, not quits
 });
 
 app.on("activate", () => {

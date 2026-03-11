@@ -1,12 +1,18 @@
 /**
- * Offline event queue for activity events.
+ * Persistent JSON-file queue for activity event batches and screenshot uploads.
  *
- * MVP: In-memory array (survives for session lifetime).
- * Production: Replace with better-sqlite3 for disk persistence across restarts.
+ * Replaces the original better-sqlite3 implementation to eliminate native
+ * module packaging issues in Electron Forge + webpack + asar builds.
  *
- * Phase 3 MVP
+ * Data is stored as JSON in `agent-queue.json` inside the userData directory.
+ * Writes use atomic rename (write → temp file, rename → target) to prevent
+ * corruption on crash.
+ *
+ * Phase 4.2 (revised)
  */
 
+import fs from "fs";
+import path from "path";
 import { randomUUID } from "crypto";
 
 export interface QueuedEvent {
@@ -19,91 +25,205 @@ export interface QueuedEvent {
   syncedAt: string | null;
 }
 
-export class SqliteQueue {
-  private events: QueuedEvent[] = [];
-  private nextId = 1;
+export interface PendingScreenshot {
+  id: string;
+  filePath: string;
+  metaJson: string; // { timeEntryId, userId, capturedAt, crmProjectId }
+  nextRetryAt: number; // epoch ms
+  attemptCount: number;
+  createdAt: number; // epoch ms
+}
 
-  constructor() {
-    console.log("[SqliteQueue] Initialized (in-memory MVP)");
+interface QueueData {
+  nextEventId: number;
+  events: QueuedEvent[];
+  screenshots: PendingScreenshot[];
+}
+
+function emptyData(): QueueData {
+  return { nextEventId: 1, events: [], screenshots: [] };
+}
+
+export class SqliteQueue {
+  private data: QueueData;
+  private filePath: string;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(userDataPath: string) {
+    this.filePath = path.join(userDataPath, "agent-queue.json");
+    this.data = this.loadFromDisk();
+    console.log(`[Queue] Opened at ${this.filePath}`);
   }
 
-  /**
-   * Enqueue a new activity event for later sync.
-   */
+  // ─── Disk I/O ───
+
+  private loadFromDisk(): QueueData {
+    try {
+      if (!fs.existsSync(this.filePath)) return emptyData();
+      const raw = fs.readFileSync(this.filePath, "utf-8");
+      const parsed = JSON.parse(raw) as Partial<QueueData>;
+      return {
+        nextEventId: parsed.nextEventId ?? 1,
+        events: parsed.events ?? [],
+        screenshots: parsed.screenshots ?? [],
+      };
+    } catch (err) {
+      console.warn("[Queue] Failed to load, starting fresh:", (err as Error).message);
+      return emptyData();
+    }
+  }
+
+  /** Atomic write: write to temp file then rename */
+  private saveToDisk(): void {
+    try {
+      const tmp = this.filePath + ".tmp";
+      fs.writeFileSync(tmp, JSON.stringify(this.data), "utf-8");
+      fs.renameSync(tmp, this.filePath);
+    } catch (err) {
+      console.error("[Queue] Save failed:", (err as Error).message);
+    }
+  }
+
+  /** Debounced save — coalesces rapid writes into a single disk flush */
+  private scheduleSave(): void {
+    if (this.saveTimer) return;
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.saveToDisk();
+    }, 100);
+  }
+
+  /** Force immediate save (used before close) */
+  private flushSave(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    this.saveToDisk();
+  }
+
+  // ═══════════════════════════════════════
+  // Activity Events
+  // ═══════════════════════════════════════
+
   enqueue(eventType: string, timestamp: Date, data: Record<string, unknown> = {}): void {
-    this.events.push({
-      id: this.nextId++,
+    const event: QueuedEvent = {
+      id: this.data.nextEventId++,
       batchId: null,
       eventType,
       timestamp: timestamp.toISOString(),
       data: JSON.stringify(data),
       createdAt: new Date().toISOString(),
       syncedAt: null,
-    });
-    console.log(`[SqliteQueue] Enqueue: ${eventType} (pending: ${this.pendingCount()})`);
+    };
+    this.data.events.push(event);
+    this.scheduleSave();
+    console.log(`[Queue] Enqueue: ${eventType} (pending: ${this.pendingCount()})`);
   }
 
-  /**
-   * Get the next batch of unsynced events (up to `limit`).
-   * Assigns a batchId to the selected events atomically.
-   */
-  getNextBatch(limit: number = 50): { batchId: string; events: QueuedEvent[] } {
+  getNextBatch(limit = 50): { batchId: string; events: QueuedEvent[] } {
     const batchId = randomUUID();
-    const pending = this.events.filter(e => !e.syncedAt && !e.batchId);
+    const pending = this.data.events.filter(
+      (e) => e.syncedAt === null && e.batchId === null
+    );
     const batch = pending.slice(0, limit);
 
     for (const event of batch) {
       event.batchId = batchId;
     }
 
+    if (batch.length > 0) {
+      this.scheduleSave();
+    }
+
     return { batchId, events: batch };
   }
 
-  /**
-   * Mark a batch as synced.
-   */
   markBatchSynced(batchId: string): void {
     const now = new Date().toISOString();
-    for (const event of this.events) {
+    for (const event of this.data.events) {
       if (event.batchId === batchId) {
         event.syncedAt = now;
       }
     }
-    console.log(`[SqliteQueue] Batch ${batchId.slice(0, 8)} synced`);
-
-    // Auto-cleanup synced events older than 5 minutes (in-memory only)
-    this.cleanup();
+    // Prune old synced rows (older than 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    this.data.events = this.data.events.filter(
+      (e) => e.syncedAt === null || e.syncedAt > sevenDaysAgo
+    );
+    this.scheduleSave();
+    console.log(`[Queue] Batch ${batchId.slice(0, 8)} synced`);
   }
 
-  /**
-   * Release a failed batch for retry.
-   */
   releaseBatch(batchId: string): void {
-    for (const event of this.events) {
+    for (const event of this.data.events) {
       if (event.batchId === batchId) {
         event.batchId = null;
       }
     }
-    console.log(`[SqliteQueue] Batch ${batchId.slice(0, 8)} released for retry`);
+    this.scheduleSave();
   }
 
-  /**
-   * Get count of unsynced events.
-   */
   pendingCount(): number {
-    return this.events.filter(e => !e.syncedAt).length;
+    return this.data.events.filter((e) => e.syncedAt === null).length;
   }
 
-  /**
-   * Cleanup synced events to prevent unbounded memory growth.
-   */
-  cleanup(): number {
-    const before = this.events.length;
-    this.events = this.events.filter(e => !e.syncedAt);
-    return before - this.events.length;
+  // ═══════════════════════════════════════
+  // Pending Screenshots
+  // ═══════════════════════════════════════
+
+  enqueueScreenshot(filePath: string, meta: Record<string, unknown>): string {
+    const id = randomUUID();
+    const entry: PendingScreenshot = {
+      id,
+      filePath,
+      metaJson: JSON.stringify(meta),
+      nextRetryAt: 0,
+      attemptCount: 0,
+      createdAt: Date.now(),
+    };
+    this.data.screenshots.push(entry);
+    this.scheduleSave();
+    console.log(`[Queue] Screenshot enqueued: ${id.slice(0, 8)}`);
+    return id;
+  }
+
+  getNextPendingScreenshot(nowMs = Date.now()): PendingScreenshot | null {
+    const ready = this.data.screenshots
+      .filter((s) => s.nextRetryAt <= nowMs)
+      .sort((a, b) => a.createdAt - b.createdAt);
+    return ready[0] ?? null;
+  }
+
+  markScreenshotSent(id: string): void {
+    this.data.screenshots = this.data.screenshots.filter((s) => s.id !== id);
+    this.scheduleSave();
+    console.log(`[Queue] Screenshot ${id.slice(0, 8)} sent`);
+  }
+
+  failScreenshot(id: string, backoffMs: number): void {
+    const entry = this.data.screenshots.find((s) => s.id === id);
+    if (entry) {
+      entry.attemptCount += 1;
+      entry.nextRetryAt = Date.now() + backoffMs;
+      this.scheduleSave();
+    }
+  }
+
+  pendingScreenshotCount(): number {
+    return this.data.screenshots.length;
+  }
+
+  cleanup(): void {
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    this.data.screenshots = this.data.screenshots.filter(
+      (s) => s.createdAt >= sevenDaysAgo
+    );
+    this.scheduleSave();
   }
 
   close(): void {
-    console.log(`[SqliteQueue] Closed (${this.events.length} events in memory)`);
+    this.flushSave();
+    console.log("[Queue] Closed");
   }
 }

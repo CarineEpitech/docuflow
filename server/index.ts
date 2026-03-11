@@ -6,6 +6,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
+import { detectMigrationFlags } from "./migrationFlags";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -48,6 +49,16 @@ const authLimiter = rateLimit({
 });
 app.use("/api/login", authLimiter);
 app.use("/api/register", authLimiter);
+
+// Screenshot upload endpoints: tighter limit (10 uploads/min per IP)
+const agentScreenshotLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { message: "Screenshot upload rate limit exceeded" },
+});
+app.use("/api/agent/screenshots/", agentScreenshotLimiter);
 
 // ─── Health check (before auth, unauthenticated) ───
 app.get("/health", (_req, res) => {
@@ -108,6 +119,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Detect which optional migrations have been applied (non-fatal)
+  await detectMigrationFlags();
+
   await registerRoutes(httpServer, app);
 
   // Run migration to link any orphan projects to CRM on startup

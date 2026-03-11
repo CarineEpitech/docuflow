@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { MultiTabCoordinator, type TabRole, type TimeTrackingSyncPayload } from "@/lib/MultiTabCoordinator";
 import { ScreenCaptureWebService } from "@/lib/ScreenCaptureWebService";
-import type { TimeEntry, CrmProjectWithDetails } from "@shared/schema";
+import type { TimeEntry, CrmProjectWithDetails, Task } from "@shared/schema";
 
 interface TimeTrackerState {
   activeEntry: TimeEntry | null;
@@ -13,7 +13,9 @@ interface TimeTrackerState {
   isPaused: boolean;
   hasActiveEntry: boolean;
   projects: CrmProjectWithDetails[];
+  tasks: Task[];
   selectedProjectId: string;
+  selectedTaskId: string;
   description: string;
   showIdleDialog: boolean;
   idleCountdown: number;
@@ -29,8 +31,9 @@ interface TimeTrackerState {
 
 interface TimeTrackerActions {
   setSelectedProjectId: (id: string) => void;
+  setSelectedTaskId: (id: string) => void;
   setDescription: (desc: string) => void;
-  handleStart: (projectId?: string) => void;
+  handleStart: (projectId?: string, taskId?: string) => void;
   handlePause: () => void;
   handleResume: () => void;
   handleStop: () => void;
@@ -60,6 +63,7 @@ const SLEEP_WAKE_THRESHOLD_MS = 30_000;
 
 export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [displayDuration, setDisplayDuration] = useState(0);
   const [showIdleDialog, setShowIdleDialog] = useState(false);
@@ -101,13 +105,30 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     queryClient.invalidateQueries({ queryKey: ["/api/time-tracking/stats"] });
   }, []);
 
+  const { data: tasksResponse } = useQuery<{ data: Task[] }>({
+    queryKey: ["/api/tasks", selectedProjectId],
+    queryFn: () =>
+      selectedProjectId
+        ? fetch(`/api/tasks?crmProjectId=${selectedProjectId}`).then((r) => r.json())
+        : Promise.resolve({ data: [] }),
+    enabled: !!selectedProjectId,
+  });
+
+  const tasks = tasksResponse?.data ?? [];
+
+  // Reset task when project changes
+  useEffect(() => {
+    setSelectedTaskId("");
+  }, [selectedProjectId]);
+
   const startMutation = useMutation({
-    mutationFn: async (data: { crmProjectId: string; description?: string }) => {
+    mutationFn: async (data: { crmProjectId: string; taskId?: string; description?: string }) => {
       return apiRequest("POST", "/api/time-tracking/start", data);
     },
     onSuccess: () => {
       invalidateAll();
       setDescription("");
+      setSelectedTaskId("");
     },
   });
 
@@ -428,11 +449,16 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   }, [isRunning, activeEntry?.id, activeEntry?.crmProjectId]);
 
   // ─── Actions ───
-  const handleStart = useCallback((projectId?: string) => {
+  const handleStart = useCallback((projectId?: string, taskId?: string) => {
     const pid = projectId || selectedProjectId;
+    const tid = taskId || selectedTaskId;
     if (!pid) return;
-    startMutation.mutate({ crmProjectId: pid, description: description || undefined });
-  }, [selectedProjectId, description, startMutation]);
+    startMutation.mutate({
+      crmProjectId: pid,
+      taskId: tid || undefined,
+      description: description || undefined,
+    });
+  }, [selectedProjectId, selectedTaskId, description, startMutation]);
 
   const handlePause = useCallback(() => {
     if (activeEntry) {
@@ -474,7 +500,9 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     isPaused: !!isPaused,
     hasActiveEntry,
     projects,
+    tasks,
     selectedProjectId,
+    selectedTaskId,
     description,
     showIdleDialog,
     idleCountdown,
@@ -486,6 +514,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     resumeMutationPending: resumeMutation.isPending,
     stopMutationPending: stopMutation.isPending,
     setSelectedProjectId,
+    setSelectedTaskId,
     setDescription,
     handleStart,
     handlePause,
