@@ -65,6 +65,58 @@ export class ApiClient {
 
   // ─── Authentication ───
 
+  /**
+   * Poll GET /health until the backend returns JSON, or until maxWaitMs elapses.
+   * Handles Replit cold-start (200 HTML wake page) transparently.
+   * Calls onProgress with a status string every poll cycle.
+   */
+  async waitForBackend(
+    onProgress?: (msg: string) => void,
+    maxWaitMs = 35_000
+  ): Promise<void> {
+    const deadline = Date.now() + maxWaitMs;
+    let attempt = 0;
+
+    while (true) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6_000);
+        try {
+          const res = await fetch(`${API_BASE}/health`, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+          });
+          if (res.ok) {
+            const ct = res.headers.get("content-type") ?? "";
+            if (ct.includes("application/json")) return; // ✅ backend ready
+          }
+          // Got a response but not JSON — Replit wake page or wrong URL
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      } catch {
+        // Network error or abort timeout — keep trying
+      }
+
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        throw new Error(
+          "Cannot reach the DocuFlow server. Please check your network connection and try again."
+        );
+      }
+
+      attempt++;
+      const elapsed = Math.round((maxWaitMs - remaining) / 1000);
+      onProgress?.(
+        elapsed < 5
+          ? "Connecting to server…"
+          : `Server is starting up… (${elapsed}s)`
+      );
+      await new Promise(r => setTimeout(r, Math.min(3_000, remaining)));
+    }
+  }
+
   async loginWithPassword(email: string, password: string, meta: DeviceMeta): Promise<LoginResult> {
     const res = await this.rawFetch(`${API_BASE}/api/agent/auth/login`, {
       method: "POST",
@@ -74,7 +126,7 @@ export class ApiClient {
     if (!res.ok) {
       const ct = res.headers.get("content-type") ?? "";
       if (!ct.includes("application/json")) {
-        throw new Error(`Cannot reach DocuFlow (HTTP ${res.status}). Check your network connection.`);
+        throw new Error(`Server error (HTTP ${res.status}). Check your network connection.`);
       }
       const data = await res.json().catch(() => ({ message: res.statusText }));
       if (res.status === 401) throw new Error("Invalid email or password");
@@ -83,7 +135,11 @@ export class ApiClient {
 
     const ct = res.headers.get("content-type") ?? "";
     if (!ct.includes("application/json")) {
-      throw new Error("Could not connect to DocuFlow — the server may be starting up. Please try again in a few seconds.");
+      // Backend health check passed but login endpoint returned HTML.
+      // This is a server-side routing/config error, not a cold-start.
+      throw new Error(
+        "Login endpoint returned an unexpected response. Please contact support."
+      );
     }
     const result: LoginResult = await res.json();
     this.accessToken = result.accessToken;

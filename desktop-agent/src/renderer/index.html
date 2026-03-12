@@ -408,18 +408,25 @@
       }
 
       btn.disabled = true;
-      btn.textContent = "Signing in...";
+      btn.textContent = "Connecting to server…";
+
+      // Show live progress during backend wake-up + auth
+      var stopProgress = bridge.onLoginProgress(function(data) {
+        btn.textContent = data.message;
+      });
 
       var result = await bridge.login({ email: email, password: password });
+      stopProgress();
+
       if (result.ok) {
         var state = await bridge.getState();
         showConnected(state);
       } else {
         errorEl.textContent = result.error || "Sign in failed";
         errorEl.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Sign in";
       }
-      btn.disabled = false;
-      btn.textContent = "Sign in";
     });
 
     // Project change → load tasks

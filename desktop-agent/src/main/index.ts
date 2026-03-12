@@ -227,13 +227,21 @@ ipcMain.handle("agent:get-state", () => {
   };
 });
 
-ipcMain.handle("agent:login", async (_event, { email, password }) => {
+ipcMain.handle("agent:login", async (event, { email, password }) => {
+  const sendProgress = (message: string) => {
+    try { event.sender.send("agent:login-progress", { message }); } catch { /* window may be closing */ }
+  };
+
   try {
     store.setClientVersion(app.getVersion());
-
-    // Use OS hostname as device name — no manual input needed
     const deviceName = os.hostname() || "Desktop";
 
+    // Step 1: wait for backend to return JSON from /health (handles Replit cold-start)
+    sendProgress("Connecting to server…");
+    await apiClient.waitForBackend(sendProgress);
+
+    // Step 2: authenticate
+    sendProgress("Signing in…");
     const result = await apiClient.loginWithPassword(email, password, {
       deviceName,
       os: process.platform,
