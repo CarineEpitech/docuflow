@@ -198,17 +198,26 @@ async function ensureAgentTables(): Promise<void> {
 }
 
 (async () => {
-  // Ensure tasks migration (002) is applied (idempotent) — must run BEFORE detectMigrationFlags
+  // Ensure tasks migration (002) is applied (idempotent).
+  // On success we set the flag directly — detectMigrationFlags() is NOT called
+  // afterward because it uses the Drizzle `db` connection which may target a
+  // different DB (prod PG* vars vs dev DATABASE_URL) and would silently reset
+  // tasksEnabled back to false, hiding the tasks feature.
+  let tasksMigrationOk = false;
   try {
     await ensureTasksMigration();
     setTasksEnabled(true);
+    tasksMigrationOk = true;
     log("Tasks migration OK");
   } catch (error) {
     console.error("Failed to ensure tasks migration:", error);
   }
 
-  // Detect which optional migrations have been applied (non-fatal)
-  await detectMigrationFlags();
+  // Only run detectMigrationFlags as a fallback when ensureTasksMigration failed,
+  // so it can still enable tasks if the table was applied manually (e.g., via psql).
+  if (!tasksMigrationOk) {
+    await detectMigrationFlags();
+  }
 
   // Ensure Desktop Agent tables exist (idempotent)
   try {
