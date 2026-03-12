@@ -6,7 +6,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { detectMigrationFlags } from "./migrationFlags";
+import { detectMigrationFlags, setTasksEnabled } from "./migrationFlags";
 import { pool } from "./db";
 
 const app = express();
@@ -201,6 +201,7 @@ async function ensureAgentTables(): Promise<void> {
   // Ensure tasks migration (002) is applied (idempotent) — must run BEFORE detectMigrationFlags
   try {
     await ensureTasksMigration();
+    setTasksEnabled(true);
     log("Tasks migration OK");
   } catch (error) {
     console.error("Failed to ensure tasks migration:", error);

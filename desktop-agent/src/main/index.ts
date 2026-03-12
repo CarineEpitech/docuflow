@@ -58,8 +58,6 @@ function createMainWindow(): BrowserWindow {
     height: 700,
     minWidth: 420,
     minHeight: 560,
-    maxWidth: 900,
-    maxHeight: 1000,
     resizable: true,
     show: false,
     webPreferences: {
