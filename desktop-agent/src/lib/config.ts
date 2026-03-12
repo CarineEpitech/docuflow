@@ -8,7 +8,7 @@
  * Default: the production DocuFlow instance.
  */
 
-const DEFAULT_API_URL = "https://685f78d0-eb71-48b3-ad3d-cfc7079d359b-00-1ew2ty1yeevg0.spock.replit.dev";
+const DEFAULT_API_URL = "https://techma-doc--masdouk1.replit.app";
 
 export const API_BASE: string = (
   process.env.DOCUFLOW_API_URL ?? DEFAULT_API_URL
