@@ -203,6 +203,15 @@ const confirmSchema = z.object({
 
 export function registerAgentRoutes(app: Express): void {
 
+  /**
+   * Ping endpoint — confirms agent routes are loaded and email/password auth is available.
+   * Desktop app calls this before login to distinguish "server down" from "wrong server version".
+   * No auth required.
+   */
+  app.get("/api/agent/ping", (_req, res) => {
+    res.json({ ok: true, server: "DocuFlow", agentAuth: "email-password-v1" });
+  });
+
   // ═══════════════════════════════════════
   // PAIRING
   // ═══════════════════════════════════════

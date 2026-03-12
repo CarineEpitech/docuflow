@@ -76,6 +76,13 @@ function createMainWindow(): BrowserWindow {
     win.setAlwaysOnTop(false);
   });
 
+  // Ctrl+Shift+I → open DevTools (useful for debugging login/connection issues)
+  win.webContents.on("before-input-event", (_event, input) => {
+    if (input.control && input.shift && input.key === "I") {
+      win.webContents.openDevTools({ mode: "detach" });
+    }
+  });
+
   win.on("close", (e) => {
     e.preventDefault();
     win.hide();
@@ -236,7 +243,9 @@ ipcMain.handle("agent:login", async (event, { email, password }) => {
     store.setClientVersion(app.getVersion());
     const deviceName = os.hostname() || "Desktop";
 
-    // Step 1: wait for backend to return JSON from /health (handles Replit cold-start)
+    console.log(`[Main] auth.login.start — url=${API_BASE} user=${email}`);
+
+    // Step 1: ping backend to confirm agent routes are loaded (handles Replit cold-start)
     sendProgress("Connecting to server…");
     await apiClient.waitForBackend(sendProgress);
 
@@ -256,7 +265,7 @@ ipcMain.handle("agent:login", async (event, { email, password }) => {
     pushStateToRenderer();
     return { ok: true };
   } catch (error: any) {
-    console.log(`[Main] auth.login.failed: ${error.message}`);
+    console.log(`[Main] auth.login.failed — ${error.message}`);
     return { ok: false, error: error.message };
   }
 });

@@ -66,52 +66,71 @@ export class ApiClient {
   // ─── Authentication ───
 
   /**
-   * Poll GET /health until the backend returns JSON, or until maxWaitMs elapses.
-   * Handles Replit cold-start (200 HTML wake page) transparently.
-   * Calls onProgress with a status string every poll cycle.
+   * Poll GET /api/agent/ping until the backend returns JSON with agentAuth confirmed,
+   * or until maxWaitMs elapses. Handles Replit cold-start (200 HTML wake page).
+   *
+   * Distinguishes three failure modes:
+   *   - Network error / timeout per attempt  → keep retrying
+   *   - 200 HTML (Replit wake page)          → server starting, keep retrying
+   *   - JSON without agentAuth field         → wrong server / old version → throw immediately
    */
   async waitForBackend(
     onProgress?: (msg: string) => void,
-    maxWaitMs = 35_000
+    maxWaitMs = 60_000
   ): Promise<void> {
     const deadline = Date.now() + maxWaitMs;
-    let attempt = 0;
 
     while (true) {
+      const elapsed = Math.round((maxWaitMs - (deadline - Date.now())) / 1000);
+
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6_000);
+        const timeoutId = setTimeout(() => controller.abort(), 8_000);
         try {
-          const res = await fetch(`${API_BASE}/health`, {
+          const res = await fetch(`${API_BASE}/api/agent/ping`, {
             method: "GET",
             headers: { Accept: "application/json" },
             signal: controller.signal,
           });
-          if (res.ok) {
-            const ct = res.headers.get("content-type") ?? "";
-            if (ct.includes("application/json")) return; // ✅ backend ready
+          const ct = res.headers.get("content-type") ?? "";
+
+          if (res.ok && ct.includes("application/json")) {
+            const body = await res.json().catch(() => null);
+            if (body?.agentAuth === "email-password-v1") {
+              console.log("[ApiClient] backend ping OK — agent auth confirmed");
+              return; // ✅ right server, right version
+            }
+            // Server is running JSON but ping doesn't confirm agent auth —
+            // either old code deployed or wrong URL.
+            throw new Error(
+              "The server at this URL does not support desktop login. " +
+              "Please make sure the latest DocuFlow server is deployed."
+            );
           }
-          // Got a response but not JSON — Replit wake page or wrong URL
+          // Non-JSON or non-OK (Replit wake page, proxy, cold start) — keep waiting
+          console.log(`[ApiClient] ping: not ready (status=${res.status}, ct=${ct.split(";")[0]})`);
         } finally {
           clearTimeout(timeoutId);
         }
-      } catch {
-        // Network error or abort timeout — keep trying
+      } catch (err: any) {
+        // Re-throw the "wrong server" error immediately — no point retrying
+        if (err?.message?.includes("does not support desktop login")) throw err;
+        // Network error or AbortError → keep trying
+        console.log(`[ApiClient] ping: network error — ${err?.message}`);
       }
 
       const remaining = deadline - Date.now();
       if (remaining <= 0) {
         throw new Error(
-          "Cannot reach the DocuFlow server. Please check your network connection and try again."
+          "Server did not respond after 60 seconds. " +
+          "Please check your network connection and try again."
         );
       }
 
-      attempt++;
-      const elapsed = Math.round((maxWaitMs - remaining) / 1000);
       onProgress?.(
-        elapsed < 5
+        elapsed < 4
           ? "Connecting to server…"
-          : `Server is starting up… (${elapsed}s)`
+          : `Server is starting… (${elapsed}s)`
       );
       await new Promise(r => setTimeout(r, Math.min(3_000, remaining)));
     }
