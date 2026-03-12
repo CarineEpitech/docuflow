@@ -4,10 +4,10 @@
  * Phase 3 MVP — Pairing + Timer control + Workers.
  */
 
-import { app, BrowserWindow, Tray, Menu, ipcMain } from "electron";
+import { app, BrowserWindow, Tray, Menu, ipcMain, shell } from "electron";
 import path from "path";
 import os from "os";
-import { API_HOST } from "../lib/config";
+import { API_BASE, API_HOST } from "../lib/config";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -209,6 +209,7 @@ function pushStateToRenderer(): void {
     deviceName: store.getDeviceName(),
     userEmail: store.getUserEmail(),
     apiHost: API_HOST,
+    apiBase: API_BASE,
     timer: store.getTimerState(),
   });
 }
@@ -221,6 +222,7 @@ ipcMain.handle("agent:get-state", () => {
     deviceName: store.getDeviceName(),
     userEmail: store.getUserEmail(),
     apiHost: API_HOST,
+    apiBase: API_BASE,
     timer: store.getTimerState(),
   };
 });
@@ -256,6 +258,10 @@ ipcMain.handle("agent:unpair", () => {
   store.clearSession();
   pushStateToRenderer();
   return { ok: true };
+});
+
+ipcMain.handle("agent:open-external", (_event, url: string) => {
+  shell.openExternal(url);
 });
 
 // ─── IPC: Projects & Tasks ───

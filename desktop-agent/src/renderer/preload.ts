@@ -24,6 +24,9 @@ contextBridge.exposeInMainWorld("agentBridge", {
   timerStop: () => ipcRenderer.invoke("agent:timer-stop"),
   timerState: () => ipcRenderer.invoke("agent:timer-state"),
 
+  // Open URL in default browser
+  openExternal: (url: string) => ipcRenderer.invoke("agent:open-external", url),
+
   // State push from main process
   onStateUpdate: (callback: (state: any) => void) => {
     ipcRenderer.on("agent:state-update", (_event, state) => callback(state));
