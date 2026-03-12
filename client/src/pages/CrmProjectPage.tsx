@@ -145,13 +145,13 @@ function TasksSection({ projectId }: { projectId: string }) {
 
   const { data, isLoading } = useQuery<{ data: { id: string; name: string; description: string | null; status: string }[] }>({
     queryKey: ["/api/tasks", projectId],
-    queryFn: () => apiRequest("GET", `/api/tasks?crmProjectId=${projectId}`).then(r => r.json()),
+    queryFn: () => apiRequest("GET", `/api/tasks?crmProjectId=${projectId}`),
     enabled: !!projectId,
   });
   const tasks = data?.data ?? [];
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => apiRequest("POST", "/api/tasks", { crmProjectId: projectId, name }).then(r => r.json()),
+    mutationFn: (name: string) => apiRequest("POST", "/api/tasks", { crmProjectId: projectId, name }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", projectId] });
       setNewTaskName("");
@@ -161,7 +161,7 @@ function TasksSection({ projectId }: { projectId: string }) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/tasks/${id}`).then(r => r.json()),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/tasks/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", projectId] });
       setDeleteTaskId(null);
