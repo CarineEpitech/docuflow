@@ -78,6 +78,15 @@ export async function registerRoutes(
 ): Promise<Server> {
   await setupAuth(app);
 
+  /**
+   * Public readiness endpoint — used by the Desktop Agent's waitForBackend().
+   * No auth required. Returns JSON immediately.
+   * Registered first, before all other routes and the static catch-all.
+   */
+  app.get("/api/ping", (_req, res) => {
+    res.json({ ok: true, server: "DocuFlow", agentAuth: "email-password-v1" });
+  });
+
   // Desktop Agent routes (pairing, auth, ingestion)
   registerAgentRoutes(app);
 

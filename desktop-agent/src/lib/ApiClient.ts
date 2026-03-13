@@ -66,12 +66,16 @@ export class ApiClient {
   // ─── Authentication ───
 
   /**
-   * Poll GET /health until the backend returns JSON, or until maxWaitMs elapses.
-   * Handles Replit cold-start (server sleeping → returns 200 HTML wake page).
+   * Poll the backend until it returns JSON, or until maxWaitMs elapses.
+   * Handles Replit cold-start (sleeping server → 200 HTML wake page).
    *
-   * /health is registered synchronously at Express startup — it exists on every
-   * deployed version of the server. If it returns JSON, Express is running and
-   * API routes are available.
+   * Probe order:
+   *   1. GET /api/ping  — dedicated readiness endpoint (new deployments)
+   *   2. GET /api/auth/user — fallback guaranteed on all deployed versions
+   *      (returns null for unauthenticated requests, but is valid JSON)
+   *
+   * 4xx on BOTH probes = URL is wrong → fail immediately (no retry).
+   * 200 HTML = server waking up → keep retrying.
    */
   async waitForBackend(
     onProgress?: (msg: string) => void,
@@ -82,44 +86,16 @@ export class ApiClient {
     while (true) {
       const elapsed = Math.round((maxWaitMs - (deadline - Date.now())) / 1000);
 
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8_000);
-        try {
-          const res = await fetch(`${API_BASE}/health`, {
-            method: "GET",
-            headers: { Accept: "application/json" },
-            signal: controller.signal,
-          });
-          const ct = res.headers.get("content-type") ?? "";
-          console.log(`[ApiClient] health: status=${res.status} ct=${ct.split(";")[0]}`);
+      const probeResult = await this.probeBackend();
+      console.log(`[ApiClient] probe: ${JSON.stringify(probeResult)}`);
 
-          if (res.ok && ct.includes("application/json")) {
-            console.log("[ApiClient] backend health OK — proceeding with login");
-            return; // ✅ server is up
-          }
+      if (probeResult.ready) return; // ✅ server is up
 
-          // 404 or other 4xx = URL is wrong (dead deployment, changed URL, wrong target)
-          // Do NOT retry — this won't fix itself.
-          if (res.status === 404 || (res.status >= 400 && res.status < 500)) {
-            throw new Error(
-              `Server not found (HTTP ${res.status}). ` +
-              `The deployment URL may have changed. ` +
-              `Check your Replit project for the current URL.`
-            );
-          }
-
-          // 200 with HTML = Replit cold-start wake page → keep waiting
-          // 5xx = server error → keep waiting (might recover)
-        } finally {
-          clearTimeout(timeoutId);
-        }
-      } catch (err: any) {
-        // Re-throw permanent errors (wrong URL) immediately
-        if (err?.message?.includes("HTTP 4")) throw err;
-        console.log(`[ApiClient] health: error — ${err?.message}`);
+      if (probeResult.permanentError) {
+        throw new Error(probeResult.permanentError);
       }
 
+      // Server not ready yet (cold-start HTML page or 5xx) — wait and retry
       const remaining = deadline - Date.now();
       if (remaining <= 0) {
         throw new Error(
@@ -127,14 +103,61 @@ export class ApiClient {
           "Please check your network connection and try again."
         );
       }
-
       onProgress?.(
-        elapsed < 4
-          ? "Connecting to server…"
-          : `Server is starting… (${elapsed}s)`
+        elapsed < 4 ? "Connecting to server…" : `Server is starting… (${elapsed}s)`
       );
       await new Promise(r => setTimeout(r, Math.min(3_000, remaining)));
     }
+  }
+
+  /** Single probe attempt against /api/ping then /api/auth/user. */
+  private async probeBackend(): Promise<{
+    ready: boolean;
+    permanentError?: string;
+  }> {
+    const endpoints = [
+      { path: "/api/ping",      expectField: "ok" },
+      { path: "/api/auth/user", expectField: null }, // returns null or user — any JSON is fine
+    ];
+
+    for (const { path } of endpoints) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8_000);
+        try {
+          const res = await fetch(`${API_BASE}${path}`, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+          });
+          const ct = res.headers.get("content-type") ?? "";
+          console.log(`[ApiClient] probe ${path}: status=${res.status} ct=${ct.split(";")[0]}`);
+
+          if (res.ok && ct.includes("application/json")) {
+            return { ready: true }; // ✅
+          }
+
+          // 4xx on this path — try next probe before giving up
+          if (res.status >= 400 && res.status < 500) continue;
+
+          // 200 HTML or 5xx → server not ready, return to retry loop
+          return { ready: false };
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      } catch {
+        // Network error on this probe — try next
+        continue;
+      }
+    }
+
+    // Both probes returned 4xx → URL is wrong
+    return {
+      ready: false,
+      permanentError:
+        "Server not found. The deployment URL may have changed. " +
+        "Check your Replit project URL or create ~/.docuflow-url with the correct URL.",
+    };
   }
 
   async loginWithPassword(email: string, password: string, meta: DeviceMeta): Promise<LoginResult> {
