@@ -110,14 +110,14 @@ export class ApiClient {
     }
   }
 
-  /** Single probe attempt against /api/ping then /api/auth/user. */
+  /** Single probe attempt against /api/auth/user then /api/ping. */
   private async probeBackend(): Promise<{
     ready: boolean;
     permanentError?: string;
   }> {
     const endpoints = [
-      "/api/ping",      // dedicated readiness endpoint (new deployments)
-      "/api/auth/user", // fallback — returns null (JSON) for unauthenticated requests
+      "/api/auth/user", // confirmed JSON on all deployed versions (returns null for unauthed)
+      "/api/ping",      // dedicated readiness endpoint (new deployments only)
     ];
 
     let anyNon4xx = false; // tracks whether any probe got a server response (not dead URL)

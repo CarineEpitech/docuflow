@@ -113,6 +113,23 @@ function createMainWindow(): BrowserWindow {
   return win;
 }
 
+// ─── Window helpers ───
+
+/**
+ * Show the main window. If the user is not yet paired (login screen),
+ * reload the page first so the form is always blank on reopen.
+ */
+function showMainWindow(): void {
+  if (!mainWindow) return;
+  if (!store.isPaired()) {
+    mainWindow.webContents.reload();
+  }
+  mainWindow.setAlwaysOnTop(true);
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.setAlwaysOnTop(false);
+}
+
 // ─── Tray ───
 
 function getTrayIconPath(): string {
@@ -135,7 +152,7 @@ function createTray(): void {
   }
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: "Show Agent", click: () => mainWindow?.show() },
+    { label: "Show Agent", click: () => showMainWindow() },
     { label: "Status: " + (store.isPaired() ? "Connected" : "Not paired"), enabled: false },
     { type: "separator" },
     { label: "Quit", click: () => { stopWorkers(); app.exit(0); } },
@@ -143,7 +160,7 @@ function createTray(): void {
 
   tray.setToolTip("DocuFlow Desktop Agent");
   tray.setContextMenu(contextMenu);
-  tray.on("click", () => mainWindow?.show());
+  tray.on("click", () => showMainWindow());
 }
 
 // ─── Workers ───
@@ -410,10 +427,7 @@ if (!gotLock) {
   app.on("second-instance", () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.setAlwaysOnTop(true);
-      mainWindow.show();
-      mainWindow.focus();
-      mainWindow.setAlwaysOnTop(false);
+      showMainWindow();
     }
   });
 }
@@ -451,7 +465,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("activate", () => {
-  mainWindow?.show();
+  showMainWindow();
 });
 
 app.on("before-quit", () => {
