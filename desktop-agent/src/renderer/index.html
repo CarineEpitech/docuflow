@@ -25,6 +25,12 @@
     .header-left { display: flex; align-items: center; gap: 0.5rem; }
     .header .logo { font-size: 1rem; font-weight: 700; }
     .header .version { font-size: 0.65rem; color: #64748b; }
+    .env-badge {
+      font-size: 0.6rem; font-weight: 700; padding: 0.1rem 0.35rem;
+      border-radius: 0.25rem; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .env-badge.dev { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; }
+    .env-badge.prod { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; }
     .status-dot.connected { background: #22c55e; }
     .status-dot.disconnected { background: #ef4444; }
@@ -119,6 +125,7 @@
     <div class="header-left">
       <span class="logo">DocuFlow Agent</span>
       <span class="version">v0.1.3</span>
+      <span class="env-badge dev" id="env-badge" style="display:none"></span>
     </div>
     <div class="status-dot disconnected" id="status-dot"></div>
   </div>
@@ -245,9 +252,24 @@
     let currentlyPaired = false; // tracks paired state to detect revoke transitions
     let apiBase = ""; // set on connect, used for open-in-browser links
 
+    function applyEnvBadge(source) {
+      var badge = document.getElementById("env-badge");
+      if (!badge) return;
+      if (source === "file" || source === "env") {
+        badge.textContent = "DEV";
+        badge.className = "env-badge dev";
+        badge.style.display = "inline";
+      } else if (source === "default") {
+        badge.textContent = "PROD";
+        badge.className = "env-badge prod";
+        badge.style.display = "inline";
+      }
+    }
+
     // Init
     async function init() {
       const state = await bridge.getState();
+      applyEnvBadge(state.apiBaseSource);
       currentlyPaired = !!state.isPaired;
       if (state.isPaired) {
         showConnected(state);

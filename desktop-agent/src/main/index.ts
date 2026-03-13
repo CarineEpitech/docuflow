@@ -8,7 +8,7 @@ import { app, BrowserWindow, Tray, Menu, ipcMain, shell } from "electron";
 import path from "path";
 import fs from "fs";
 import os from "os";
-import { API_BASE, API_HOST } from "../lib/config";
+import { API_BASE, API_BASE_SOURCE, API_HOST } from "../lib/config";
 
 // ─── File logger ───
 // Writes to %APPDATA%\docuflow-desktop-agent\debug.log — readable without DevTools.
@@ -27,7 +27,8 @@ function initLogger() {
     console.log = (...args) => { orig(...args); write("INFO", args); };
     console.warn = (...args) => { origWarn(...args); write("WARN", args); };
     console.error = (...args) => { origErr(...args); write("ERROR", args); };
-    console.log(`[Main] log started — API_BASE=${API_BASE}`);
+    const sourceLabel = API_BASE_SOURCE === "file" ? "~/.docuflow-url" : API_BASE_SOURCE;
+    console.log(`[Main] log started — API_BASE=${API_BASE} (source: ${sourceLabel})`);
   } catch { /* non-fatal */ }
 }
 
@@ -256,6 +257,7 @@ function pushStateToRenderer(): void {
     userEmail: store.getUserEmail(),
     apiHost: API_HOST,
     apiBase: API_BASE,
+    apiBaseSource: API_BASE_SOURCE,
     timer: store.getTimerState(),
   });
 }
@@ -269,6 +271,7 @@ ipcMain.handle("agent:get-state", () => {
     userEmail: store.getUserEmail(),
     apiHost: API_HOST,
     apiBase: API_BASE,
+    apiBaseSource: API_BASE_SOURCE,
     timer: store.getTimerState(),
   };
 });

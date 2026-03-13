@@ -3,12 +3,20 @@
  *
  * API_BASE resolution order (first wins):
  *   1. DOCUFLOW_API_URL environment variable
- *   2. %USERPROFILE%\.docuflow-url  (plain text file, one URL per line — no rebuild needed)
- *   3. DEFAULT_API_URL baked in at build time
+ *   2. ~/.docuflow-url  (plain text file — not committed, machine-local)
+ *      Windows: C:\Users\<you>\.docuflow-url
+ *      Content: one URL per line, first line wins. Example:
+ *        https://685f78d0-...replit.dev      ← DEV
+ *        # https://techma-doc--masdouk1.replit.app  ← PROD (commented)
+ *   3. DEFAULT_API_URL baked in at build time (PROD)
  *
- * The file override lets support/users change the server URL without rebuilding the installer.
- * File location on Windows: C:\Users\<you>\.docuflow-url
- * Content: just the URL, e.g. https://my-new-server.replit.app
+ * HOW TO SWITCH DEV ↔ PROD:
+ *   DEV  → put dev URL in ~/.docuflow-url (or delete the prod line)
+ *   PROD → delete ~/.docuflow-url  OR  replace its content with prod URL
+ *
+ * HOW TO VERIFY ACTIVE URL:
+ *   Check %APPDATA%\docuflow-desktop-agent\debug.log — first line on startup
+ *   shows "API_BASE=... (source: ...)"
  */
 
 import fs from "fs";
@@ -17,28 +25,35 @@ import os from "os";
 
 const DEFAULT_API_URL = "https://techma-doc--masdouk1.replit.app";
 
-function resolveApiBase(): string {
+export type ApiBaseSource = "env" | "file" | "default";
+
+function resolveApiBase(): { url: string; source: ApiBaseSource } {
   // 1. Environment variable
   if (process.env.DOCUFLOW_API_URL) {
-    return process.env.DOCUFLOW_API_URL.replace(/\/+$/, "");
+    return { url: process.env.DOCUFLOW_API_URL.replace(/\/+$/, ""), source: "env" };
   }
 
-  // 2. Override file: ~/.docuflow-url
+  // 2. Override file: ~/.docuflow-url (not committed — machine-local)
   try {
     const overridePath = path.join(os.homedir(), ".docuflow-url");
     if (fs.existsSync(overridePath)) {
-      const url = fs.readFileSync(overridePath, "utf-8").trim().split("\n")[0].trim();
-      if (url.startsWith("http")) {
-        return url.replace(/\/+$/, "");
+      const url = fs.readFileSync(overridePath, "utf-8")
+        .split("\n")
+        .map(l => l.trim())
+        .find(l => l.startsWith("http"));
+      if (url) {
+        return { url: url.replace(/\/+$/, ""), source: "file" };
       }
     }
   } catch { /* ignore */ }
 
-  // 3. Build-time default
-  return DEFAULT_API_URL.replace(/\/+$/, "");
+  // 3. Build-time default (PROD)
+  return { url: DEFAULT_API_URL.replace(/\/+$/, ""), source: "default" };
 }
 
-export const API_BASE: string = resolveApiBase();
+const resolved = resolveApiBase();
+export const API_BASE: string = resolved.url;
+export const API_BASE_SOURCE: ApiBaseSource = resolved.source;
 
 /** Human-readable hostname for display in the UI. */
 export const API_HOST: string = (() => {
