@@ -6,8 +6,30 @@
 
 import { app, BrowserWindow, Tray, Menu, ipcMain, shell } from "electron";
 import path from "path";
+import fs from "fs";
 import os from "os";
 import { API_BASE, API_HOST } from "../lib/config";
+
+// ─── File logger ───
+// Writes to %APPDATA%\DocuFlow Agent\debug.log — readable without DevTools.
+let logStream: fs.WriteStream | null = null;
+function initLogger() {
+  try {
+    const logPath = path.join(app.getPath("userData"), "debug.log");
+    logStream = fs.createWriteStream(logPath, { flags: "a" });
+    const orig = console.log.bind(console);
+    const origWarn = console.warn.bind(console);
+    const origErr = console.error.bind(console);
+    const write = (level: string, args: any[]) => {
+      const line = `${new Date().toISOString()} [${level}] ${args.map(String).join(" ")}\n`;
+      logStream?.write(line);
+    };
+    console.log = (...args) => { orig(...args); write("INFO", args); };
+    console.warn = (...args) => { origWarn(...args); write("WARN", args); };
+    console.error = (...args) => { origErr(...args); write("ERROR", args); };
+    console.log(`[Main] log started — API_BASE=${API_BASE}`);
+  } catch { /* non-fatal */ }
+}
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -399,6 +421,7 @@ if (!gotLock) {
 // ─── App lifecycle ───
 
 app.whenReady().then(() => {
+  initLogger();
   store.setClientVersion(app.getVersion());
   createTray();
   mainWindow = createMainWindow();

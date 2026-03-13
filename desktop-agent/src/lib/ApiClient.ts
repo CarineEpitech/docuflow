@@ -92,17 +92,32 @@ export class ApiClient {
             signal: controller.signal,
           });
           const ct = res.headers.get("content-type") ?? "";
+          console.log(`[ApiClient] health: status=${res.status} ct=${ct.split(";")[0]}`);
+
           if (res.ok && ct.includes("application/json")) {
             console.log("[ApiClient] backend health OK — proceeding with login");
             return; // ✅ server is up
           }
-          // Non-JSON response — Replit wake page or wrong URL, keep waiting
-          console.log(`[ApiClient] health: not ready (status=${res.status}, ct=${ct.split(";")[0]})`);
+
+          // 404 or other 4xx = URL is wrong (dead deployment, changed URL, wrong target)
+          // Do NOT retry — this won't fix itself.
+          if (res.status === 404 || (res.status >= 400 && res.status < 500)) {
+            throw new Error(
+              `Server not found (HTTP ${res.status}). ` +
+              `The deployment URL may have changed. ` +
+              `Check your Replit project for the current URL.`
+            );
+          }
+
+          // 200 with HTML = Replit cold-start wake page → keep waiting
+          // 5xx = server error → keep waiting (might recover)
         } finally {
           clearTimeout(timeoutId);
         }
       } catch (err: any) {
-        console.log(`[ApiClient] health: network error — ${err?.message}`);
+        // Re-throw permanent errors (wrong URL) immediately
+        if (err?.message?.includes("HTTP 4")) throw err;
+        console.log(`[ApiClient] health: error — ${err?.message}`);
       }
 
       const remaining = deadline - Date.now();
