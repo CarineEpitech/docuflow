@@ -116,11 +116,13 @@ export class ApiClient {
     permanentError?: string;
   }> {
     const endpoints = [
-      { path: "/api/ping",      expectField: "ok" },
-      { path: "/api/auth/user", expectField: null }, // returns null or user — any JSON is fine
+      "/api/ping",      // dedicated readiness endpoint (new deployments)
+      "/api/auth/user", // fallback — returns null (JSON) for unauthenticated requests
     ];
 
-    for (const { path } of endpoints) {
+    let anyNon4xx = false; // tracks whether any probe got a server response (not dead URL)
+
+    for (const path of endpoints) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8_000);
@@ -134,30 +136,37 @@ export class ApiClient {
           console.log(`[ApiClient] probe ${path}: status=${res.status} ct=${ct.split(";")[0]}`);
 
           if (res.ok && ct.includes("application/json")) {
-            return { ready: true }; // ✅
+            return { ready: true }; // ✅ server is up and this endpoint returns JSON
           }
 
-          // 4xx on this path — try next probe before giving up
-          if (res.status >= 400 && res.status < 500) continue;
-
-          // 200 HTML or 5xx → server not ready, return to retry loop
-          return { ready: false };
+          if (res.status < 400 || res.status >= 500) {
+            // 200 HTML (cold-start wake page) or 5xx → server is reachable but not ready
+            anyNon4xx = true;
+          }
+          // In all non-JSON cases: try the next endpoint
+          continue;
         } finally {
           clearTimeout(timeoutId);
         }
       } catch {
-        // Network error on this probe — try next
+        // Network error or timeout on this probe → try next
         continue;
       }
     }
 
-    // Both probes returned 4xx → URL is wrong
-    return {
-      ready: false,
-      permanentError:
-        "Server not found. The deployment URL may have changed. " +
-        "Check your Replit project URL or create ~/.docuflow-url with the correct URL.",
-    };
+    // All probes exhausted without a JSON response.
+    if (!anyNon4xx) {
+      // Every probe returned 4xx → URL is wrong (dead deployment, changed URL)
+      return {
+        ready: false,
+        permanentError:
+          "Server not found (URL may have changed). " +
+          "Check your Replit project URL or create ~/.docuflow-url with the correct URL.",
+      };
+    }
+
+    // Server is reachable but returning HTML — still starting up
+    return { ready: false };
   }
 
   async loginWithPassword(email: string, password: string, meta: DeviceMeta): Promise<LoginResult> {

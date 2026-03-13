@@ -16,7 +16,10 @@ foreach ($path in $regPaths) {
 }
 
 # Step 3: remove all possible data/install directories
-# (app.getPath("userData") can resolve to either name depending on packager config)
+# Actual userData (Electron uses package.json "name" field): %APPDATA%\docuflow-desktop-agent
+# Legacy paths kept for cleanup of older installs
+Remove-Item "$env:APPDATA\docuflow-desktop-agent"        -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "$env:LOCALAPPDATA\docuflow-desktop-agent"   -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "$env:LOCALAPPDATA\docuflow_desktop_agent"   -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "$env:APPDATA\DocuFlow Agent"                -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "$env:APPDATA\DocuFlow Desktop Agent"        -Recurse -Force -ErrorAction SilentlyContinue
