@@ -19,7 +19,7 @@ import path from "path";
 import { SqliteQueue } from "../lib/SqliteQueue";
 import { AgentStore } from "../lib/AgentStore";
 
-const DEFAULT_INTERVAL_S = 180; // 3 minutes
+const DEFAULT_INTERVAL_S = 60; // 1 minute (was 3 min — short enough to verify quickly)
 const CAPTURE_INTERVAL_BASE_MS = (() => {
   const parsed = parseInt(process.env.SCREENSHOT_INTERVAL_SECONDS ?? "", 10);
   const seconds = Number.isFinite(parsed) && parsed >= 30 ? Math.min(parsed, 3600) : DEFAULT_INTERVAL_S;

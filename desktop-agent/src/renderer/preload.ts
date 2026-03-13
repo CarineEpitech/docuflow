@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld("agentBridge", {
   getTasks: (data: { crmProjectId: string }) => ipcRenderer.invoke("agent:get-tasks", data),
 
   // Timer
-  timerStart: (data: { crmProjectId: string; taskId?: string; projectName: string; description?: string }) =>
+  timerStart: (data: { crmProjectId: string; taskId?: string; taskName?: string; projectName: string; description?: string }) =>
     ipcRenderer.invoke("agent:timer-start", data),
   timerPause: () => ipcRenderer.invoke("agent:timer-pause"),
   timerResume: () => ipcRenderer.invoke("agent:timer-resume"),

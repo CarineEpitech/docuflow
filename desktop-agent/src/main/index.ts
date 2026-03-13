@@ -345,11 +345,11 @@ ipcMain.handle("agent:get-tasks", async (_event, { crmProjectId }) => {
 
 // ─── IPC: Timer ───
 
-ipcMain.handle("agent:timer-start", async (_event, { crmProjectId, taskId, projectName, description }) => {
+ipcMain.handle("agent:timer-start", async (_event, { crmProjectId, taskId, taskName, projectName, description }) => {
   try {
     const entry = await apiClient.startTimer(crmProjectId, taskId || undefined, description);
-    store.setTimerRunning(entry.id, entry.duration || 0, projectName || null);
-    console.log(`[Main] timer.start — entry=${entry.id} project="${projectName || ""}"`);
+    store.setTimerRunning(entry.id, entry.duration || 0, projectName || null, taskName || null, description || null);
+    console.log(`[Main] timer.start — entry=${entry.id} project="${projectName || ""}" task="${taskName || ""}"`);
     pushStateToRenderer();
     return { ok: true, entry };
   } catch (error: any) {

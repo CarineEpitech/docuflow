@@ -25,6 +25,8 @@ interface PersistedData {
 interface RuntimeState {
   activeEntryId: string | null;
   activeProjectName: string | null;
+  activeTaskName: string | null;
+  activeDescription: string | null;
   timerStatus: "stopped" | "running" | "paused";
   timerDuration: number; // accumulated seconds from server
   timerLastActivityAt: number | null; // timestamp ms for local elapsed calc
@@ -44,6 +46,8 @@ export class AgentStore {
     this.runtime = {
       activeEntryId: null,
       activeProjectName: null,
+      activeTaskName: null,
+      activeDescription: null,
       timerStatus: "stopped",
       timerDuration: 0,
       timerLastActivityAt: null,
@@ -125,13 +129,23 @@ export class AgentStore {
   getActiveEntryId(): string | null { return this.runtime.activeEntryId; }
   getTimerStatus(): string { return this.runtime.timerStatus; }
   getActiveProjectName(): string | null { return this.runtime.activeProjectName; }
+  getActiveTaskName(): string | null { return this.runtime.activeTaskName; }
+  getActiveDescription(): string | null { return this.runtime.activeDescription; }
 
-  setTimerRunning(entryId: string, duration: number, projectName: string | null): void {
+  setTimerRunning(
+    entryId: string,
+    duration: number,
+    projectName: string | null,
+    taskName?: string | null,
+    description?: string | null,
+  ): void {
     this.runtime.activeEntryId = entryId;
     this.runtime.timerStatus = "running";
     this.runtime.timerDuration = duration;
     this.runtime.timerLastActivityAt = Date.now();
     this.runtime.activeProjectName = projectName;
+    this.runtime.activeTaskName = taskName ?? null;
+    this.runtime.activeDescription = description ?? null;
   }
 
   setTimerPaused(duration: number): void {
@@ -146,6 +160,8 @@ export class AgentStore {
     this.runtime.timerDuration = 0;
     this.runtime.timerLastActivityAt = null;
     this.runtime.activeProjectName = null;
+    this.runtime.activeTaskName = null;
+    this.runtime.activeDescription = null;
   }
 
   /**
@@ -193,12 +209,16 @@ export class AgentStore {
     entryId: string | null;
     elapsed: number;
     projectName: string | null;
+    taskName: string | null;
+    description: string | null;
   } {
     return {
       status: this.runtime.timerStatus,
       entryId: this.runtime.activeEntryId,
       elapsed: this.getElapsedSeconds(),
       projectName: this.runtime.activeProjectName,
+      taskName: this.runtime.activeTaskName,
+      description: this.runtime.activeDescription,
     };
   }
 }

@@ -78,7 +78,9 @@
     .timer-status.running { color: #22c55e; }
     .timer-status.paused { color: #f59e0b; }
     .timer-status.stopped { color: #64748b; }
-    .timer-project { font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem; }
+    .timer-project { font-size: 0.8rem; color: #e2e8f0; margin-top: 0.25rem; font-weight: 600; }
+    .timer-task { font-size: 0.75rem; color: #94a3b8; margin-top: 0.15rem; }
+    .timer-desc { font-size: 0.7rem; color: #64748b; margin-top: 0.1rem; font-style: italic; }
 
     /* Cards */
     .card {
@@ -166,6 +168,8 @@
       <div class="timer-time stopped" id="timer-time">00:00:00</div>
       <div class="timer-status stopped" id="timer-status">STOPPED</div>
       <div class="timer-project" id="timer-project"></div>
+      <div class="timer-task" id="timer-task"></div>
+      <div class="timer-desc" id="timer-desc"></div>
     </div>
 
     <!-- Start form (visible when stopped) -->
@@ -234,6 +238,8 @@
     const timerTimeEl = document.getElementById("timer-time");
     const timerStatusEl = document.getElementById("timer-status");
     const timerProjectEl = document.getElementById("timer-project");
+    const timerTaskEl = document.getElementById("timer-task");
+    const timerDescEl = document.getElementById("timer-desc");
     const startForm = document.getElementById("start-form");
     const timerControls = document.getElementById("timer-controls");
     const pauseBtn = document.getElementById("pause-btn");
@@ -391,8 +397,13 @@
       timerStatusEl.textContent = status.toUpperCase();
       timerStatusEl.className = "timer-status " + status;
       timerProjectEl.textContent = timer.projectName || "";
+      timerTaskEl.textContent = timer.taskName ? "↳ " + timer.taskName : "";
+      timerDescEl.textContent = timer.description || "";
 
       if (status === "stopped") {
+        timerProjectEl.textContent = "";
+        timerTaskEl.textContent = "";
+        timerDescEl.textContent = "";
         startForm.style.display = "block";
         timerControls.style.display = "none";
       } else {
@@ -474,6 +485,8 @@
       var taskId = taskSelect.value;
       var projectOption = projectSelect.options[projectSelect.selectedIndex];
       var projectName = projectOption ? (projectOption.dataset.name || projectOption.textContent || "") : "";
+      var taskOption = taskSelect.options[taskSelect.selectedIndex];
+      var taskName = taskOption ? (taskOption.dataset.name || taskOption.textContent || "") : "";
       var description = document.getElementById("task-description").value.trim();
       var errorEl = document.getElementById("start-error");
 
@@ -487,7 +500,7 @@
       startBtn.disabled = true;
       startBtn.textContent = "Starting...";
 
-      var result = await bridge.timerStart({ crmProjectId: crmProjectId, taskId: taskId, projectName: projectName, description: description });
+      var result = await bridge.timerStart({ crmProjectId: crmProjectId, taskId: taskId, taskName: taskName, projectName: projectName, description: description });
       if (result.ok) {
         var timer = await bridge.timerState();
         updateTimerUI(Object.assign({}, timer, { projectName: projectName }));
