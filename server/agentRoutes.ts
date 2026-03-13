@@ -370,11 +370,26 @@ export function registerAgentRoutes(app: Express): void {
       // Update device lastSeenAt
       await storage.updateDeviceLastSeen(body.deviceId);
 
-      // If there's an active time entry, update its lastActivityAt
+      // If there's an active time entry, accumulate duration + update lastActivityAt.
+      // This is critical: without accumulating duration here, the web UI resets the
+      // elapsed counter to near-0 on every heartbeat (because it computes
+      // duration + (now - lastActivityAt) and lastActivityAt just jumped forward).
       if (body.timeEntryId) {
-        await storage.updateTimeEntry(body.timeEntryId, {
-          lastActivityAt: new Date(body.timestamp),
-        });
+        const hbEntry = await storage.getTimeEntry(body.timeEntryId);
+        if (hbEntry && hbEntry.status === "running" && hbEntry.lastActivityAt) {
+          const now = new Date(body.timestamp);
+          const elapsed = Math.floor(
+            (now.getTime() - new Date(hbEntry.lastActivityAt).getTime()) / 1000
+          );
+          await storage.updateTimeEntry(body.timeEntryId, {
+            lastActivityAt: now,
+            duration: (hbEntry.duration || 0) + Math.max(0, elapsed),
+          });
+        } else if (hbEntry) {
+          await storage.updateTimeEntry(body.timeEntryId, {
+            lastActivityAt: new Date(body.timestamp),
+          });
+        }
       }
 
       // Get server-authoritative timer state for desktop resync
