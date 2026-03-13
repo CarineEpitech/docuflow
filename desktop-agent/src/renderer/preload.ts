@@ -24,6 +24,16 @@ contextBridge.exposeInMainWorld("agentBridge", {
   timerStop: () => ipcRenderer.invoke("agent:timer-stop"),
   timerState: () => ipcRenderer.invoke("agent:timer-state"),
 
+  // Open URL in default browser
+  openExternal: (url: string) => ipcRenderer.invoke("agent:open-external", url),
+
+  // Login progress events pushed from main during waitForBackend + loginWithPassword
+  onLoginProgress: (callback: (data: { message: string }) => void) => {
+    const handler = (_event: any, data: { message: string }) => callback(data);
+    ipcRenderer.on("agent:login-progress", handler);
+    return () => ipcRenderer.off("agent:login-progress", handler);
+  },
+
   // State push from main process
   onStateUpdate: (callback: (state: any) => void) => {
     ipcRenderer.on("agent:state-update", (_event, state) => callback(state));

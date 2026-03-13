@@ -4,10 +4,32 @@
  * Phase 3 MVP — Pairing + Timer control + Workers.
  */
 
-import { app, BrowserWindow, Tray, Menu, ipcMain } from "electron";
+import { app, BrowserWindow, Tray, Menu, ipcMain, shell } from "electron";
 import path from "path";
+import fs from "fs";
 import os from "os";
-import { API_HOST } from "../lib/config";
+import { API_BASE, API_HOST } from "../lib/config";
+
+// ─── File logger ───
+// Writes to %APPDATA%\docuflow-desktop-agent\debug.log — readable without DevTools.
+let logStream: fs.WriteStream | null = null;
+function initLogger() {
+  try {
+    const logPath = path.join(app.getPath("userData"), "debug.log");
+    logStream = fs.createWriteStream(logPath, { flags: "a" });
+    const orig = console.log.bind(console);
+    const origWarn = console.warn.bind(console);
+    const origErr = console.error.bind(console);
+    const write = (level: string, args: any[]) => {
+      const line = `${new Date().toISOString()} [${level}] ${args.map(String).join(" ")}\n`;
+      logStream?.write(line);
+    };
+    console.log = (...args) => { orig(...args); write("INFO", args); };
+    console.warn = (...args) => { origWarn(...args); write("WARN", args); };
+    console.error = (...args) => { origErr(...args); write("ERROR", args); };
+    console.log(`[Main] log started — API_BASE=${API_BASE}`);
+  } catch { /* non-fatal */ }
+}
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -54,9 +76,11 @@ let resyncInterval: ReturnType<typeof setInterval> | null = null;
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 440,
-    height: 620,
-    resizable: false,
+    width: 580,
+    height: 700,
+    minWidth: 420,
+    minHeight: 560,
+    resizable: true,
     show: false,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
@@ -74,12 +98,36 @@ function createMainWindow(): BrowserWindow {
     win.setAlwaysOnTop(false);
   });
 
+  // Ctrl+Shift+I → open DevTools (useful for debugging login/connection issues)
+  win.webContents.on("before-input-event", (_event, input) => {
+    if (input.control && input.shift && input.key === "I") {
+      win.webContents.openDevTools({ mode: "detach" });
+    }
+  });
+
   win.on("close", (e) => {
     e.preventDefault();
     win.hide();
   });
 
   return win;
+}
+
+// ─── Window helpers ───
+
+/**
+ * Show the main window. If the user is not yet paired (login screen),
+ * reload the page first so the form is always blank on reopen.
+ */
+function showMainWindow(): void {
+  if (!mainWindow) return;
+  if (!store.isPaired()) {
+    mainWindow.webContents.reload();
+  }
+  mainWindow.setAlwaysOnTop(true);
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.setAlwaysOnTop(false);
 }
 
 // ─── Tray ───
@@ -104,7 +152,7 @@ function createTray(): void {
   }
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: "Show Agent", click: () => mainWindow?.show() },
+    { label: "Show Agent", click: () => showMainWindow() },
     { label: "Status: " + (store.isPaired() ? "Connected" : "Not paired"), enabled: false },
     { type: "separator" },
     { label: "Quit", click: () => { stopWorkers(); app.exit(0); } },
@@ -112,7 +160,7 @@ function createTray(): void {
 
   tray.setToolTip("DocuFlow Desktop Agent");
   tray.setContextMenu(contextMenu);
-  tray.on("click", () => mainWindow?.show());
+  tray.on("click", () => showMainWindow());
 }
 
 // ─── Workers ───
@@ -207,6 +255,7 @@ function pushStateToRenderer(): void {
     deviceName: store.getDeviceName(),
     userEmail: store.getUserEmail(),
     apiHost: API_HOST,
+    apiBase: API_BASE,
     timer: store.getTimerState(),
   });
 }
@@ -219,17 +268,28 @@ ipcMain.handle("agent:get-state", () => {
     deviceName: store.getDeviceName(),
     userEmail: store.getUserEmail(),
     apiHost: API_HOST,
+    apiBase: API_BASE,
     timer: store.getTimerState(),
   };
 });
 
-ipcMain.handle("agent:login", async (_event, { email, password }) => {
+ipcMain.handle("agent:login", async (event, { email, password }) => {
+  const sendProgress = (message: string) => {
+    try { event.sender.send("agent:login-progress", { message }); } catch { /* window may be closing */ }
+  };
+
   try {
     store.setClientVersion(app.getVersion());
-
-    // Use OS hostname as device name — no manual input needed
     const deviceName = os.hostname() || "Desktop";
 
+    console.log(`[Main] auth.login.start — url=${API_BASE} user=${email}`);
+
+    // Step 1: ping backend to confirm agent routes are loaded (handles Replit cold-start)
+    sendProgress("Connecting to server…");
+    await apiClient.waitForBackend(sendProgress);
+
+    // Step 2: authenticate
+    sendProgress("Signing in…");
     const result = await apiClient.loginWithPassword(email, password, {
       deviceName,
       os: process.platform,
@@ -244,7 +304,7 @@ ipcMain.handle("agent:login", async (_event, { email, password }) => {
     pushStateToRenderer();
     return { ok: true };
   } catch (error: any) {
-    console.log(`[Main] auth.login.failed: ${error.message}`);
+    console.log(`[Main] auth.login.failed — ${error.message}`);
     return { ok: false, error: error.message };
   }
 });
@@ -254,6 +314,10 @@ ipcMain.handle("agent:unpair", () => {
   store.clearSession();
   pushStateToRenderer();
   return { ok: true };
+});
+
+ipcMain.handle("agent:open-external", (_event, url: string) => {
+  shell.openExternal(url);
 });
 
 // ─── IPC: Projects & Tasks ───
@@ -363,10 +427,7 @@ if (!gotLock) {
   app.on("second-instance", () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.setAlwaysOnTop(true);
-      mainWindow.show();
-      mainWindow.focus();
-      mainWindow.setAlwaysOnTop(false);
+      showMainWindow();
     }
   });
 }
@@ -374,6 +435,7 @@ if (!gotLock) {
 // ─── App lifecycle ───
 
 app.whenReady().then(() => {
+  initLogger();
   store.setClientVersion(app.getVersion());
   createTray();
   mainWindow = createMainWindow();
@@ -403,7 +465,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("activate", () => {
-  mainWindow?.show();
+  showMainWindow();
 });
 
 app.on("before-quit", () => {

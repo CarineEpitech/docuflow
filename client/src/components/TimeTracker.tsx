@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useTimeTracker } from "@/contexts/TimeTrackerContext";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -25,7 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Play, Pause, Square, Clock, ChevronDown, ChevronUp, AlertCircle, Check, ChevronsUpDown, Timer, Monitor, MonitorOff } from "lucide-react";
+import { Play, Pause, Square, Clock, ChevronDown, ChevronUp, AlertCircle, Check, ChevronsUpDown, Timer, Monitor, MonitorOff, Plus, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function formatDuration(seconds: number): string {
@@ -47,6 +49,8 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
   const [isExpanded, setIsExpanded] = useState(false);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
   const [taskSelectorOpen, setTaskSelectorOpen] = useState(false);
+  const [newTaskName, setNewTaskName] = useState("");
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   const {
     activeEntry,
@@ -80,6 +84,24 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
     handleToggleCapture,
     setShowIdleDialog,
   } = useTimeTracker();
+
+  const createTaskMutation = useMutation({
+    mutationFn: (name: string) =>
+      apiRequest("POST", "/api/tasks", { crmProjectId: selectedProjectId, name }),
+    onSuccess: (task: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", selectedProjectId] });
+      setSelectedTaskId(task.id);
+      setNewTaskName("");
+      setIsCreatingTask(false);
+      setTaskSelectorOpen(false);
+    },
+  });
+
+  const handleCreateTask = () => {
+    const name = newTaskName.trim();
+    if (!name || !selectedProjectId) return;
+    createTaskMutation.mutate(name);
+  };
 
   const activeProject = projects.find(p => p.id === activeEntry?.crmProjectId);
 
@@ -176,7 +198,10 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                   <label className="text-sm text-muted-foreground">
                     Task <span className="text-destructive">*</span>
                   </label>
-                  <Popover open={taskSelectorOpen} onOpenChange={setTaskSelectorOpen}>
+                  <Popover open={taskSelectorOpen} onOpenChange={(open) => {
+                    setTaskSelectorOpen(open);
+                    if (!open) { setIsCreatingTask(false); setNewTaskName(""); }
+                  }}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -195,28 +220,65 @@ export function TimeTracker({ testId = "button-time-tracker-toggle", iconOnly = 
                       <Command>
                         <CommandInput placeholder="Search tasks..." />
                         <CommandList>
-                          <CommandEmpty>No tasks found for this project.</CommandEmpty>
-                          <CommandGroup>
-                            {tasks.map((task) => (
-                              <CommandItem
-                                key={task.id}
-                                value={task.name}
-                                onSelect={() => {
-                                  setSelectedTaskId(task.id);
-                                  setTaskSelectorOpen(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedTaskId === task.id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {task.name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
+                          {tasks.length === 0 && (
+                            <div className="py-3 px-3 text-sm text-muted-foreground text-center">
+                              No tasks for this project yet.
+                            </div>
+                          )}
+                          {tasks.length > 0 && (
+                            <CommandGroup>
+                              {tasks.map((task) => (
+                                <CommandItem
+                                  key={task.id}
+                                  value={task.name}
+                                  onSelect={() => {
+                                    setSelectedTaskId(task.id);
+                                    setTaskSelectorOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedTaskId === task.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {task.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          )}
                         </CommandList>
+                        <div className="border-t p-2">
+                          {isCreatingTask ? (
+                            <div className="flex gap-1">
+                              <Input
+                                autoFocus
+                                className="h-7 text-sm flex-1"
+                                placeholder="Task name"
+                                value={newTaskName}
+                                onChange={e => setNewTaskName(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter") handleCreateTask();
+                                  if (e.key === "Escape") { setIsCreatingTask(false); setNewTaskName(""); }
+                                }}
+                              />
+                              <Button size="sm" className="h-7 px-2 text-xs" onClick={handleCreateTask} disabled={createTaskMutation.isPending || !newTaskName.trim()}>
+                                {createTaskMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 px-1" onClick={() => { setIsCreatingTask(false); setNewTaskName(""); }}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              className="flex items-center gap-1.5 w-full text-sm text-muted-foreground hover:text-foreground py-0.5 px-1"
+                              onClick={() => setIsCreatingTask(true)}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              New task
+                            </button>
+                          )}
+                        </div>
                       </Command>
                     </PopoverContent>
                   </Popover>

@@ -203,6 +203,15 @@ const confirmSchema = z.object({
 
 export function registerAgentRoutes(app: Express): void {
 
+  /**
+   * Ping endpoint — confirms agent routes are loaded and email/password auth is available.
+   * Desktop app calls this before login to distinguish "server down" from "wrong server version".
+   * No auth required.
+   */
+  app.get("/api/agent/ping", (_req, res) => {
+    res.json({ ok: true, server: "DocuFlow", agentAuth: "email-password-v1" });
+  });
+
   // ═══════════════════════════════════════
   // PAIRING
   // ═══════════════════════════════════════
@@ -627,11 +636,15 @@ export function registerAgentRoutes(app: Express): void {
   // TIMER CONTROL (Agent-authenticated)
   // ═══════════════════════════════════════
 
-  /** Helper: check device is valid and not revoked */
+  /** Helper: check device is valid and not revoked.
+   *  Always uses the device ID from the verified JWT (req.agentDeviceId) —
+   *  the body's deviceId is intentionally ignored to prevent a caller from
+   *  passing a different device ID to bypass revocation of their own device.
+   */
   async function requireActiveDevice(req: AgentAuthRequest, res: Response): Promise<boolean> {
-    const deviceId = req.body?.deviceId || req.agentDeviceId;
+    const deviceId = req.agentDeviceId;
     if (!deviceId) {
-      res.status(400).json({ message: "deviceId required" });
+      res.status(401).json({ message: "Device identity missing from token" });
       return false;
     }
     const device = await storage.getDevice(deviceId);

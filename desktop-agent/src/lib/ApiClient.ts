@@ -65,6 +65,110 @@ export class ApiClient {
 
   // ─── Authentication ───
 
+  /**
+   * Poll the backend until it returns JSON, or until maxWaitMs elapses.
+   * Handles Replit cold-start (sleeping server → 200 HTML wake page).
+   *
+   * Probe order:
+   *   1. GET /api/auth/user — confirmed JSON on all deployed versions
+   *      (returns null for unauthenticated requests, but is valid JSON)
+   *   2. GET /api/ping  — dedicated readiness endpoint (new deployments)
+   *
+   * 4xx on BOTH probes = URL is wrong → fail immediately (no retry).
+   * 200 HTML = server waking up → keep retrying.
+   */
+  async waitForBackend(
+    onProgress?: (msg: string) => void,
+    maxWaitMs = 60_000
+  ): Promise<void> {
+    const deadline = Date.now() + maxWaitMs;
+
+    while (true) {
+      const elapsed = Math.round((maxWaitMs - (deadline - Date.now())) / 1000);
+
+      const probeResult = await this.probeBackend();
+      console.log(`[ApiClient] probe: ${JSON.stringify(probeResult)}`);
+
+      if (probeResult.ready) return; // ✅ server is up
+
+      if (probeResult.permanentError) {
+        throw new Error(probeResult.permanentError);
+      }
+
+      // Server not ready yet (cold-start HTML page or 5xx) — wait and retry
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        throw new Error(
+          "Server did not respond after 60 seconds. " +
+          "Please check your network connection and try again."
+        );
+      }
+      onProgress?.(
+        elapsed < 4 ? "Connecting to server…" : `Server is starting… (${elapsed}s)`
+      );
+      await new Promise(r => setTimeout(r, Math.min(3_000, remaining)));
+    }
+  }
+
+  /** Single probe attempt against /api/auth/user then /api/ping. */
+  private async probeBackend(): Promise<{
+    ready: boolean;
+    permanentError?: string;
+  }> {
+    const endpoints = [
+      "/api/auth/user", // confirmed JSON on all deployed versions (returns null for unauthed)
+      "/api/ping",      // dedicated readiness endpoint (new deployments only)
+    ];
+
+    let anyNon4xx = false; // tracks whether any probe got a server response (not dead URL)
+
+    for (const path of endpoints) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8_000);
+        try {
+          const res = await fetch(`${API_BASE}${path}`, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+          });
+          const ct = res.headers.get("content-type") ?? "";
+          console.log(`[ApiClient] probe ${path}: status=${res.status} ct=${ct.split(";")[0]}`);
+
+          if (res.ok && ct.includes("application/json")) {
+            return { ready: true }; // ✅ server is up and this endpoint returns JSON
+          }
+
+          if (res.status < 400 || res.status >= 500) {
+            // 200 HTML (cold-start wake page) or 5xx → server is reachable but not ready
+            anyNon4xx = true;
+          }
+          // In all non-JSON cases: try the next endpoint
+          continue;
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      } catch {
+        // Network error or timeout on this probe → try next
+        continue;
+      }
+    }
+
+    // All probes exhausted without a JSON response.
+    if (!anyNon4xx) {
+      // Every probe returned 4xx → URL is wrong (dead deployment, changed URL)
+      return {
+        ready: false,
+        permanentError:
+          "Server not found (URL may have changed). " +
+          "Check your Replit project URL or create ~/.docuflow-url with the correct URL.",
+      };
+    }
+
+    // Server is reachable but returning HTML — still starting up
+    return { ready: false };
+  }
+
   async loginWithPassword(email: string, password: string, meta: DeviceMeta): Promise<LoginResult> {
     const res = await this.rawFetch(`${API_BASE}/api/agent/auth/login`, {
       method: "POST",
@@ -74,7 +178,7 @@ export class ApiClient {
     if (!res.ok) {
       const ct = res.headers.get("content-type") ?? "";
       if (!ct.includes("application/json")) {
-        throw new Error(`Cannot reach DocuFlow (HTTP ${res.status}). Check your network connection.`);
+        throw new Error(`Server error (HTTP ${res.status}). Check your network connection.`);
       }
       const data = await res.json().catch(() => ({ message: res.statusText }));
       if (res.status === 401) throw new Error("Invalid email or password");
@@ -83,7 +187,12 @@ export class ApiClient {
 
     const ct = res.headers.get("content-type") ?? "";
     if (!ct.includes("application/json")) {
-      throw new Error("Could not connect to DocuFlow — the server may be starting up. Please try again in a few seconds.");
+      // Server is running (probe passed) but login endpoint returned HTML.
+      // The deployed server code does not include the S4 auth route.
+      throw new Error(
+        "Login API not available on this server. " +
+        "Please pull the latest code and redeploy the DocuFlow server."
+      );
     }
     const result: LoginResult = await res.json();
     this.accessToken = result.accessToken;

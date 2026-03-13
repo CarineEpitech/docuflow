@@ -89,6 +89,11 @@
       gap: 0.4rem; padding: 0.5rem 0.75rem; background: #0f172a;
       border: 1px solid #1e293b; border-radius: 0.4rem; margin-bottom: 0.75rem;
     }
+    .empty-state {
+      font-size: 0.8rem; color: #64748b; padding: 0.55rem 0.75rem;
+      background: #0f172a; border: 1px dashed #334155; border-radius: 0.5rem;
+      margin-bottom: 0.75rem; text-align: center;
+    }
     .text-center { text-align: center; }
     .text-muted { color: #64748b; font-size: 0.8rem; }
     .disconnect-link {
@@ -134,10 +139,10 @@
     </div>
 
     <label for="login-email">Email</label>
-    <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email" />
+    <input id="login-email" type="email" placeholder="you@example.com" autocomplete="off" />
 
     <label for="login-password">Password</label>
-    <input id="login-password" type="password" placeholder="Enter your password" autocomplete="current-password" />
+    <input id="login-password" type="password" placeholder="Enter your password" autocomplete="off" />
 
     <button id="pair-btn" class="btn-primary">Sign in</button>
     <div id="pair-error" class="error" style="display:none"></div>
@@ -161,14 +166,20 @@
       <div class="card">
         <div class="card-title">Start Tracking</div>
         <label for="project-select">Project</label>
-        <select id="project-select">
-          <option value="">Loading projects...</option>
+        <select id="project-select" style="display:none">
         </select>
+        <div id="project-loading" class="empty-state" style="display:none">Loading projects…</div>
+        <div id="project-empty" class="empty-state" style="display:none">
+          No projects found — create one in the <a href="#" id="project-empty-link" style="color:#6366f1;text-decoration:none">web app</a>
+        </div>
         <div id="task-section" style="display:none">
-          <label for="task-select">Task <span style="color:#ef4444">*</span></label>
-          <select id="task-select" disabled>
-            <option value="">Loading tasks...</option>
+          <label for="task-select">Task</label>
+          <select id="task-select" style="display:none">
           </select>
+          <div id="task-empty" class="empty-state" style="display:none">
+            No tasks yet — <a href="#" id="task-empty-link" style="color:#6366f1;text-decoration:none">create one in the web app</a>
+          </div>
+          <div id="task-loading" class="empty-state" style="display:none">Loading tasks…</div>
         </div>
         <label for="task-description">Description (optional)</label>
         <input id="task-description" type="text" placeholder="What are you working on?" style="margin-bottom:0" />
@@ -223,11 +234,16 @@
     const stopBtn = document.getElementById("stop-btn");
     const startBtn = document.getElementById("start-btn");
     const projectSelect = document.getElementById("project-select");
+    const projectLoading = document.getElementById("project-loading");
+    const projectEmpty = document.getElementById("project-empty");
     const taskSection = document.getElementById("task-section");
     const taskSelect = document.getElementById("task-select");
+    const taskEmpty = document.getElementById("task-empty");
+    const taskLoading = document.getElementById("task-loading");
 
     let timerInterval = null;
     let currentlyPaired = false; // tracks paired state to detect revoke transitions
+    let apiBase = ""; // set on connect, used for open-in-browser links
 
     // Init
     async function init() {
@@ -246,6 +262,7 @@
       statusDot.classList.remove("disconnected");
       statusDot.classList.add("connected");
 
+      apiBase = state.apiBase || "";
       document.getElementById("conn-device-name").textContent = state.userEmail || state.deviceName || "Connected";
       document.getElementById("conn-server").textContent = state.apiHost || "";
 
@@ -267,16 +284,24 @@
 
     // Projects
     async function loadProjects() {
-      const result = await bridge.getProjects();
+      projectSelect.style.display = "none";
+      projectEmpty.style.display = "none";
+      projectLoading.style.display = "block";
       projectSelect.innerHTML = "";
+      taskSection.style.display = "none";
+      updateStartButton();
+
+      const result = await bridge.getProjects();
+      projectLoading.style.display = "none";
+
       if (!result.ok || !result.data.length) {
-        projectSelect.innerHTML = '<option value="">No projects available</option>';
+        projectEmpty.style.display = "block";
         startBtn.disabled = true;
         return;
       }
       const defaultOpt = document.createElement("option");
       defaultOpt.value = "";
-      defaultOpt.textContent = "Select a project...";
+      defaultOpt.textContent = "Select a project…";
       projectSelect.appendChild(defaultOpt);
       result.data.forEach(function(p) {
         const opt = document.createElement("option");
@@ -285,26 +310,27 @@
         opt.dataset.name = p.name;
         projectSelect.appendChild(opt);
       });
-      taskSection.style.display = "none";
+      projectSelect.style.display = "block";
       updateStartButton();
     }
 
     // Tasks (cascade from project selection)
     async function loadTasks(crmProjectId) {
       taskSection.style.display = "block";
-      taskSelect.disabled = true;
-      taskSelect.innerHTML = '<option value="">Loading tasks...</option>';
+      taskSelect.style.display = "none";
+      taskEmpty.style.display = "none";
+      taskLoading.style.display = "block";
+      taskSelect.innerHTML = "";
       updateStartButton();
 
       const result = await bridge.getTasks({ crmProjectId });
-      taskSelect.innerHTML = "";
-
-      const defaultOpt = document.createElement("option");
-      defaultOpt.value = "";
-      defaultOpt.textContent = result.ok && result.data.length ? "Select a task..." : "No tasks — create one on the web";
-      taskSelect.appendChild(defaultOpt);
+      taskLoading.style.display = "none";
 
       if (result.ok && result.data.length) {
+        const defaultOpt = document.createElement("option");
+        defaultOpt.value = "";
+        defaultOpt.textContent = "Select a task…";
+        taskSelect.appendChild(defaultOpt);
         result.data.forEach(function(t) {
           const opt = document.createElement("option");
           opt.value = t.id;
@@ -312,14 +338,18 @@
           opt.dataset.name = t.name;
           taskSelect.appendChild(opt);
         });
-        taskSelect.disabled = false;
+        taskSelect.style.display = "block";
+      } else {
+        taskEmpty.style.display = "block";
       }
       updateStartButton();
     }
 
     function updateStartButton() {
       const hasProject = !!projectSelect.value;
-      const hasTask = !!taskSelect.value;
+      // Task is required only when the select is visible (i.e. tasks exist)
+      const taskRequired = taskSelect.style.display !== "none";
+      const hasTask = !taskRequired || !!taskSelect.value;
       startBtn.disabled = !hasProject || !hasTask;
     }
 
@@ -378,18 +408,25 @@
       }
 
       btn.disabled = true;
-      btn.textContent = "Signing in...";
+      btn.textContent = "Connecting to server…";
+
+      // Show live progress during backend wake-up + auth
+      var stopProgress = bridge.onLoginProgress(function(data) {
+        btn.textContent = data.message;
+      });
 
       var result = await bridge.login({ email: email, password: password });
+      stopProgress();
+
       if (result.ok) {
         var state = await bridge.getState();
         showConnected(state);
       } else {
         errorEl.textContent = result.error || "Sign in failed";
         errorEl.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Sign in";
       }
-      btn.disabled = false;
-      btn.textContent = "Sign in";
     });
 
     // Project change → load tasks
@@ -495,6 +532,16 @@
         return;
       }
       if (state.timer) updateTimerUI(state.timer);
+    });
+
+    // Empty-state links → open web app in browser
+    document.getElementById("project-empty-link").addEventListener("click", function(e) {
+      e.preventDefault();
+      if (apiBase) bridge.openExternal(apiBase);
+    });
+    document.getElementById("task-empty-link").addEventListener("click", function(e) {
+      e.preventDefault();
+      if (apiBase) bridge.openExternal(apiBase);
     });
 
     init();

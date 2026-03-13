@@ -137,6 +137,125 @@ const fallbackProjectTypeConfig: Record<string, { label: string; color: string; 
   internal: { label: "Internal", color: "#64748b", description: "Internal project" },
 };
 
+function TasksSection({ projectId }: { projectId: string }) {
+  const { toast } = useToast();
+  const [newTaskName, setNewTaskName] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery<{ data: { id: string; name: string; description: string | null; status: string }[] }>({
+    queryKey: ["/api/tasks", projectId],
+    queryFn: () => apiRequest("GET", `/api/tasks?crmProjectId=${projectId}`),
+    enabled: !!projectId,
+  });
+  const tasks = data?.data ?? [];
+
+  const createMutation = useMutation({
+    mutationFn: (name: string) => apiRequest("POST", "/api/tasks", { crmProjectId: projectId, name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", projectId] });
+      setNewTaskName("");
+      setIsAdding(false);
+    },
+    onError: () => toast({ title: "Failed to create task", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/tasks/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", projectId] });
+      setDeleteTaskId(null);
+    },
+    onError: () => toast({ title: "Failed to delete task", variant: "destructive" }),
+  });
+
+  const handleCreate = () => {
+    const name = newTaskName.trim();
+    if (!name) return;
+    createMutation.mutate(name);
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              Tasks
+            </CardTitle>
+            <Button size="sm" variant="outline" onClick={() => setIsAdding(true)}>
+              <Plus className="w-4 h-4 mr-1" />
+              New task
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isAdding && (
+            <div className="flex gap-2 mb-3">
+              <Input
+                autoFocus
+                placeholder="Task name"
+                value={newTaskName}
+                onChange={e => setNewTaskName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setIsAdding(false); setNewTaskName(""); } }}
+                className="flex-1"
+              />
+              <Button size="sm" onClick={handleCreate} disabled={createMutation.isPending || !newTaskName.trim()}>
+                {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setIsAdding(false); setNewTaskName(""); }}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Loading tasks...</p>
+          ) : tasks.length === 0 && !isAdding ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No tasks yet — click "New task" to add one.</p>
+          ) : (
+            <div className="space-y-2">
+              {tasks.map(task => (
+                <div key={task.id} className="flex items-center gap-3 p-3 bg-muted/50 rounded-md group">
+                  <CheckCircle className={`w-4 h-4 flex-shrink-0 ${task.status === "done" ? "text-green-500" : "text-muted-foreground"}`} />
+                  <span className={`flex-1 text-sm ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>{task.name}</span>
+                  <Badge variant="outline" className="text-xs">{task.status}</Badge>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="w-7 h-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setDeleteTaskId(task.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={!!deleteTaskId} onOpenChange={open => !open && setDeleteTaskId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTaskId && deleteMutation.mutate(deleteTaskId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 export default function CrmProjectPage() {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
@@ -1683,6 +1802,9 @@ export default function CrmProjectPage() {
         budgetedHours={formData?.budgetedHours ?? null}
         budgetedMinutes={formData?.budgetedMinutes ?? null}
       />
+
+      {/* Tasks Section */}
+      <TasksSection projectId={projectId!} />
 
       {/* Stage History Section */}
       <Card>
