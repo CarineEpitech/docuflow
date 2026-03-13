@@ -187,10 +187,11 @@ export class ApiClient {
 
     const ct = res.headers.get("content-type") ?? "";
     if (!ct.includes("application/json")) {
-      // Backend health check passed but login endpoint returned HTML.
-      // This is a server-side routing/config error, not a cold-start.
+      // Server is running (probe passed) but login endpoint returned HTML.
+      // The deployed server code does not include the S4 auth route.
       throw new Error(
-        "Login endpoint returned an unexpected response. Please contact support."
+        "Login API not available on this server. " +
+        "Please pull the latest code and redeploy the DocuFlow server."
       );
     }
     const result: LoginResult = await res.json();
